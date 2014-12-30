@@ -201,7 +201,7 @@ class _BaseRecord(object):
         record.  If no record has this defined in the direct line to the
         root, then a default of `True` is assumed.
         """
-        expose = self['_expose']
+        expose = self._data['_expose']
         if is_undefined(expose):
             if self.parent is None:
                 return True
@@ -219,8 +219,11 @@ class _BaseRecord(object):
         bits.reverse()
         return '/' + '/'.join(bits).strip('/')
 
-    def __getitem__(self, name):
-        return self._data[name]
+    def resolve_url_path(self, url_path):
+        """Given a URL path as list this resolves the most appropriate
+        direct child and returns the list of remaining items.  If no
+        match can be found, the result is `None`.
+        """
 
     def get_sort_key(self, fields):
         """Returns a sort key for the given field specifications specific
@@ -241,6 +244,9 @@ class _BaseRecord(object):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
 
+    def __getitem__(self, name):
+        return self._data[name]
+
     def __repr__(self):
         return '<%s model=%r path=%r>' % (
             self.__class__.__name__,
@@ -251,6 +257,22 @@ class _BaseRecord(object):
 
 class Record(_BaseRecord):
     """This represents a loaded record."""
+
+    def resolve_url_path(self, url_path):
+        if not url_path:
+            return None
+
+        for idx in xrange(len(url_path)):
+            piece = '/'.join(url_path[:idx + 1])
+            child = self.children.filter(rec._slug == piece).first()
+            if child is None:
+                attachment = self.attachments.filter(rec._slug == piece).first()
+                if attachment is None:
+                    continue
+                node = attachment
+            else:
+                node = child
+            return node, url_path[idx + 1:]
 
     @property
     def parent(self):
@@ -606,6 +628,26 @@ class Pad(object):
     def __init__(self, db):
         self.db = db
         self.cache = {}
+
+    def resolve_url_path(self, url_path, include_unexposed=False):
+        """Given a URL path this will find the correct record which also
+        might be an attachment.  If a record cannot be found or is unexposed
+        the return value will be `None`.
+        """
+        node = self.root
+
+        pieces = cleanup_path(url_path).strip('/').split('/')
+        if pieces == ['']:
+            pieces = ()
+
+        while pieces:
+            rv = node.resolve_url_path(pieces)
+            if rv is None:
+                return None
+            node, pieces = rv
+
+        if include_unexposed or node.is_exposed:
+            return node
 
     @property
     def root(self):
