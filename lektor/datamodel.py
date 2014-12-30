@@ -1,3 +1,4 @@
+import posixpath
 from lektor import types, metaformat
 
 
@@ -109,6 +110,7 @@ class DataModel(object):
                 rv[key] = self._field_map[key].deserialize_value(None)
 
         rv['_path'] = path
+        rv['_local_path'] = posixpath.basename(path)
         rv['_model'] = self.id
 
         return rv
@@ -174,6 +176,7 @@ def add_system_field(name, type):
 
 
 add_system_field('_path', type='string')
+add_system_field('_local_path', type='string')
 add_system_field('_model', type='string')
 add_system_field('_template', type='string')
 add_system_field('_attachment_for', type='string')

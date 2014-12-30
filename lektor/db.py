@@ -441,6 +441,7 @@ class Database(object):
                 for key, lines in metaformat.tokenize(f):
                     rv[key] = u''.join(lines)
             rv['_path'] = path
+            rv['_local_path'] = posixpath.basename(path)
             pad.cache[(record_type, path)] = rv
             return rv
         except IOError as e:
@@ -491,7 +492,8 @@ class Database(object):
         path = cleanup_path(path)
         raw_record = self.load_raw_record(path, 'attachment', pad=pad)
         if raw_record is None:
-            raw_record = {'_model': None, '_path': path}
+            raw_record = {'_model': None, '_path': path,
+                          '_local_path': posixpath.basename(path)}
         raw_record['_attachment_for'] = posixpath.dirname(path)
         if '_attachment_type' not in raw_record:
             raw_record['_attachment_type'] = self.get_attachment_type(path)
