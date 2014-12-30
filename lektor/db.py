@@ -239,20 +239,10 @@ class Record(_BaseRecord):
         """
         return Query(path=self['_path'], pad=self.pad)
 
-    def get_child(self, path):
-        """Returns a specific child of the record."""
-        return self.pad.db.get_record(posixpath.join(
-            self['_path'], path.strip('/')), pad=self.pad)
-
     @property
     def attachments(self):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad)
-
-    def get_attachment(self, path):
-        """Returns a specific attachment of the record."""
-        return self.pad.db.get_attachment(posixpath.join(
-            self['_path'], path.strip('/')), pad=self.pad)
 
 
 class Attachment(_BaseRecord):
@@ -388,8 +378,9 @@ class AttachmentsQuery(Query):
 
 
 class Database(object):
-    """This provides high-level access to the flat file database which is
-    usde by Lektor.
+    """This provides higher-level access to the flat file database which is
+    usde by Lektor.  However for most intents and purposes the actual data
+    access happens through the :class:`Pad`.
     """
 
     attachment_types = {
