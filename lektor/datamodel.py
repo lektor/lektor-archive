@@ -1,10 +1,18 @@
+from jinja2 import Template
 from lektor import types
 
 
 class ChildConfig(object):
 
-    def __init__(self, enabled=True, model=None, order_by=None):
+    def __init__(self, enabled=True, slug_format=None, model=None,
+                 order_by=None):
         self.enabled = enabled
+        self.slug_format = slug_format
+        # XXX: this needs to use the right template config (filters etc.)
+        if slug_format is not None:
+            self.slug_format_tmpl = Template(slug_format)
+        else:
+            self.slug_format_tmpl = None
         self.model = model
         self.order_by = order_by
 
@@ -109,6 +117,7 @@ def datamodel_from_ini(id, inifile):
         contained=inifile.get_bool('model.contained'),
         child_config=ChildConfig(
             enabled=inifile.get_bool('children.enabled', True),
+            slug_format=inifile.get('children.slug_format'),
             model=inifile.get('children.model'),
             order_by=_parse_order(inifile.get('children.order_by')),
         ),

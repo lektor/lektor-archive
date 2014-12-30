@@ -247,6 +247,9 @@ class _BaseRecord(object):
     def __getitem__(self, name):
         return self._data[name]
 
+    def __setitem__(self, name, value):
+        self._data[name] = value
+
     def __repr__(self):
         return '<%s model=%r path=%r>' % (
             self.__class__.__name__,
@@ -496,13 +499,21 @@ class Database(object):
             rv['_path'] = path
             rv['_local_path'] = posixpath.basename(path)
 
-            if '_slug' not in rv:
-                rv['_slug'] = slugify(rv['_local_path'])
-
             return rv
         except IOError as e:
             if e.errno == errno.ENOENT:
                 return
+
+    def postprocess_record(self, record):
+        # Automatically fill in slugs
+        if is_undefined(record['_slug']):
+            parent = record.parent
+            if parent and parent.datamodel.child_config.slug_format:
+                slug = parent.datamodel.child_config.slug_format_tmpl \
+                    .render(page=record).strip()
+            else:
+                slug = slugify(record['_local_path'])
+            record['_slug'] = slug
 
     def get_datamodel(self, raw_record, pad, record_type='record'):
         """Returns the datamodel for a given raw record."""
@@ -548,6 +559,7 @@ class Database(object):
 
         datamodel = self.get_datamodel(raw_record, pad)
         rv = Record(pad, datamodel.process_raw_record(raw_record))
+        self.postprocess_record(rv)
         pad.cache[cache_key] = rv
         return rv
 
@@ -592,6 +604,7 @@ class Database(object):
 
         datamodel = self.get_datamodel(raw_record, pad, 'attachment')
         rv = Attachment(pad, datamodel.process_raw_record(raw_record))
+        self.postprocess_record(rv)
         pad.cache[cache_key] = rv
         return rv
 
