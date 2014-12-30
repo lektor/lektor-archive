@@ -1,0 +1,553 @@
+import re
+import os
+import errno
+import operator
+import functools
+import posixpath
+
+from jinja2 import Undefined
+
+from inifile import IniFile
+from itertools import islice
+
+from lektor import metaformat
+from lektor.datamodel import datamodel_from_ini, empty_model
+
+
+_slashes_re = re.compile(r'/+')
+
+
+def cleanup_path(path):
+    return '/' + _slashes_re.sub('/', path.strip('/'))
+
+
+def to_os_path(path):
+    return path.strip('/').replace('/', os.path.sep)
+
+
+def load_datamodels(path):
+    rv = {}
+    for filename in os.listdir(path):
+        if not filename.endswith('.ini') or filename[:1] in '_.':
+            continue
+        fn = os.path.join(path, filename)
+        if os.path.isfile(fn):
+            model_id = filename[:-4].decode('ascii', 'replace')
+            inifile = IniFile(fn)
+            rv[model_id] = datamodel_from_ini(model_id, inifile)
+    rv['none'] = empty_model
+    return rv
+
+
+@functools.total_ordering
+class _CmpHelper(object):
+
+    def __init__(self, value, reverse):
+        self.value = value
+        self.reverse = reverse
+
+    @staticmethod
+    def coerce(a, b):
+        if type(a) is type(b):
+            return a, b
+        if isinstance(a, basestring) and isinstance(b, basestring):
+            return unicode(a), unicode(b)
+        if isinstance(a, (int, long, float)):
+            try:
+                return a, type(a)(b)
+            except (ValueError, TypeError, OverflowError):
+                pass
+        if isinstance(b, (int, long, float)):
+            try:
+                return type(b)(a), b
+            except (ValueError, TypeError, OverflowError):
+                pass
+        return a, b
+
+    def __eq__(self, other):
+        a, b = self.coerce(self.value, other.value)
+        return a == b
+
+    def __lt__(self, other):
+        a, b = self.coerce(self.value, other.value)
+        if self.reverse:
+            return b < a
+        return a < b
+
+
+def _auto_wrap_expr(value):
+    if isinstance(value, _Expr):
+        return value
+    return _Literal(value)
+
+
+class _Expr(object):
+
+    def __eval__(self, record):
+        return record
+
+    def __eq__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.eq)
+
+    def __ne__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.ne)
+
+    def __and__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.and_)
+
+    def __or__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.or_)
+
+    def __gt__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.gt)
+
+    def __ge__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.ge)
+
+    def __lt__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.lt)
+
+    def __le__(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other), operator.le)
+
+    def startswith(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other),
+                        lambda a, b: unicode(a).startswith(unicode(b)))
+
+    def endswith(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other),
+                        lambda a, b: unicode(a).endswith(unicode(b)))
+
+    def istartswith(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other),
+            lambda a, b: unicode(a).lower().startswith(unicode(b).lower()))
+
+    def iendswith(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other),
+            lambda a, b: unicode(a).lower().endswith(unicode(b).lower()))
+
+
+class _Literal(_Expr):
+
+    def __init__(self, value):
+        self.__value = value
+
+    def __eval__(self, record):
+        return self.__value
+
+
+class _BinExpr(_Expr):
+
+    def __init__(self, left, right, op):
+        self.__left = left
+        self.__right = right
+        self.__op = op
+
+    def __eval__(self, record):
+        return self.__op(
+            self.__left.__eval__(record),
+            self.__right.__eval__(record)
+        )
+
+
+class _RecordQueryField(_Expr):
+
+    def __init__(self, field):
+        self.__field = field
+
+    def __eval__(self, record):
+        try:
+            return record[self.__field]
+        except KeyError:
+            return Undefined(obj=record, name=self.__field)
+
+
+class _RecordQueryProxy(object):
+
+    def __getattr__(self, name):
+        if name[:2] != '__':
+            return _RecordQueryField(name)
+        raise AttributeError(name)
+
+    def __getitem__(self, name):
+        try:
+            return self.__getattr__(name)
+        except AttributeError:
+            raise KeyError(name)
+
+
+rec = _RecordQueryProxy()
+
+
+class _BaseRecord(object):
+
+    def __init__(self, pad, data):
+        self.pad = pad
+        self._data = data
+
+    @property
+    def datamodel(self):
+        """Returns the data model for this record."""
+        return self.pad.db.datamodels.get(self._data['_model'])
+
+    def __getitem__(self, name):
+        return self._data[name]
+
+    def get_sort_key(self, fields):
+        """Returns a sort key for the given field specifications specific
+        for the data in the record.
+        """
+        rv = [None] * len(fields)
+        for idx, field in enumerate(fields):
+            if field[:1] == '-':
+                field = field[1:]
+                reverse = True
+            else:
+                field = field.lstrip('+')
+                reverse = False
+            rv[idx] = _CmpHelper(self._data.get(field), reverse)
+        return rv
+
+    def to_dict(self):
+        """Returns a clone of the internal data dictionary."""
+        return dict(self._data)
+
+    def __repr__(self):
+        return '<%s model=%r path=%r>' % (
+            self.__class__.__name__,
+            self['_model'],
+            self['_path'],
+        )
+
+
+class Record(_BaseRecord):
+    """This represents a loaded record."""
+
+    def parent(self):
+        """Looks up the parent."""
+        this_path = self._data['_path']
+        parent_path = posixpath.dirname(this_path)
+        if parent_path != this_path:
+            return self.pad.db.get_record(parent_path, self.pad)
+
+    def children(self, path=None):
+        """Returns a query for all the children of this record.  Optionally
+        a child path can be specified in which case the children of a sub
+        path are queried.
+        """
+        if path is None:
+            return Query(path=self['_path'], pad=self.pad)
+        return Query(path='%s/%s' % (self['_path'], path), pad=self.pad)
+
+    def attachments(self):
+        """Returns a query for the attachments of this record."""
+        return AttachmentsQuery(path=self['_path'], pad=self.pad)
+
+
+class Attachment(_BaseRecord):
+    """This represents a loaded attachment."""
+
+    def parent(self):
+        """Looks up the associated record for this attachment."""
+        return self.pad.db.get_record(self._data['_attachment_for'], self.pad)
+
+
+class Query(object):
+
+    def __init__(self, path, pad):
+        self.path = path
+        self.pad = pad
+        self._order_by = None
+        self._filters = None
+        self._pristine = True
+        self._limit = None
+        self._offset = None
+
+    def _clone(self, mark_dirty=False):
+        """Makes a flat copy but keeps the other data on it shared."""
+        rv = object.__new__(self.__class__)
+        rv.__dict__.update(self.__dict__)
+        if mark_dirty:
+            rv._pristine = False
+        return rv
+
+    def _get(self, local_path):
+        """Low level record access."""
+        return self.pad.db.get_record('%s/%s' % (self.path, local_path),
+                                      self.pad)
+
+    def _iterate(self):
+        """Low level record iteration."""
+        for record in self.pad.db.iter_records(self.path, self.pad):
+            for filter in self._filters or ():
+                if not filter.__eval__(record):
+                    break
+            else:
+                yield record
+
+    def filter(self, expr):
+        """Filters records by an expression."""
+        rv = self._clone(mark_dirty=True)
+        rv._filters = list(self._filters or ())
+        rv._filters.append(expr)
+        return rv
+
+    def iterator(self):
+        """Iterates over all records matched."""
+        iterable = self._iterate()
+        if self._order_by:
+            iterable = sorted(
+                iterable, key=lambda x: x.get_sort_key(self._order_by))
+
+        if self._offset is not None or self._limit is not None:
+            iterable = islice(iterable, self._offset or 0, self._limit)
+
+        for item in iterable:
+            yield item
+
+    def first(self):
+        """Loads all matching records as list."""
+        return next(self.iterator(), None)
+
+    def all(self):
+        """Loads all matching records as list."""
+        return list(self.iterator())
+
+    def order_by(self, *fields):
+        """Sets the ordering of the query."""
+        rv = self._clone()
+        rv._order_by = fields or None
+        return rv
+
+    def offset(self, offset):
+        """Sets the ordering of the query."""
+        rv = self._clone(mark_dirty=True)
+        rv._offset = offset
+        return rv
+
+    def limit(self, limit):
+        """Sets the ordering of the query."""
+        rv = self._clone(mark_dirty=True)
+        rv._limit = limit
+        return rv
+
+    def count(self):
+        """Counts all matched objects."""
+        rv = 0
+        for item in self.iterator():
+            rv += 1
+        return rv
+
+    def get(self, local_path):
+        """Gets something by the local path.  This ignores all other
+        filtering that might be applied on the query.
+        """
+        if not self._pristine:
+            raise RuntimeError('The query object is not pristine')
+        return self._get(local_path)
+
+
+class AttachmentsQuery(Query):
+
+    def images(self):
+        """Filters to images."""
+        return self.filter(rec._attachment_type == 'image')
+
+    def videos(self):
+        """Filters to videos."""
+        return self.filter(rec._attachment_type == 'video')
+
+    def audio(self):
+        """Filters to audio."""
+        return self.filter(rec._attachment_type == 'audio')
+
+    def _get(self, local_path):
+        """Low level record access."""
+        raise NotImplementedError()
+
+    def _iterate(self):
+        for attachment in self.pad.db.iter_attachments(self.path, self.pad):
+            for filter in self._filters or ():
+                if not filter.__eval__(attachment):
+                    break
+            else:
+                yield attachment
+
+
+class Database(object):
+    """This provides high-level access to the flat file database which is
+    usde by Lektor.
+    """
+
+    attachment_types = {
+        '.jpg': 'image',
+        '.jpeg': 'image',
+        '.png': 'image',
+        '.gif': 'image',
+        '.tif': 'image',
+        '.tiff': 'image',
+        '.bmp': 'image',
+
+        '.avi': 'video',
+        '.mpg': 'video',
+        '.mpeg': 'video',
+        '.wmv': 'video',
+        '.ogv': 'video',
+
+        '.mp3': 'audio',
+        '.wav': 'audio',
+        '.ogg': 'audio',
+
+        '.pdf': 'document',
+        '.doc': 'document',
+        '.docx': 'document',
+
+        '.txt': 'text',
+    }
+
+    def __init__(self, root_path):
+        self.root_path = os.path.abspath(root_path)
+        self.datamodels = load_datamodels(os.path.join(root_path, 'models'))
+
+    def get_fs_path(self, path, record_type):
+        """Returns the file system path for a given database path with a
+        specific record type.  The following record types are available:
+
+        - ``'base'``: the folder containing the record is targeted.
+        - ``'record'``: the content file of a record is targeted.
+        - ``'attachment'``: the content file of a specific attachment is
+          targeted.
+        """
+        fn_base = os.path.join(self.root_path, 'content', to_os_path(path))
+        if record_type == 'base':
+            return fn_base
+        elif record_type == 'record':
+            return os.path.join(fn_base, 'contents.lr')
+        elif record_type == 'attachment':
+            return fn_base + '.lr'
+        raise TypeError('Unknown record type %r' % record_type)
+
+    def load_raw_record(self, path, record_type, pad):
+        """Internal helper that loads the raw record data."""
+        path = cleanup_path(path)
+        rv = pad.cache.get((record_type, path))
+        if rv is not None:
+            return rv
+
+        try:
+            rv = {}
+            fn = self.get_fs_path(path, record_type=record_type)
+            with open(fn, 'rb') as f:
+                for key, lines in metaformat.tokenize(f):
+                    rv[key] = u''.join(lines)
+            rv['_path'] = path
+            pad.cache[(record_type, path)] = rv
+            return rv
+        except IOError as e:
+            if e.errno == errno.ENOENT:
+                return
+
+    def get_record(self, path, pad):
+        """Low-level interface for fetching a single record."""
+        path = cleanup_path(path)
+        raw_record = self.load_raw_record(path, 'record', pad=pad)
+        if raw_record is None:
+            return None
+
+        datamodel_name = (raw_record.get('_model') or '').strip()
+        # XXX: this should warn or something
+        if not datamodel_name:
+            return None
+
+        datamodel = self.datamodels.get(datamodel_name)
+        if datamodel is not None:
+            return Record(pad, datamodel.process_raw_record(raw_record))
+
+    def iter_records(self, path, pad):
+        """Low-level interface for iterating over records."""
+        path = cleanup_path(path)
+        fs_path = self.get_fs_path(path, 'base')
+        try:
+            files = os.listdir(fs_path)
+            files.sort(key=lambda x: x.lower())
+        except OSError:
+            return
+        for filename in files:
+            if filename[:1] in '._' or \
+               not os.path.isdir(os.path.join(fs_path, filename)):
+                continue
+
+            this_path = posixpath.join(path, filename)
+            record = self.get_record(this_path, pad)
+            if record is not None:
+                yield record
+
+    def get_attachment_type(self, path):
+        """Gets the attachment type for a path."""
+        return self.attachment_types.get(posixpath.splitext(path)[1])
+
+    def get_attachment(self, path, pad):
+        """Low-level interface for fetching a single attachment."""
+        path = cleanup_path(path)
+        raw_record = self.load_raw_record(path, 'attachment', pad=pad)
+        if raw_record is None:
+            raw_record = {'_model': None, '_path': path}
+        raw_record['_attachment_for'] = posixpath.dirname(path)
+        if '_attachment_type' not in raw_record:
+            raw_record['_attachment_type'] = self.get_attachment_type(path)
+
+        datamodel_name = (raw_record.get('_model') or '').strip()
+        if not datamodel_name:
+            datamodel = empty_model
+        else:
+            datamodel = self.datamodels.get(datamodel_name)
+            if datamodel is None:
+                datamodel = empty_model
+
+        return Attachment(pad, datamodel.process_raw_record(raw_record))
+
+    def iter_attachments(self, path, pad):
+        """Low-level interface for iterating over attachments."""
+        path = cleanup_path(path)
+        fs_path = self.get_fs_path(path, 'base')
+        try:
+            files = os.listdir(fs_path)
+            files.sort(key=lambda x: x.lower())
+        except OSError:
+            return
+        for filename in files:
+            if filename[:1] in '._' or \
+               filename[-3:] == '.lr' or \
+               not os.path.isfile(os.path.join(fs_path, filename)):
+                continue
+
+            this_path = posixpath.join(path, filename)
+            attachment = self.get_attachment(this_path, pad)
+            if attachment is not None:
+                yield attachment
+
+    def new_pad(self):
+        """Creates a new pad for this database."""
+        return Pad(self)
+
+
+class Pad(object):
+    """A pad keeps cached information for the database on a local level
+    so that concurrent access can see different values if needed.
+    """
+
+    def __init__(self, db):
+        self.db = db
+        self.cache = {}
+
+    @property
+    def root(self):
+        """Returns the root record of the database."""
+        return self.db.get_record('/', pad=self)
+
+    def query(self, path=None):
+        """Queries the database either at root level or below a certain
+        path.  This is the recommended way to interact with toplevel data.
+        The alternative is to work with the :attr:`root` document.
+        """
+        return Query(path='/' + (path or '').strip('/'), pad=self)
