@@ -447,6 +447,36 @@ class Database(object):
             if e.errno == errno.ENOENT:
                 return
 
+    def get_datamodel(self, raw_record, pad, record_type='record'):
+        """Returns the datamodel for a given raw record."""
+        datamodel_name = (raw_record.get('_model') or '').strip()
+
+        # If a datamodel is defined, we use it.
+        if datamodel_name:
+            return self.datamodels.get(datamodel_name, empty_model)
+
+        parent = posixpath.dirname(raw_record['_path'])
+
+        # If we hit the root, and there is no model defined we need
+        # to make sure we do not recurse onto ourselves.
+        if parent == raw_record['_path']:
+            return empty_model
+
+        parent_obj = self.get_record(parent, pad)
+        if parent_obj is None:
+            return empty_model
+
+        if record_type == 'record':
+            datamodel_name = parent_obj.datamodel.child_config.model
+        elif record_type == 'attachment':
+            datamodel_name = parent_obj.datamodel.attachment_config.model
+        else:
+            raise TypeError('Invalid record type')
+
+        if datamodel_name is None:
+            return empty_model
+        return self.datamodels.get(datamodel_name, empty_model)
+
     def get_record(self, path, pad):
         """Low-level interface for fetching a single record."""
         path = cleanup_path(path)
@@ -459,16 +489,10 @@ class Database(object):
         if raw_record is None:
             return None
 
-        datamodel_name = (raw_record.get('_model') or '').strip()
-        # XXX: this should warn or something
-        if not datamodel_name:
-            return None
-
-        datamodel = self.datamodels.get(datamodel_name)
-        if datamodel is not None:
-            rv = Record(pad, datamodel.process_raw_record(raw_record))
-            pad.cache[cache_key] = rv
-            return rv
+        datamodel = self.get_datamodel(raw_record, pad)
+        rv = Record(pad, datamodel.process_raw_record(raw_record))
+        pad.cache[cache_key] = rv
+        return rv
 
     def iter_records(self, path, pad):
         """Low-level interface for iterating over records."""
@@ -509,14 +533,7 @@ class Database(object):
         if '_attachment_type' not in raw_record:
             raw_record['_attachment_type'] = self.get_attachment_type(path)
 
-        datamodel_name = (raw_record.get('_model') or '').strip()
-        if not datamodel_name:
-            datamodel = empty_model
-        else:
-            datamodel = self.datamodels.get(datamodel_name)
-            if datamodel is None:
-                datamodel = empty_model
-
+        datamodel = self.get_datamodel(raw_record, pad, 'attachment')
         rv = Attachment(pad, datamodel.process_raw_record(raw_record))
         pad.cache[cache_key] = rv
         return rv
