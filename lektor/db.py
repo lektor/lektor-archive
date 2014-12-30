@@ -223,8 +223,9 @@ class _BaseRecord(object):
 class Record(_BaseRecord):
     """This represents a loaded record."""
 
+    @property
     def parent(self):
-        """Looks up the parent."""
+        """The parent of the record."""
         this_path = self._data['_path']
         parent_path = posixpath.dirname(this_path)
         if parent_path != this_path:
@@ -247,8 +248,9 @@ class Record(_BaseRecord):
 class Attachment(_BaseRecord):
     """This represents a loaded attachment."""
 
+    @property
     def parent(self):
-        """Looks up the associated record for this attachment."""
+        """The associated record for this attachment."""
         return self.pad.db.get_record(self._data['_attachment_for'], self.pad)
 
 
@@ -292,7 +294,7 @@ class Query(object):
         rv._filters.append(expr)
         return rv
 
-    def iterator(self):
+    def __iter__(self):
         """Iterates over all records matched."""
         iterable = self._iterate()
         if self._order_by:
@@ -307,11 +309,11 @@ class Query(object):
 
     def first(self):
         """Loads all matching records as list."""
-        return next(self.iterator(), None)
+        return next(iter(self), None)
 
     def all(self):
         """Loads all matching records as list."""
-        return list(self.iterator())
+        return list(self)
 
     def order_by(self, *fields):
         """Sets the ordering of the query."""
@@ -334,7 +336,7 @@ class Query(object):
     def count(self):
         """Counts all matched objects."""
         rv = 0
-        for item in self.iterator():
+        for item in self:
             rv += 1
         return rv
 
@@ -363,7 +365,8 @@ class AttachmentsQuery(Query):
 
     def _get(self, local_path):
         """Low level record access."""
-        raise NotImplementedError()
+        return self.pad.db.get_attachment(
+            '%s/%s' % (self.path, local_path), self.pad)
 
     def _iterate(self):
         for attachment in self.pad.db.iter_attachments(self.path, self.pad):
@@ -427,12 +430,9 @@ class Database(object):
             return fn_base + '.lr'
         raise TypeError('Unknown record type %r' % record_type)
 
-    def load_raw_record(self, path, record_type, pad):
+    def load_raw_record(self, path, record_type):
         """Internal helper that loads the raw record data."""
         path = cleanup_path(path)
-        rv = pad.cache.get((record_type, path))
-        if rv is not None:
-            return rv
 
         try:
             rv = {}
@@ -442,7 +442,6 @@ class Database(object):
                     rv[key] = u''.join(lines)
             rv['_path'] = path
             rv['_local_path'] = posixpath.basename(path)
-            pad.cache[(record_type, path)] = rv
             return rv
         except IOError as e:
             if e.errno == errno.ENOENT:
@@ -451,7 +450,12 @@ class Database(object):
     def get_record(self, path, pad):
         """Low-level interface for fetching a single record."""
         path = cleanup_path(path)
-        raw_record = self.load_raw_record(path, 'record', pad=pad)
+        cache_key = ('record', path)
+        rv = pad.cache.get(cache_key)
+        if rv is not None:
+            return rv
+
+        raw_record = self.load_raw_record(path, 'record')
         if raw_record is None:
             return None
 
@@ -462,7 +466,9 @@ class Database(object):
 
         datamodel = self.datamodels.get(datamodel_name)
         if datamodel is not None:
-            return Record(pad, datamodel.process_raw_record(raw_record))
+            rv = Record(pad, datamodel.process_raw_record(raw_record))
+            pad.cache[cache_key] = rv
+            return rv
 
     def iter_records(self, path, pad):
         """Low-level interface for iterating over records."""
@@ -490,7 +496,12 @@ class Database(object):
     def get_attachment(self, path, pad):
         """Low-level interface for fetching a single attachment."""
         path = cleanup_path(path)
-        raw_record = self.load_raw_record(path, 'attachment', pad=pad)
+        cache_key = ('attachment', path)
+        rv = pad.cache.get(cache_key)
+        if rv is not None:
+            return rv
+
+        raw_record = self.load_raw_record(path, 'attachment')
         if raw_record is None:
             raw_record = {'_model': None, '_path': path,
                           '_local_path': posixpath.basename(path)}
@@ -506,7 +517,9 @@ class Database(object):
             if datamodel is None:
                 datamodel = empty_model
 
-        return Attachment(pad, datamodel.process_raw_record(raw_record))
+        rv = Attachment(pad, datamodel.process_raw_record(raw_record))
+        pad.cache[cache_key] = rv
+        return rv
 
     def iter_attachments(self, path, pad):
         """Low-level interface for iterating over attachments."""
@@ -544,7 +557,7 @@ class Pad(object):
 
     @property
     def root(self):
-        """Returns the root record of the database."""
+        """The root record of the database."""
         return self.db.get_record('/', pad=self)
 
     def query(self, path=None):
@@ -553,3 +566,7 @@ class Pad(object):
         The alternative is to work with the :attr:`root` document.
         """
         return Query(path='/' + (path or '').strip('/'), pad=self)
+
+    def get(self, path):
+        """Loads an element by path."""
+        return self.db.get_record('/' + path.strip('/'), pad=self)
