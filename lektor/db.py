@@ -231,18 +231,28 @@ class Record(_BaseRecord):
         if parent_path != this_path:
             return self.pad.db.get_record(parent_path, self.pad)
 
-    def children(self, path=None):
+    @property
+    def children(self):
         """Returns a query for all the children of this record.  Optionally
         a child path can be specified in which case the children of a sub
         path are queried.
         """
-        if path is None:
-            return Query(path=self['_path'], pad=self.pad)
-        return Query(path='%s/%s' % (self['_path'], path), pad=self.pad)
+        return Query(path=self['_path'], pad=self.pad)
 
+    def get_child(self, path):
+        """Returns a specific child of the record."""
+        return self.pad.db.get_record(posixpath.join(
+            self['_path'], path.strip('/')), pad=self.pad)
+
+    @property
     def attachments(self):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad)
+
+    def get_attachment(self, path):
+        """Returns a specific attachment of the record."""
+        return self.pad.db.get_attachment(posixpath.join(
+            self['_path'], path.strip('/')), pad=self.pad)
 
 
 class Attachment(_BaseRecord):
