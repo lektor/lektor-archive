@@ -144,6 +144,7 @@ add_system_field('_local_path', type='string')
 add_system_field('_model', type='string')
 add_system_field('_template', type='string')
 add_system_field('_slug', type='slug')
+add_system_field('_expose', type='boolean')
 
 add_system_field('_attachment_for', type='string')
 add_system_field('_attachment_type', type='string')

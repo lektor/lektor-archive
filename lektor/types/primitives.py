@@ -33,7 +33,7 @@ class HtmlType(Type):
 class IntegerType(Type):
 
     def value_from_raw(self, raw):
-        if raw is None:
+        if raw.value is None:
             return raw.missing_value('Missing integer value')
         try:
             return int(raw.value.strip())
@@ -47,9 +47,23 @@ class IntegerType(Type):
 class FloatType(Type):
 
     def value_from_raw(self, raw):
-        if raw is None:
+        if raw.value is None:
             return raw.missing_value('Missing float value')
         try:
             return float(raw.value.strip())
         except ValueError:
             return raw.bad_value('Not an integer')
+
+
+class BooleanType(Type):
+
+    def value_from_raw(self, raw):
+        if raw.value is None:
+            return raw.missing_value('Missing boolean')
+        val = raw.value.strip().lower()
+        if val in ('true', 'yes', '1'):
+            return True
+        elif val in ('false', 'no', '0'):
+            return False
+        else:
+            return raw.bad_value('Bad boolean value')

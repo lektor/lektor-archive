@@ -5,7 +5,7 @@ import operator
 import functools
 import posixpath
 
-from jinja2 import Undefined
+from jinja2 import Undefined, is_undefined
 
 from inifile import IniFile
 from itertools import islice
@@ -194,6 +194,31 @@ class _BaseRecord(object):
         except LookupError:
             raise AttributeError('Data model is unavailable')
 
+    @property
+    def is_exposed(self):
+        """This is `true` if the record is exposed, `false` otherwise.  If
+        a record does not set this itself, it's inherited from the parent
+        record.  If no record has this defined in the direct line to the
+        root, then a default of `True` is assumed.
+        """
+        expose = self['_expose']
+        if is_undefined(expose):
+            if self.parent is None:
+                return True
+            return self.parent.is_exposed
+        return expose
+
+    @property
+    def url_path(self):
+        """The target path where the record should end up."""
+        bits = []
+        node = self
+        while node is not None:
+            bits.append(node['_slug'])
+            node = node.parent
+        bits.reverse()
+        return '/' + '/'.join(bits).strip('/')
+
     def __getitem__(self, name):
         return self._data[name]
 
@@ -226,16 +251,6 @@ class _BaseRecord(object):
 
 class Record(_BaseRecord):
     """This represents a loaded record."""
-
-    @property
-    def url(self):
-        bits = []
-        node = self
-        while node is not None:
-            bits.append(node['_slug'])
-            node = node.parent
-        bits.reverse()
-        return '/' + '/'.join(bits).strip('/')
 
     @property
     def parent(self):
