@@ -11,6 +11,7 @@ from inifile import IniFile
 from itertools import islice
 
 from lektor import metaformat
+from lektor.utils import slugify
 from lektor.datamodel import datamodel_from_ini, empty_model
 
 
@@ -188,7 +189,10 @@ class _BaseRecord(object):
     @property
     def datamodel(self):
         """Returns the data model for this record."""
-        return self.pad.db.datamodels.get(self._data['_model'])
+        try:
+            return self.pad.db.datamodels[self._data['_model']]
+        except LookupError:
+            raise AttributeError('Data model is unavailable')
 
     def __getitem__(self, name):
         return self._data[name]
@@ -222,6 +226,16 @@ class _BaseRecord(object):
 
 class Record(_BaseRecord):
     """This represents a loaded record."""
+
+    @property
+    def url(self):
+        bits = []
+        node = self
+        while node is not None:
+            bits.append(node['_slug'])
+            node = node.parent
+        bits.reverse()
+        return '/' + '/'.join(bits).strip('/')
 
     @property
     def parent(self):
@@ -441,8 +455,13 @@ class Database(object):
             with open(fn, 'rb') as f:
                 for key, lines in metaformat.tokenize(f):
                     rv[key] = u''.join(lines)
+
             rv['_path'] = path
             rv['_local_path'] = posixpath.basename(path)
+
+            if '_slug' not in rv:
+                rv['_slug'] = slugify(rv['_local_path'])
+
             return rv
         except IOError as e:
             if e.errno == errno.ENOENT:

@@ -1,5 +1,4 @@
-import posixpath
-from lektor import types, metaformat
+from lektor import types
 
 
 class ChildConfig(object):
@@ -80,41 +79,6 @@ class DataModel(object):
         for key, field in system_fields.iteritems():
             self._field_map[key] = field
 
-    def read_record(self, iterable, path, keys=None):
-        """Given an iterable of contents this reads the fields from it and
-        returns it as dictionary.  If explicit keys are provided the
-        processing will stop at an early point if all keys have been
-        processed.  This allows fetching meta data from the file without
-        having to process the entire file.
-
-        The return value will be a standard dictionary.
-
-        Usually this is not actually used by instead the cache interface
-        from the database is utilized.
-        """
-        rv = {}
-
-        if keys is None:
-            keys = self._field_map.keys()
-        keys_missing = set(keys)
-
-        for key, lines in metaformat.tokenize(iterable, interesting_keys=keys):
-            if lines is not None and key in self._field_map:
-                rv[key] = self._field_map[key].deserialize_value(u''.join(lines))
-                keys_missing.discard(key)
-                if not keys_missing:
-                    break
-
-        for key in keys or ():
-            if key not in rv and key in self._field_map:
-                rv[key] = self._field_map[key].deserialize_value(None)
-
-        rv['_path'] = path
-        rv['_local_path'] = posixpath.basename(path)
-        rv['_model'] = self.id
-
-        return rv
-
     def process_raw_record(self, raw_record):
         """Given a raw record from a cache this processes the item and
         returns a record dictionary.
@@ -179,6 +143,7 @@ add_system_field('_path', type='string')
 add_system_field('_local_path', type='string')
 add_system_field('_model', type='string')
 add_system_field('_template', type='string')
+add_system_field('_slug', type='slug')
 
 add_system_field('_attachment_for', type='string')
 add_system_field('_attachment_type', type='string')
