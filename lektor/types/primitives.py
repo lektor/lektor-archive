@@ -1,3 +1,5 @@
+from datetime import date
+
 from markupsafe import Markup
 
 from lektor.types import Type
@@ -67,3 +69,14 @@ class BooleanType(Type):
             return False
         else:
             return raw.bad_value('Bad boolean value')
+
+
+class DateType(Type):
+
+    def value_from_raw(self, raw):
+        if raw.value is None:
+            return raw.missing_value('Missing date')
+        try:
+            return date(*map(int, raw.value.split('-')))
+        except Exception:
+            return raw.bad_value('Bad date format')

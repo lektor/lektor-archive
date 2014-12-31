@@ -46,7 +46,7 @@ class Type(object):
 
 from lektor.types.primitives import \
      StringType, TextType, HtmlType, IntegerType, FloatType, \
-     BooleanType
+     BooleanType, DateType
 from lektor.types.special import SortKeyType, SlugType
 
 
@@ -57,6 +57,7 @@ builtin_types = {
     'integer': IntegerType(),
     'float': FloatType(),
     'boolean': BooleanType(),
+    'date': DateType(),
     'sort_key': SortKeyType(),
     'slug': SlugType(),
 }
