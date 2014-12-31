@@ -4,6 +4,31 @@ import jinja2
 
 
 DEFAULT_CONFIG = {
+    'ATTACHMENT_TYPES': {
+        '.jpg': 'image',
+        '.jpeg': 'image',
+        '.png': 'image',
+        '.gif': 'image',
+        '.tif': 'image',
+        '.tiff': 'image',
+        '.bmp': 'image',
+
+        '.avi': 'video',
+        '.mpg': 'video',
+        '.mpeg': 'video',
+        '.wmv': 'video',
+        '.ogv': 'video',
+
+        '.mp3': 'audio',
+        '.wav': 'audio',
+        '.ogg': 'audio',
+
+        '.pdf': 'document',
+        '.doc': 'document',
+        '.docx': 'document',
+
+        '.txt': 'text',
+    }
 }
 
 

@@ -437,32 +437,6 @@ class Database(object):
     access happens through the :class:`Pad`.
     """
 
-    attachment_types = {
-        '.jpg': 'image',
-        '.jpeg': 'image',
-        '.png': 'image',
-        '.gif': 'image',
-        '.tif': 'image',
-        '.tiff': 'image',
-        '.bmp': 'image',
-
-        '.avi': 'video',
-        '.mpg': 'video',
-        '.mpeg': 'video',
-        '.wmv': 'video',
-        '.ogv': 'video',
-
-        '.mp3': 'audio',
-        '.wav': 'audio',
-        '.ogg': 'audio',
-
-        '.pdf': 'document',
-        '.doc': 'document',
-        '.docx': 'document',
-
-        '.txt': 'text',
-    }
-
     def __init__(self, env):
         self.env = env
         self.datamodels = load_datamodels(
@@ -585,7 +559,8 @@ class Database(object):
 
     def get_attachment_type(self, path):
         """Gets the attachment type for a path."""
-        return self.attachment_types.get(posixpath.splitext(path)[1])
+        return self.env.config['ATTACHMENT_TYPES'].get(
+            posixpath.splitext(path)[1])
 
     def get_attachment(self, path, pad):
         """Low-level interface for fetching a single attachment."""
