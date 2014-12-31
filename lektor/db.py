@@ -59,7 +59,7 @@ class _CmpHelper(object):
         if type(a) is type(b):
             return a, b
         if isinstance(a, basestring) and isinstance(b, basestring):
-            return unicode(a), unicode(b)
+            return unicode(a).lower(), unicode(b).lower()
         if isinstance(a, (int, long, float)):
             try:
                 return a, type(a)(b)
@@ -206,7 +206,8 @@ class _BaseRecord(object):
         try:
             return self.pad.db.datamodels[self._data['_model']]
         except LookupError:
-            raise AttributeError('Data model is unavailable')
+            # If we cannot find the model we fall back to the default one.
+            return self.pad.db.empty_model
 
     @property
     def is_exposed(self):
