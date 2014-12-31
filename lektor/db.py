@@ -11,8 +11,7 @@ from inifile import IniFile
 from itertools import islice
 
 from lektor import metaformat
-from lektor.utils import slugify
-from lektor.datamodel import datamodel_from_ini, empty_model
+from lektor.datamodel import datamodel_from_ini, DataModel
 
 
 _slashes_re = re.compile(r'/+')
@@ -26,7 +25,9 @@ def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep)
 
 
-def load_datamodels(path):
+def load_datamodels(env):
+    """Loads the datamodels for a specific environment."""
+    path = os.path.join(env.root_path, 'models')
     rv = {}
     for filename in os.listdir(path):
         if not filename.endswith('.ini') or filename[:1] in '_.':
@@ -35,8 +36,9 @@ def load_datamodels(path):
         if os.path.isfile(fn):
             model_id = filename[:-4].decode('ascii', 'replace')
             inifile = IniFile(fn)
-            rv[model_id] = datamodel_from_ini(model_id, inifile)
-    rv['none'] = empty_model
+            rv[model_id] = datamodel_from_ini(model_id, inifile, env)
+
+    rv['none'] = DataModel(env, 'none', 'No Model')
     return rv
 
 
@@ -439,8 +441,12 @@ class Database(object):
 
     def __init__(self, env):
         self.env = env
-        self.datamodels = load_datamodels(
-            os.path.join(env.root_path, 'models'))
+        self.datamodels = load_datamodels(env)
+
+    @property
+    def empty_model(self):
+        """The empty datamodel."""
+        return self.datamodels['none']
 
     def get_fs_path(self, path, record_type):
         """Returns the file system path for a given database path with a
@@ -483,11 +489,10 @@ class Database(object):
         # Automatically fill in slugs
         if is_undefined(record['_slug']):
             parent = record.parent
-            if parent and parent.datamodel.child_config.slug_format:
-                slug = parent.datamodel.child_config.slug_format_tmpl \
-                    .render(page=record).strip()
+            if parent:
+                slug = parent.datamodel.get_default_child_slug(record)
             else:
-                slug = slugify(record['_local_path'])
+                slug = ''
             record['_slug'] = slug
 
     def get_datamodel(self, raw_record, pad, record_type='record'):
@@ -496,18 +501,18 @@ class Database(object):
 
         # If a datamodel is defined, we use it.
         if datamodel_name:
-            return self.datamodels.get(datamodel_name, empty_model)
+            return self.datamodels.get(datamodel_name, self.empty_model)
 
         parent = posixpath.dirname(raw_record['_path'])
 
         # If we hit the root, and there is no model defined we need
         # to make sure we do not recurse onto ourselves.
         if parent == raw_record['_path']:
-            return empty_model
+            return self.empty_model
 
         parent_obj = self.get_record(parent, pad)
         if parent_obj is None:
-            return empty_model
+            return self.empty_model
 
         if record_type == 'record':
             datamodel_name = parent_obj.datamodel.child_config.model
@@ -517,8 +522,8 @@ class Database(object):
             raise TypeError('Invalid record type')
 
         if datamodel_name is None:
-            return empty_model
-        return self.datamodels.get(datamodel_name, empty_model)
+            return self.empty_model
+        return self.datamodels.get(datamodel_name, self.empty_model)
 
     def get_record(self, path, pad):
         """Low-level interface for fetching a single record."""

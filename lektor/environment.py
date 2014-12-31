@@ -44,6 +44,9 @@ class Environment(object):
             extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'],
         )
 
+    def compile_template(self, string):
+        return self.jinja_env.from_string(string)
+
     def select_jinja_autoescape(self, filename):
         if filename is None:
             return False

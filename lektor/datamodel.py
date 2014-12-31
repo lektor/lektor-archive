@@ -1,5 +1,5 @@
-from jinja2 import Template
 from lektor import types
+from lektor.utils import slugify
 
 
 class ChildConfig(object):
@@ -8,11 +8,6 @@ class ChildConfig(object):
                  order_by=None):
         self.enabled = enabled
         self.slug_format = slug_format
-        # XXX: this needs to use the right template config (filters etc.)
-        if slug_format is not None:
-            self.slug_format_tmpl = Template(slug_format)
-        else:
-            self.slug_format_tmpl = None
         self.model = model
         self.order_by = order_by
 
@@ -62,8 +57,9 @@ class Field(object):
 
 class DataModel(object):
 
-    def __init__(self, id, name, contained=False, child_config=None,
+    def __init__(self, env, id, name, contained=False, child_config=None,
                  attachment_config=None, pagination_config=None, fields=None):
+        self.env = env
         self.id = id
         self.name = name
         self.contained = contained
@@ -87,6 +83,23 @@ class DataModel(object):
         for key, field in system_fields.iteritems():
             self._field_map[key] = field
 
+        self._child_slug_tmpl = None
+
+    def get_default_child_slug(self, record):
+        """Formats out the child slug."""
+        slug_format = self.child_config.slug_format
+        if slug_format is None:
+            return slugify(record['_local_path'])
+
+        if self._child_slug_tmpl is None or \
+           self._child_slug_tmpl[0] != slug_format:
+            self._child_slug_tmpl = (
+                slug_format,
+                self.env.compile_template(slug_format)
+            )
+
+        return self._child_slug_tmpl[1].render(page=record).strip()
+
     def process_raw_record(self, raw_record):
         """Given a raw record from a cache this processes the item and
         returns a record dictionary.
@@ -105,13 +118,13 @@ class DataModel(object):
         )
 
 
-def datamodel_from_ini(id, inifile):
+def datamodel_from_ini(id, inifile, env):
     def _parse_order(value):
         if not value:
             return None
         return [x for x in [x.strip() for x in value.strip().split(',')] if x]
 
-    return DataModel(
+    return DataModel(env,
         id=id,
         name=inifile.get('model.name', id.title().replace('_', ' ')),
         contained=inifile.get_bool('model.contained'),
@@ -157,6 +170,3 @@ add_system_field('_expose', type='boolean')
 
 add_system_field('_attachment_for', type='string')
 add_system_field('_attachment_type', type='string')
-
-
-empty_model = DataModel('none', 'No Model')
