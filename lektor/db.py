@@ -374,9 +374,16 @@ class Query(object):
     def __iter__(self):
         """Iterates over all records matched."""
         iterable = self._iterate()
-        if self._order_by:
+
+        order_by = self._order_by
+        if order_by is None:
+            base_record = self.pad.db.get_record(self.path, self.pad)
+            if base_record is not None:
+                order_by = base_record.datamodel.child_config.order_by
+
+        if order_by:
             iterable = sorted(
-                iterable, key=lambda x: x.get_sort_key(self._order_by))
+                iterable, key=lambda x: x.get_sort_key(order_by))
 
         if self._offset is not None or self._limit is not None:
             iterable = islice(iterable, self._offset or 0, self._limit)
