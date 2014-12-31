@@ -4,6 +4,7 @@ import jinja2
 
 
 DEFAULT_CONFIG = {
+    'EPHEMERAL_RECORD_CACHE_SIZE': 500,
     'ATTACHMENT_TYPES': {
         '.jpg': 'image',
         '.jpeg': 'image',

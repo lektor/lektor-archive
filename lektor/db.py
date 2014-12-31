@@ -5,10 +5,13 @@ import operator
 import functools
 import posixpath
 
+from weakref import ref as weakref
+from itertools import islice
+
 from jinja2 import Undefined, is_undefined
+from jinja2.utils import LRUCache
 
 from inifile import IniFile
-from itertools import islice
 
 from lektor import metaformat
 from lektor.datamodel import datamodel_from_ini, DataModel
@@ -185,8 +188,15 @@ rec = _RecordQueryProxy()
 class _BaseRecord(object):
 
     def __init__(self, pad, data):
-        self.pad = pad
+        self._pad = weakref(pad)
         self._data = data
+
+    @property
+    def pad(self):
+        rv = self._pad()
+        if rv is not None:
+            return rv
+        raise AttributeError('The pad went away')
 
     @property
     def datamodel(self):
@@ -250,7 +260,12 @@ class _BaseRecord(object):
         return self._data[name]
 
     def __setitem__(self, name, value):
+        self.pad.cache.persist_if_cached(self)
         self._data[name] = value
+
+    def __delitem__(self, name):
+        self.pad.cache.persist_if_cached(self)
+        del self._data[name]
 
     def __repr__(self):
         return '<%s model=%r path=%r>' % (
@@ -285,7 +300,9 @@ class Record(_BaseRecord):
         this_path = self._data['_path']
         parent_path = posixpath.dirname(this_path)
         if parent_path != this_path:
-            return self.pad.db.get_record(parent_path, self.pad)
+            return self.pad.db.get_record(
+                parent_path, self.pad,
+                persist=self.pad.cache.is_persistent(self))
 
     @property
     def children(self):
@@ -307,7 +324,9 @@ class Attachment(_BaseRecord):
     @property
     def parent(self):
         """The associated record for this attachment."""
-        return self.pad.db.get_record(self._data['_attachment_for'], self.pad)
+        return self.pad.db.get_record(
+            self._data['_attachment_for'], self.pad,
+            persist=self.pad.cache.is_persistent(self))
 
 
 class Query(object):
@@ -332,7 +351,7 @@ class Query(object):
     def _get(self, local_path):
         """Low level record access."""
         return self.pad.db.get_record('%s/%s' % (self.path, local_path),
-                                      self.pad)
+                                      self.pad, persist=True)
 
     def _iterate(self):
         """Low level record iteration."""
@@ -422,7 +441,7 @@ class AttachmentsQuery(Query):
     def _get(self, local_path):
         """Low level record access."""
         return self.pad.db.get_attachment(
-            '%s/%s' % (self.path, local_path), self.pad)
+            '%s/%s' % (self.path, local_path), self.pad, persist=True)
 
     def _iterate(self):
         for attachment in self.pad.db.iter_attachments(self.path, self.pad):
@@ -485,7 +504,7 @@ class Database(object):
             if e.errno == errno.ENOENT:
                 return
 
-    def postprocess_record(self, record):
+    def postprocess_record(self, record, persist):
         # Automatically fill in slugs
         if is_undefined(record['_slug']):
             parent = record.parent
@@ -494,6 +513,11 @@ class Database(object):
             else:
                 slug = ''
             record['_slug'] = slug
+
+        if persist:
+            record.pad.cache.persist(record)
+        else:
+            record.pad.cache.remember(record)
 
     def get_datamodel(self, raw_record, pad, record_type='record'):
         """Returns the datamodel for a given raw record."""
@@ -525,11 +549,10 @@ class Database(object):
             return self.empty_model
         return self.datamodels.get(datamodel_name, self.empty_model)
 
-    def get_record(self, path, pad):
+    def get_record(self, path, pad, persist=False):
         """Low-level interface for fetching a single record."""
         path = cleanup_path(path)
-        cache_key = ('record', path)
-        rv = pad.cache.get(cache_key)
+        rv = pad.cache[Record, path]
         if rv is not None:
             return rv
 
@@ -539,8 +562,7 @@ class Database(object):
 
         datamodel = self.get_datamodel(raw_record, pad)
         rv = Record(pad, datamodel.process_raw_record(raw_record))
-        self.postprocess_record(rv)
-        pad.cache[cache_key] = rv
+        self.postprocess_record(rv, persist)
         return rv
 
     def iter_records(self, path, pad):
@@ -567,11 +589,10 @@ class Database(object):
         return self.env.config['ATTACHMENT_TYPES'].get(
             posixpath.splitext(path)[1])
 
-    def get_attachment(self, path, pad):
+    def get_attachment(self, path, pad, persist=False):
         """Low-level interface for fetching a single attachment."""
         path = cleanup_path(path)
-        cache_key = ('attachment', path)
-        rv = pad.cache.get(cache_key)
+        rv = pad.cache[Attachment, path]
         if rv is not None:
             return rv
 
@@ -585,8 +606,7 @@ class Database(object):
 
         datamodel = self.get_datamodel(raw_record, pad, 'attachment')
         rv = Attachment(pad, datamodel.process_raw_record(raw_record))
-        self.postprocess_record(rv)
-        pad.cache[cache_key] = rv
+        self.postprocess_record(rv, persist)
         return rv
 
     def iter_attachments(self, path, pad):
@@ -614,6 +634,44 @@ class Database(object):
         return Pad(self)
 
 
+class RecordCache(object):
+
+    def __init__(self, ephemeral_cache_size=500):
+        self.persistent = {}
+        self.ephemeral = LRUCache(ephemeral_cache_size)
+
+    def is_persistent(self, record):
+        cache_key = type(record), record['_path']
+        return cache_key in self.persistent
+
+    def remember(self, record):
+        cache_key = type(record), record['_path']
+        if cache_key in self.persistent or cache_key in self.ephemeral:
+            return
+        self.ephemeral[cache_key] = record
+
+    def persist(self, record):
+        cache_key = type(record), record['_path']
+        self.persistent[cache_key] = record
+        try:
+            del self.ephemeral[cache_key]
+        except KeyError:
+            pass
+
+    def persist_if_cached(self, record):
+        cache_key = type(record), record['_path']
+        if cache_key in self.ephemeral:
+            self.persist(record)
+
+    def __getitem__(self, key):
+        rv = self.persistent.get(key)
+        if rv is not None:
+            return rv
+        rv = self.ephemeral.get(key)
+        if rv is not None:
+            return rv
+
+
 class Pad(object):
     """A pad keeps cached information for the database on a local level
     so that concurrent access can see different values if needed.
@@ -621,7 +679,7 @@ class Pad(object):
 
     def __init__(self, db):
         self.db = db
-        self.cache = {}
+        self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
 
     def resolve_url_path(self, url_path, include_unexposed=False):
         """Given a URL path this will find the correct record which also
@@ -646,7 +704,7 @@ class Pad(object):
     @property
     def root(self):
         """The root record of the database."""
-        return self.db.get_record('/', pad=self)
+        return self.db.get_record('/', pad=self, persist=True)
 
     def query(self, path=None):
         """Queries the database either at root level or below a certain
@@ -657,4 +715,5 @@ class Pad(object):
 
     def get(self, path):
         """Loads an element by path."""
-        return self.db.get_record('/' + path.strip('/'), pad=self)
+        return self.db.get_record('/' + path.strip('/'), pad=self,
+                                  persist=True)
