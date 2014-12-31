@@ -463,9 +463,10 @@ class Database(object):
         '.txt': 'text',
     }
 
-    def __init__(self, root_path):
-        self.root_path = os.path.abspath(root_path)
-        self.datamodels = load_datamodels(os.path.join(root_path, 'models'))
+    def __init__(self, env):
+        self.env = env
+        self.datamodels = load_datamodels(
+            os.path.join(env.root_path, 'models'))
 
     def get_fs_path(self, path, record_type):
         """Returns the file system path for a given database path with a
@@ -476,7 +477,7 @@ class Database(object):
         - ``'attachment'``: the content file of a specific attachment is
           targeted.
         """
-        fn_base = os.path.join(self.root_path, 'content', to_os_path(path))
+        fn_base = os.path.join(self.env.root_path, 'content', to_os_path(path))
         if record_type == 'base':
             return fn_base
         elif record_type == 'record':
