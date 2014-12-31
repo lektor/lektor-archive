@@ -17,6 +17,7 @@ from inifile import IniFile
 
 from lektor import metaformat
 from lektor.datamodel import datamodel_from_ini, DataModel
+from lektor.operationlog import get_oplog, OperationLog
 
 
 _slashes_re = re.compile(r'/+')
@@ -801,6 +802,20 @@ class Pad(object):
     def __init__(self, db):
         self.db = db
         self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
+
+    def new_oplog(self):
+        """Creates a new operation log."""
+        return OperationLog(self)
+
+    def get_current_oplog(self):
+        """Returns the current operation log."""
+        oplog = get_oplog()
+        if oplog is None:
+            raise RuntimeError('No oplog on the stack')
+        elif oplog.pad is not self:
+            raise RuntimeError('The oplog on the stack is for a different '
+                               'pad.')
+        return oplog
 
     def resolve_url_path(self, url_path, include_unexposed=False):
         """Given a URL path this will find the correct record which also
