@@ -120,19 +120,19 @@ class _Expr(object):
 
     def startswith(self, other):
         return _BinExpr(self, _auto_wrap_expr(other),
-                        lambda a, b: unicode(a).startswith(unicode(b)))
+            lambda a, b: unicode(a).lower().startswith(unicode(b).lower()))
 
     def endswith(self, other):
         return _BinExpr(self, _auto_wrap_expr(other),
-                        lambda a, b: unicode(a).endswith(unicode(b)))
-
-    def istartswith(self, other):
-        return _BinExpr(self, _auto_wrap_expr(other),
-            lambda a, b: unicode(a).lower().startswith(unicode(b).lower()))
-
-    def iendswith(self, other):
-        return _BinExpr(self, _auto_wrap_expr(other),
             lambda a, b: unicode(a).lower().endswith(unicode(b).lower()))
+
+    def startswith_cs(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other),
+                        lambda a, b: unicode(a).startswith(unicode(b)))
+
+    def endswith_cs(self, other):
+        return _BinExpr(self, _auto_wrap_expr(other),
+                        lambda a, b: unicode(a).endswith(unicode(b)))
 
 
 class _Literal(_Expr):
@@ -281,6 +281,13 @@ class _BaseRecord(object):
 class Record(_BaseRecord):
     """This represents a loaded record."""
 
+    @property
+    def url_path(self):
+        url_path = _BaseRecord.url_path.__get__(self)
+        if url_path[-1:] != '/':
+            url_path += '/'
+        return url_path
+
     def resolve_url_path(self, url_path):
         if not url_path:
             return None
@@ -372,16 +379,19 @@ class Query(object):
         rv._filters.append(expr)
         return rv
 
+    def get_order_by(self):
+        """Returns the order that should be used."""
+        if self._order_by is not None:
+            return self._order_by
+        base_record = self.pad.db.get_record(self.path, self.pad)
+        if base_record is not None:
+            return base_record.datamodel.child_config.order_by
+
     def __iter__(self):
         """Iterates over all records matched."""
         iterable = self._iterate()
 
-        order_by = self._order_by
-        if order_by is None:
-            base_record = self.pad.db.get_record(self.path, self.pad)
-            if base_record is not None:
-                order_by = base_record.datamodel.child_config.order_by
-
+        order_by = self.get_order_by()
         if order_by:
             iterable = sorted(
                 iterable, key=lambda x: x.get_sort_key(order_by))
@@ -421,7 +431,7 @@ class Query(object):
     def count(self):
         """Counts all matched objects."""
         rv = 0
-        for item in self:
+        for item in self._iterate():
             rv += 1
         return rv
 
@@ -432,6 +442,12 @@ class Query(object):
         if not self._pristine:
             raise RuntimeError('The query object is not pristine')
         return self._get(id)
+
+    def __repr__(self):
+        return '<%s %r>' % (
+            self.__class__.__name__,
+            self.path,
+        )
 
 
 class AttachmentsQuery(Query):
@@ -709,7 +725,7 @@ class Pad(object):
 
         pieces = cleanup_path(url_path).strip('/').split('/')
         if pieces == ['']:
-            pieces = ()
+            pieces = []
 
         while pieces:
             rv = node.resolve_url_path(pieces)

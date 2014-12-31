@@ -98,7 +98,8 @@ class DataModel(object):
                 self.env.compile_template(slug_format)
             )
 
-        return self._child_slug_tmpl[1].render(page=record).strip()
+        return '_'.join(self._child_slug_tmpl[1].render(
+            page=record).strip().split())
 
     def process_raw_record(self, raw_record):
         """Given a raw record from a cache this processes the item and
