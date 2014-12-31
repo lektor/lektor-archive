@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 
 from markupsafe import Markup
@@ -14,6 +15,17 @@ class StringType(Type):
             return raw.value.splitlines()[0].strip()
         except IndexError:
             return u''
+
+
+class UuidType(Type):
+
+    def value_from_raw(self, raw):
+        if raw.value is None:
+            return raw.missing_value('Missing UUID')
+        try:
+            return uuid.UUID(raw.value)
+        except Exception:
+            return raw.bad_value('Invalid UUID')
 
 
 class TextType(Type):

@@ -89,7 +89,7 @@ class DataModel(object):
         """Formats out the child slug."""
         slug_format = self.child_config.slug_format
         if slug_format is None:
-            return slugify(record['_local_path'])
+            return slugify(record['_id'])
 
         if self._child_slug_tmpl is None or \
            self._child_slug_tmpl[0] != slug_format:
@@ -162,7 +162,8 @@ def add_system_field(name, type):
 
 
 add_system_field('_path', type='string')
-add_system_field('_local_path', type='string')
+add_system_field('_id', type='string')
+add_system_field('_gid', type='uuid')
 add_system_field('_model', type='string')
 add_system_field('_template', type='string')
 add_system_field('_slug', type='slug')

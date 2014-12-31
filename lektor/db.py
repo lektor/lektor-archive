@@ -1,6 +1,8 @@
 import re
 import os
+import uuid
 import errno
+import hashlib
 import operator
 import functools
 import posixpath
@@ -348,9 +350,9 @@ class Query(object):
             rv._pristine = False
         return rv
 
-    def _get(self, local_path):
+    def _get(self, id):
         """Low level record access."""
-        return self.pad.db.get_record('%s/%s' % (self.path, local_path),
+        return self.pad.db.get_record('%s/%s' % (self.path, id),
                                       self.pad, persist=True)
 
     def _iterate(self):
@@ -415,13 +417,13 @@ class Query(object):
             rv += 1
         return rv
 
-    def get(self, local_path):
+    def get(self, id):
         """Gets something by the local path.  This ignores all other
         filtering that might be applied on the query.
         """
         if not self._pristine:
             raise RuntimeError('The query object is not pristine')
-        return self._get(local_path)
+        return self._get(id)
 
 
 class AttachmentsQuery(Query):
@@ -438,10 +440,10 @@ class AttachmentsQuery(Query):
         """Filters to audio."""
         return self.filter(rec._attachment_type == 'audio')
 
-    def _get(self, local_path):
+    def _get(self, id):
         """Low level record access."""
         return self.pad.db.get_attachment(
-            '%s/%s' % (self.path, local_path), self.pad, persist=True)
+            '%s/%s' % (self.path, id), self.pad, persist=True)
 
     def _iterate(self):
         for attachment in self.pad.db.iter_attachments(self.path, self.pad):
@@ -497,7 +499,7 @@ class Database(object):
                     rv[key] = u''.join(lines)
 
             rv['_path'] = path
-            rv['_local_path'] = posixpath.basename(path)
+            rv['_id'] = posixpath.basename(path)
 
             return rv
         except IOError as e:
@@ -514,6 +516,15 @@ class Database(object):
                 slug = ''
             record['_slug'] = slug
 
+        # Fill in the global ID
+        gid_hash = hashlib.md5()
+        node = record
+        while node is not None:
+            gid_hash.update(node['_id'].encode('utf-8'))
+            node = node.parent
+        record['_gid'] = uuid.UUID(bytes=gid_hash.digest(), version=3)
+
+        # Automatically cache
         if persist:
             record.pad.cache.persist(record)
         else:
@@ -599,7 +610,7 @@ class Database(object):
         raw_record = self.load_raw_record(path, 'attachment')
         if raw_record is None:
             raw_record = {'_model': None, '_path': path,
-                          '_local_path': posixpath.basename(path)}
+                          '_id': posixpath.basename(path)}
         raw_record['_attachment_for'] = posixpath.dirname(path)
         if '_attachment_type' not in raw_record:
             raw_record['_attachment_type'] = self.get_attachment_type(path)
