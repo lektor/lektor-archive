@@ -43,7 +43,12 @@ class Environment(object):
         self.jinja_env = jinja2.Environment(
             autoescape=self.select_jinja_autoescape,
             extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'],
+            loader=jinja2.FileSystemLoader(
+                os.path.join(self.root_path, 'templates'))
         )
+
+    def get_template(self, name):
+        return self.jinja_env.get_template(name)
 
     def compile_template(self, string):
         return self.jinja_env.from_string(string)

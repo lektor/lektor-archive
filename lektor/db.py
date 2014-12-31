@@ -8,7 +8,7 @@ import functools
 import posixpath
 
 from weakref import ref as weakref
-from itertools import islice
+from itertools import islice, chain
 
 from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
@@ -192,6 +192,42 @@ class _BaseRecord(object):
     def __init__(self, pad, data):
         self._pad = weakref(pad)
         self._data = data
+        self._fast_source_hash = None
+
+    @property
+    def source_filename(self):
+        raise NotImplementedError()
+
+    def get_fast_source_hash(self):
+        """Calculates an integer hash based on the file system metadata to
+        quickly figure out if the file needs changing.
+        """
+        fs_path = self.source_filename
+        try:
+            stat = os.stat(fs_path)
+            mtime = int(stat.st_mtime)
+            size = int(stat.st_size)
+        except OSError:
+            return 0
+        return ((size << 32) | (size >> 32)) ^ mtime
+
+    def get_source_hash(self):
+        """Calculates a checksum of the file contents to figure out if the
+        file needs changing.
+        """
+        try:
+            with open(self.source_filename, 'rb') as f:
+                h = hashlib.sha1()
+                while 1:
+                    chunk = f.read(16 * 1024)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+                return h.hexdigest()
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            return '0' * 40
 
     @property
     def pad(self):
@@ -259,6 +295,9 @@ class _BaseRecord(object):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
 
+    def iter_child_records(self):
+        return iter(())
+
     def __getitem__(self, name):
         return self._data[name]
 
@@ -280,6 +319,10 @@ class _BaseRecord(object):
 
 class Record(_BaseRecord):
     """This represents a loaded record."""
+
+    @property
+    def source_filename(self):
+        return self.pad.db.get_fs_path(self['_path'], record_type='record')
 
     @property
     def url_path(self):
@@ -327,9 +370,20 @@ class Record(_BaseRecord):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad)
 
+    def iter_child_records(self):
+        return chain(self.children, self.attachments)
+
 
 class Attachment(_BaseRecord):
     """This represents a loaded attachment."""
+
+    @property
+    def source_filename(self):
+        return self.pad.db.get_fs_path(self['_path'], record_type='attachment')
+
+    @property
+    def source_attachment_filename(self):
+        return self.pad.db.get_fs_path(self['_path'], record_type='base')
 
     @property
     def parent(self):
@@ -337,6 +391,34 @@ class Attachment(_BaseRecord):
         return self.pad.db.get_record(
             self._data['_attachment_for'], self.pad,
             persist=self.pad.cache.is_persistent(self))
+
+    def get_source_hash(self):
+        base = _BaseRecord.get_source_hash(self)
+        h = hashlib.sha1(base)
+        try:
+            with open(self.source_attachment_filename, 'rb') as f:
+                while 1:
+                    chunk = f.read(16 * 1024)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+                return h.hexdigest()
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            return h.hexdigest()
+
+    def get_fast_source_hash(self):
+        base = _BaseRecord.get_fast_source_hash(self)
+        fs_path = self.source_attachment_filename
+        try:
+            stat = os.stat(fs_path)
+            mtime = int(stat.st_mtime)
+            size = int(stat.st_size)
+        except OSError:
+            return base
+        att_base = ((size << 32) | (size >> 32)) ^ mtime
+        return ((base << 32) | (base >> 32)) ^ att_base
 
 
 class Query(object):
@@ -539,6 +621,10 @@ class Database(object):
             else:
                 slug = ''
             record['_slug'] = slug
+
+        # Automatically fill in templates
+        if is_undefined(record['_template']):
+            record['_template'] = record.datamodel.id + '.html'
 
         # Fill in the global ID
         gid_hash = hashlib.md5()
