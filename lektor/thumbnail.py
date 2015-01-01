@@ -32,6 +32,9 @@ class ThumbnailOperation(Operation):
         return self.url_path
 
     def execute(self, builder):
+        if builder.source_tree.is_current(self.source_filename):
+            return
+
         dst_filename = builder.get_fs_path(
             builder.get_destination_path(self.url_path), make_folder=True)
 
