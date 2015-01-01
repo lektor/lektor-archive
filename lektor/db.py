@@ -199,6 +199,15 @@ class _BaseRecord(object):
     def source_filename(self):
         raise NotImplementedError()
 
+    def get_dependent_name(self, suffix):
+        directory, filename = posixpath.split(self['_path'])
+        basename, ext = posixpath.splitext(filename)
+        return posixpath.join(directory, '%s@%s%s' % (
+            basename,
+            suffix,
+            ext,
+        ))
+
     def get_fast_source_hash(self):
         """Calculates an integer hash based on the file system metadata to
         quickly figure out if the file needs changing.
@@ -298,6 +307,29 @@ class _BaseRecord(object):
 
     def iter_child_records(self):
         return iter(())
+
+    def get_current_oplog(self, silent=False):
+        """Returns the current operation log."""
+        oplog = get_oplog()
+        if oplog is None:
+            if silent:
+                return None
+            raise RuntimeError('Operation impossble because there is no '
+                               'oplog on the stack')
+        elif oplog.record is not self:
+            if silent:
+                return None
+            raise RuntimeError('Operation failed because the oplog on the '
+                               'stack is for a different record.')
+        return oplog
+
+    def __enter__(self):
+        oplog = OperationLog(self)
+        oplog.push()
+        return oplog
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.get_current_oplog().pop()
 
     def __getitem__(self, name):
         return self._data[name]
@@ -420,6 +452,12 @@ class Attachment(_BaseRecord):
             return base
         att_base = ((size << 32) | (size >> 32)) ^ mtime
         return ((base << 32) | (base >> 32)) ^ att_base
+
+    def thumbnail(self, width, height=None):
+        depname = self.get_dependent_name(
+            height and '%sx%s' % (width, height) or str(width))
+        self.pad.get_current_oplog()
+        return depname
 
 
 class Query(object):
@@ -802,20 +840,6 @@ class Pad(object):
     def __init__(self, db):
         self.db = db
         self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
-
-    def new_oplog(self):
-        """Creates a new operation log."""
-        return OperationLog(self)
-
-    def get_current_oplog(self):
-        """Returns the current operation log."""
-        oplog = get_oplog()
-        if oplog is None:
-            raise RuntimeError('No oplog on the stack')
-        elif oplog.pad is not self:
-            raise RuntimeError('The oplog on the stack is for a different '
-                               'pad.')
-        return oplog
 
     def resolve_url_path(self, url_path, include_unexposed=False):
         """Given a URL path this will find the correct record which also
