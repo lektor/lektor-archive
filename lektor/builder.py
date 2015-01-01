@@ -1,8 +1,10 @@
 import os
 import errno
 import shutil
+import hashlib
 
 from lektor.utils import atomic_open
+from lektor.operationlog import OperationLog
 from lektor.db import Record, Attachment
 
 
@@ -15,78 +17,176 @@ from lektor.db import Record, Attachment
 #   assets are not content tracked properly
 
 
-class BuildCache(object):
+class _Tree(object):
 
-    def __init__(self):
-        self.artifacts = {}
+    def __init__(self, root_path=None):
+        if root_path is not None:
+            root_path = os.path.abspath(root_path)
+        self.root_path = root_path
 
-    def add_artifact(self, record, destination_filename):
-        self.artifacts.setdefault(record['_path'], []).append(
-            (destination_filename, record.get_fast_source_hash(),
-             record.get_source_hash()))
+    def abbreviate_filename(self, filename):
+        filename = os.path.join(self.root_path, filename)
+        if self.root_path is not None and filename.startswith(self.root_path):
+            filename = filename[len(self.root_path):].lstrip(os.path.sep)
+            if os.path.altsep:
+                filename = filename.lstrip(os.path.altsep)
+        return filename
 
-    def remove_artifact(self, path, destination_filename):
-        if path not in self.artifacts:
-            return
-        tuples = self.artifacts[path]
-        for tup in tuples:
-            if tup[0] == destination_filename:
-                tuples.discard(tup)
-                break
-        if not tuples:
-            del self.artifacts[path]
 
-    def iter_artifacts(self, path, remove=False):
-        artifacts = self.artifacts.get(path)
-        if artifacts:
-            if remove:
-                self.artifacts.pop(path, None)
-            for item in artifacts:
-                yield item
+class SourceTree(_Tree):
+    """The source tree remembers the state of the files they had last time
+    the were processed.
+    """
 
-    def record_is_fresh(self, record):
-        """Checks if a record is fresh."""
-        source_path = record['_path']
-        artifacts = self.artifacts.get(source_path)
-        if not artifacts:
-            return False
+    def __init__(self, root_path=None):
+        _Tree.__init__(self, root_path)
+        self.files = {}
+        self._newly_added = set()
 
-        current_fast_hash = record.get_fast_source_hash()
-        current_hash = None
+    def _get_file_meta(self, filename):
+        try:
+            stat = os.stat(os.path.join(self.root_path, filename))
+            mtime = int(stat.st_mtime)
+            size = int(stat.st_size)
+            return mtime, size
+        except OSError:
+            pass
 
-        for (destination_filename, fast_hash, hash) in artifacts:
-            if fast_hash != current_fast_hash:
-                if current_hash is None:
-                    current_hash = record.get_source_hash()
-                    if current_hash != hash:
-                        return False
-
-        return True
+    def _get_file_checksum(self, filename):
+        try:
+            h = hashlib.sha1()
+            with open(os.path.join(self.root_path, filename), 'rb') as f:
+                while 1:
+                    chunk = f.read(16 * 1024)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+            return h.hexdigest()
+        except IOError:
+            pass
 
     def dump(self, filename):
+        """Dumps the source tree into a file."""
         with atomic_open(filename) as f:
-            for artifact, tuples in sorted(self.artifacts.items()):
-                for tup in tuples:
-                    f.write(('%s\n' % '\t'.join(
-                        map(unicode, (artifact,) + tup))).encode('utf-8'))
+            for filename, tup in sorted(self.files.items()):
+                mtime, size, checksum = tup
+                f.write('%s\n' % u'\t'.join((
+                    filename,
+                    unicode(mtime),
+                    unicode(size),
+                    checksum,
+                )).encode('utf-8'))
 
     @classmethod
-    def load(cls, filename):
-        rv = cls()
+    def load(cls, filename, root_path=None, create_empty=False):
+        rv = cls(root_path)
         try:
             with open(filename, 'rb') as f:
                 for line in f:
-                    line = line.strip()
-                    if not line:
+                    line = line.strip().split('\t')
+                    if len(line) != 4:
                         continue
-                    tup = line.split('\t')
-                    rv.artifacts.setdefault(tup[0], []).append(
-                        (tup[1], int(tup[2]), tup[3]))
-            return rv
+                    filename, mtime, size, checksum = line
+                    try:
+                        rv.files[filename.decode('utf-8')] = \
+                            (int(mtime), int(size), checksum)
+                    except ValueError:
+                        continue
         except IOError as e:
-            if e.errno != errno.ENOENT:
+            if e.errno != errno.ENOENT or not create_empty:
                 raise
-            return
+        return rv
+
+    def add_file(self, filename):
+        """Adds a file to the source tree."""
+        tup = self._get_file_meta(filename)
+        if tup is None:
+            return False
+        checksum = self._get_file_checksum(filename)
+        if checksum is None:
+            return False
+        filename = self.abbreviate_filename(filename)
+        if filename in self._newly_added:
+            return True
+        self.files[filename] = tup + (checksum,)
+        return True
+
+    def remove_file(self, filename):
+        """Removes a file from the source tree again."""
+        filename = self.abbreviate_filename(filename)
+        tup = self.files.pop(filename, None)
+        return tup is not None
+
+    def is_current(self, filename):
+        """Checks if a filename is current compared to the information in the
+        source tree.
+        """
+        abbr_filename = self.abbreviate_filename(filename)
+        tup = self.files.get(abbr_filename)
+        if tup is None:
+            return False
+
+        mtime, size, checksum = tup
+        if self._get_file_meta(filename) != (mtime, size):
+            if checksum != self._get_file_checksum(filename):
+                return False
+            return True
+
+        return True
+
+    def clear_newly_added(self):
+        """Clears the internal newly added flag which optimizes calls to
+        :meth:`add_file`.
+        """
+        self._newly_added.clear()
+
+
+class DependencyTree(_Tree):
+
+    def __init__(self, root_path=None):
+        _Tree.__init__(self, root_path)
+        self.dependencies = {}
+
+    def dump(self, filename):
+        """Dumps the source tree into a file."""
+        with atomic_open(filename) as f:
+            for filename, deps in sorted(self.dependencies.items()):
+                for dep in sorted(deps):
+                    f.write('%s\n' % u'\t'.join((
+                        filename,
+                        dep,
+                    )).encode('utf-8'))
+
+    @classmethod
+    def load(cls, filename, root_path=None, create_empty=False):
+        rv = cls(root_path)
+        try:
+            with open(filename, 'rb') as f:
+                for line in f:
+                    line = line.strip().split('\t')
+                    if len(line) != 2:
+                        continue
+                    fn, dep = line
+                    rv.dependencies.setdefault(fn.decode('utf-8'),
+                                               set()).add(dep.decode('utf-8'))
+        except IOError as e:
+            if e.errno != errno.ENOENT or not create_empty:
+                raise
+        return rv
+
+    def add_dependency(self, source, dependency):
+        self.dependencies.setdefault(self.abbreviate_filename(source), set()) \
+            .add(self.abbreviate_filename(dependency))
+
+    def iter_dependencies(self, source):
+        return iter(self.dependencies.get(
+            self.abbreviate_filename(source)) or ())
+
+    def add_missing_to_source_tree(self, st):
+        for filename, deps in self.dependencies.iteritems():
+            st.add_file(filename)
+            for dep in deps:
+                st.add_file(dep)
 
 
 class Builder(object):
@@ -94,13 +194,16 @@ class Builder(object):
     def __init__(self, pad, destination_path):
         self.pad = pad
         self.destination_path = destination_path
-        self.build_cache_file = os.path.join(
-            self.destination_path, '.lektor-build-cache.txt')
 
-        build_cache = BuildCache.load(self.build_cache_file)
-        if build_cache is None:
-            build_cache = BuildCache()
-        self.build_cache = build_cache
+        self.source_tree_filename = os.path.join(
+            destination_path, '.sources')
+        self.dependency_tree_filename = os.path.join(
+            destination_path, '.dependencies')
+
+        self.source_tree = SourceTree.load(
+            self.source_tree_filename, pad.db.env.root_path, create_empty=True)
+        self.dependency_tree = DependencyTree.load(
+            self.dependency_tree_filename, pad.db.env.root_path, create_empty=True)
 
     @property
     def env(self):
@@ -124,7 +227,6 @@ class Builder(object):
                 return self._build_record
             elif isinstance(record, Attachment):
                 return self._build_attachment
-        return self._remove_artifacts
 
     def get_destination_path(self, record):
         rv = record.url_path.lstrip('/')
@@ -132,50 +234,56 @@ class Builder(object):
             rv += 'index.html'
         return rv
 
-    def _remove_artifacts(self, record):
-        for destination_filename, _, _ in \
-                self.build_cache.iter_artifacts(record['_path'], remove=True):
-            try:
-                os.remove(self.get_fs_path(destination_filename))
-            except OSError:
-                pass
-
     def _build_record(self, record):
-        self._remove_artifacts(record)
         dst = self.get_destination_path(record)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as f:
             tmpl = self.env.get_template(record['_template'])
             f.write(tmpl.render(page=record).encode('utf-8') + '\n')
-        self.build_cache.add_artifact(record, dst)
 
     def _build_attachment(self, attachment):
-        self._remove_artifacts(attachment)
         dst = self.get_destination_path(attachment)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as df:
-            with open(attachment.source_attachment_filename) as sf:
+            with open(attachment.attachment_filename) as sf:
                 shutil.copyfileobj(sf, df)
-        self.build_cache.add_artifact(attachment, dst)
+
+    def should_build_record(self, record):
+        for filename in record.iter_dependent_filenames():
+            if not self.source_tree.is_current(filename):
+                return True
+
+            for dependency in self.dependency_tree.iter_dependencies(filename):
+                if not self.source_tree.is_current(dependency):
+                    return True
+
+        return False
 
     def build_record(self, record, force=False):
         """Writes a record to the destination path."""
-        if not force and self.build_cache.record_is_fresh(record):
-            print 'skip', record['_path']
-            return
-        print 'build', record['_path']
         build_program = self.get_build_program(record)
-        build_program(record)
+        if not build_program:
+            print 'no program', record['_path']
+            return
+
+        if not force and not self.should_build_record(record):
+            return
+
+        print 'build', record['_path']
+        oplog = OperationLog(self.pad)
+        with oplog:
+            build_program(record)
+            for filename in record.iter_dependent_filenames():
+                self.source_tree.add_file(filename)
+                for dep in oplog.referenced_files:
+                    self.dependency_tree.add_dependency(filename, dep)
+                self.source_tree.add_file(filename)
 
     def copy_assets(self):
         asset_path = os.path.join(self.env.root_path, 'assets')
 
-        def should_overwrite(src, dst):
-            if not os.path.isfile(dst):
-                return True
-            return False
-
         for dirpath, dirnames, filenames in os.walk(asset_path):
+            self.env.jinja_env.cache
             dirnames[:] = [x for x in dirnames if x[:1] != '.']
             base = dirpath[len(asset_path) + 1:]
             for filename in filenames:
@@ -183,15 +291,20 @@ class Builder(object):
                     continue
 
                 src_path = os.path.join(asset_path, base, filename)
+                if self.source_tree.is_current(src_path):
+                    continue
+
+                print 'build asset', src_path
+
                 dst_path = os.path.join(self.destination_path, base, filename)
-                if should_overwrite(src_path, dst_path):
-                    try:
-                        os.makedirs(os.path.dirname(dst_path))
-                    except OSError:
-                        pass
-                    with atomic_open(dst_path) as df:
-                        with open(src_path) as sf:
-                            shutil.copyfileobj(sf, df)
+                try:
+                    os.makedirs(os.path.dirname(dst_path))
+                except OSError:
+                    pass
+                with atomic_open(dst_path) as df:
+                    with open(src_path) as sf:
+                        shutil.copyfileobj(sf, df)
+                self.source_tree.add_file(src_path)
 
     def build_all(self):
         to_build = [self.pad.root]
@@ -200,4 +313,7 @@ class Builder(object):
             to_build.extend(node.iter_child_records())
             self.build_record(node)
         self.copy_assets()
-        self.build_cache.dump(self.build_cache_file)
+
+        self.dependency_tree.add_missing_to_source_tree(self.source_tree)
+        self.source_tree.dump(self.source_tree_filename)
+        self.dependency_tree.dump(self.dependency_tree_filename)

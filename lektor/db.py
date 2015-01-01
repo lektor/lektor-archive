@@ -16,8 +16,8 @@ from jinja2.utils import LRUCache
 from inifile import IniFile
 
 from lektor import metaformat
+from lektor.operationlog import get_oplog
 from lektor.datamodel import datamodel_from_ini, DataModel
-from lektor.operationlog import get_oplog, OperationLog
 
 
 _slashes_re = re.compile(r'/+')
@@ -208,37 +208,6 @@ class _BaseRecord(object):
             ext,
         ))
 
-    def get_fast_source_hash(self):
-        """Calculates an integer hash based on the file system metadata to
-        quickly figure out if the file needs changing.
-        """
-        fs_path = self.source_filename
-        try:
-            stat = os.stat(fs_path)
-            mtime = int(stat.st_mtime)
-            size = int(stat.st_size)
-        except OSError:
-            return 0
-        return ((size << 32) | (size >> 32)) ^ mtime
-
-    def get_source_hash(self):
-        """Calculates a checksum of the file contents to figure out if the
-        file needs changing.
-        """
-        try:
-            with open(self.source_filename, 'rb') as f:
-                h = hashlib.sha1()
-                while 1:
-                    chunk = f.read(16 * 1024)
-                    if not chunk:
-                        break
-                    h.update(chunk)
-                return h.hexdigest()
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise
-            return '0' * 40
-
     @property
     def pad(self):
         rv = self._pad()
@@ -308,29 +277,6 @@ class _BaseRecord(object):
     def iter_child_records(self):
         return iter(())
 
-    def get_current_oplog(self, silent=False):
-        """Returns the current operation log."""
-        oplog = get_oplog()
-        if oplog is None:
-            if silent:
-                return None
-            raise RuntimeError('Operation impossble because there is no '
-                               'oplog on the stack')
-        elif oplog.record is not self:
-            if silent:
-                return None
-            raise RuntimeError('Operation failed because the oplog on the '
-                               'stack is for a different record.')
-        return oplog
-
-    def __enter__(self):
-        oplog = OperationLog(self)
-        oplog.push()
-        return oplog
-
-    def __exit__(self, exc_type, exc_value, tb):
-        self.get_current_oplog().pop()
-
     def __getitem__(self, name):
         return self._data[name]
 
@@ -356,6 +302,9 @@ class Record(_BaseRecord):
     @property
     def source_filename(self):
         return self.pad.db.get_fs_path(self['_path'], record_type='record')
+
+    def iter_dependent_filenames(self):
+        yield self.source_filename
 
     @property
     def url_path(self):
@@ -415,7 +364,7 @@ class Attachment(_BaseRecord):
         return self.pad.db.get_fs_path(self['_path'], record_type='attachment')
 
     @property
-    def source_attachment_filename(self):
+    def attachment_filename(self):
         return self.pad.db.get_fs_path(self['_path'], record_type='base')
 
     @property
@@ -425,39 +374,13 @@ class Attachment(_BaseRecord):
             self._data['_attachment_for'], self.pad,
             persist=self.pad.cache.is_persistent(self))
 
-    def get_source_hash(self):
-        base = _BaseRecord.get_source_hash(self)
-        h = hashlib.sha1(base)
-        try:
-            with open(self.source_attachment_filename, 'rb') as f:
-                while 1:
-                    chunk = f.read(16 * 1024)
-                    if not chunk:
-                        break
-                    h.update(chunk)
-                return h.hexdigest()
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise
-            return h.hexdigest()
-
-    def get_fast_source_hash(self):
-        base = _BaseRecord.get_fast_source_hash(self)
-        fs_path = self.source_attachment_filename
-        try:
-            stat = os.stat(fs_path)
-            mtime = int(stat.st_mtime)
-            size = int(stat.st_size)
-        except OSError:
-            return base
-        att_base = ((size << 32) | (size >> 32)) ^ mtime
-        return ((base << 32) | (base >> 32)) ^ att_base
-
-    def thumbnail(self, width, height=None):
-        depname = self.get_dependent_name(
-            height and '%sx%s' % (width, height) or str(width))
-        self.pad.get_current_oplog()
-        return depname
+    def iter_dependent_filenames(self):
+        # We only want to yield the source filename if it actually exists.
+        # For attachments it's very likely that this is not the case in
+        # case no metadata was defined.
+        if os.path.isfile(self.source_filename):
+            yield self.source_filename
+        yield self.attachment_filename
 
 
 class Query(object):
@@ -679,6 +602,13 @@ class Database(object):
         else:
             record.pad.cache.remember(record)
 
+    def _record_dependency(self, record):
+        oplog = get_oplog()
+        if oplog is not None:
+            for filename in record.iter_dependent_filenames():
+                oplog.record_file_usage(filename)
+        return record
+
     def get_datamodel(self, raw_record, pad, record_type='record'):
         """Returns the datamodel for a given raw record."""
         datamodel_name = (raw_record.get('_model') or '').strip()
@@ -714,7 +644,7 @@ class Database(object):
         path = cleanup_path(path)
         rv = pad.cache[Record, path]
         if rv is not None:
-            return rv
+            return self._record_dependency(rv)
 
         raw_record = self.load_raw_record(path, 'record')
         if raw_record is None:
@@ -723,7 +653,7 @@ class Database(object):
         datamodel = self.get_datamodel(raw_record, pad)
         rv = Record(pad, datamodel.process_raw_record(raw_record))
         self.postprocess_record(rv, persist)
-        return rv
+        return self._record_dependency(rv)
 
     def iter_records(self, path, pad):
         """Low-level interface for iterating over records."""
@@ -754,7 +684,7 @@ class Database(object):
         path = cleanup_path(path)
         rv = pad.cache[Attachment, path]
         if rv is not None:
-            return rv
+            return self._record_dependency(rv)
 
         raw_record = self.load_raw_record(path, 'attachment')
         if raw_record is None:
@@ -767,7 +697,7 @@ class Database(object):
         datamodel = self.get_datamodel(raw_record, pad, 'attachment')
         rv = Attachment(pad, datamodel.process_raw_record(raw_record))
         self.postprocess_record(rv, persist)
-        return rv
+        return self._record_dependency(rv)
 
     def iter_attachments(self, path, pad):
         """Low-level interface for iterating over attachments."""

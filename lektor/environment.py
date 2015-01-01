@@ -2,6 +2,8 @@ import os
 
 import jinja2
 
+from lektor.operationlog import get_oplog
+
 
 DEFAULT_CONFIG = {
     'EPHEMERAL_RECORD_CACHE_SIZE': 500,
@@ -33,6 +35,16 @@ DEFAULT_CONFIG = {
 }
 
 
+class CustomJinjaEnvironment(jinja2.Environment):
+
+    def _load_template(self, name, globals):
+        rv = jinja2.Environment._load_template(self, name, globals)
+        oplog = get_oplog()
+        if oplog is not None:
+            oplog.record_file_usage(rv.filename)
+        return rv
+
+
 class Environment(object):
 
     def __init__(self, root_path, config=None):
@@ -40,7 +52,7 @@ class Environment(object):
         if config is None:
             config = DEFAULT_CONFIG.copy()
         self.config = config
-        self.jinja_env = jinja2.Environment(
+        self.jinja_env = CustomJinjaEnvironment(
             autoescape=self.select_jinja_autoescape,
             extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'],
             loader=jinja2.FileSystemLoader(

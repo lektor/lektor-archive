@@ -14,8 +14,12 @@ def get_oplog():
 
 class OperationLog(object):
 
-    def __init__(self, record):
-        self.record = record
+    def __init__(self, pad):
+        self.pad = pad
+        self.referenced_files = []
+
+    def record_file_usage(self, filename):
+        self.referenced_files.append(filename)
 
     def push(self):
         _log_local.__dict__.setdefault('stack', []).append(self)
