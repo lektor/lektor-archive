@@ -15,15 +15,10 @@ def get_oplog():
         return None
 
 
-def get_dependent_path(fs_path, url_path, suffix):
-    """Calculates a dependent path for a given path."""
-    fs_directory, fs_filename = os.path.split(fs_path)
-    fs_base, fs_ext = os.path.splitext(fs_filename)
+def get_dependent_url(url_path, suffix):
     url_directory, url_filename = posixpath.split(url_path)
     url_base, url_ext = posixpath.splitext(url_filename)
-    fs_rv = os.path.join(fs_directory, fs_base + '@' + str(suffix) + fs_ext)
-    url_rv = posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
-    return fs_rv, url_rv
+    return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
 
 
 class Operation(object):

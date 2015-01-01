@@ -8,13 +8,8 @@ from lektor.operationlog import OperationLog
 from lektor.db import Record, Attachment
 
 
-# XXX: this is more or less a huge hack currently.  problems:
-#
-#   hardcoded behavior for records and attachments
-#   does not track dependencies correctly (template changes do not
-#   rebuild files)
-#   child changes do not invalidate parents
-#   assets are not content tracked properly
+# TODO: files do not get deleted properly, This also cause constant
+# rebuilds
 
 
 class _Tree(object):
@@ -228,27 +223,28 @@ class Builder(object):
             elif isinstance(record, Attachment):
                 return self._build_attachment
 
-    def get_destination_path(self, record):
-        rv = record.url_path.lstrip('/')
+    def get_destination_path(self, url_path):
+        rv = url_path.lstrip('/')
         if not rv or rv[-1:] == '/':
             rv += 'index.html'
         return rv
 
     def _build_record(self, record):
-        dst = self.get_destination_path(record)
+        dst = self.get_destination_path(record.url_path)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as f:
             tmpl = self.env.get_template(record['_template'])
             f.write(tmpl.render(page=record).encode('utf-8') + '\n')
 
     def _build_attachment(self, attachment):
-        dst = self.get_destination_path(attachment)
+        dst = self.get_destination_path(attachment.url_path)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as df:
             with open(attachment.attachment_filename) as sf:
                 shutil.copyfileobj(sf, df)
 
     def should_build_record(self, record):
+        # Direct changes
         for filename in record.iter_dependent_filenames():
             if not self.source_tree.is_current(filename):
                 return True
@@ -256,6 +252,11 @@ class Builder(object):
             for dependency in self.dependency_tree.iter_dependencies(filename):
                 if not self.source_tree.is_current(dependency):
                     return True
+
+        # Canges on children
+        for child in record.iter_child_records():
+            if self.should_build_record(child):
+                return True
 
         return False
 
