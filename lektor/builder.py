@@ -279,6 +279,9 @@ class Builder(object):
                     self.dependency_tree.add_dependency(filename, dep)
                 self.source_tree.add_file(filename)
 
+            for op in oplog.iter_operations():
+                op.execute(self)
+
     def copy_assets(self):
         asset_path = os.path.join(self.env.root_path, 'assets')
 

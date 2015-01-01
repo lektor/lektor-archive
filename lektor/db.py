@@ -18,6 +18,7 @@ from inifile import IniFile
 from lektor import metaformat
 from lektor.operationlog import get_oplog
 from lektor.datamodel import datamodel_from_ini, DataModel
+from lektor.thumbnail import make_thumbnail
 
 
 _slashes_re = re.compile(r'/+')
@@ -29,6 +30,17 @@ def cleanup_path(path):
 
 def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep)
+
+
+def _require_oplog(record):
+    oplog = get_oplog()
+    if oplog is None:
+        raise RuntimeError('This operation requires an oplog but none was '
+                           'on the stack.  This is a bug.')
+    if oplog.pad is not record.pad:
+        raise RuntimeError('The oplog on the stack does not match the '
+                           'pad of the record.  This is a bug.')
+    return oplog
 
 
 def load_datamodels(env):
@@ -381,6 +393,14 @@ class Attachment(_BaseRecord):
         if os.path.isfile(self.source_filename):
             yield self.source_filename
         yield self.attachment_filename
+
+    def thumbnail(self, width, height=None):
+        if self['_attachment_type'] != 'image':
+            raise TypeError('Cannot create thumbnails for attachments of '
+                            'type %r' % self['_attachment_type'])
+        return make_thumbnail(_require_oplog(self),
+            self.attachment_filename, self.url_path,
+            width=width, height=height)
 
 
 class Query(object):
