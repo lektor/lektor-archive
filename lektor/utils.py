@@ -2,6 +2,8 @@ import os
 import sys
 import tempfile
 
+from urlparse import urlparse
+
 from contextlib import contextmanager
 
 
@@ -26,3 +28,16 @@ def atomic_open(filename, mode='wb'):
         raise exc_info[0], exc_info[1], exc_info[2]
 
     os.rename(tmp_filename, filename)
+
+
+class Url(object):
+
+    def __init__(self, value):
+        self.url = value
+        self.host = urlparse(value).netloc
+
+    def __unicode__(self):
+        return self.url
+
+    def __str__(self):
+        return self.url

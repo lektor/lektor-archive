@@ -211,6 +211,9 @@ class _BaseRecord(object):
     def source_filename(self):
         raise NotImplementedError()
 
+    def navigate(self, path):
+        return self.children.get(path)
+
     def get_dependent_name(self, suffix):
         directory, filename = posixpath.split(self['_path'])
         basename, ext = posixpath.splitext(filename)
@@ -324,6 +327,18 @@ class Record(_BaseRecord):
         if url_path[-1:] != '/':
             url_path += '/'
         return url_path
+
+    @property
+    def root(self):
+        parent = self.parent
+        if parent is None:
+            return self
+        return parent.root
+
+    def is_child_of(self, path):
+        this_path = cleanup_path(self['_path']).split('/')
+        crumbs = cleanup_path(path).split('/')
+        return this_path[:len(crumbs)] == crumbs
 
     def resolve_url_path(self, url_path):
         if not url_path:
@@ -627,6 +642,8 @@ class Database(object):
         if oplog is not None:
             for filename in record.iter_dependent_filenames():
                 oplog.record_file_usage(filename)
+                if record.datamodel.filename:
+                    oplog.record_file_usage(record.datamodel.filename)
         return record
 
     def get_datamodel(self, raw_record, pad, record_type='record'):

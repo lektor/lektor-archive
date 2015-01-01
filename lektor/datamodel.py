@@ -57,9 +57,11 @@ class Field(object):
 
 class DataModel(object):
 
-    def __init__(self, env, id, name, contained=False, child_config=None,
-                 attachment_config=None, pagination_config=None, fields=None):
+    def __init__(self, env, id, name, filename=None, contained=False,
+                 child_config=None, attachment_config=None,
+                 pagination_config=None, fields=None):
         self.env = env
+        self.filename = filename
         self.id = id
         self.name = name
         self.contained = contained
@@ -126,6 +128,7 @@ def datamodel_from_ini(id, inifile, env):
         return [x for x in [x.strip() for x in value.strip().split(',')] if x]
 
     return DataModel(env,
+        filename=inifile.filename,
         id=id,
         name=inifile.get('model.name', id.title().replace('_', ' ')),
         contained=inifile.get_bool('model.contained'),
