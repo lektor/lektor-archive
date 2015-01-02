@@ -213,9 +213,6 @@ class _BaseRecord(object):
     def source_filename(self):
         raise NotImplementedError()
 
-    def navigate(self, path):
-        return self.children.get(path)
-
     def get_dependent_name(self, suffix):
         directory, filename = posixpath.split(self['_path'])
         basename, ext = posixpath.splitext(filename)
@@ -332,13 +329,6 @@ class Page(_BaseRecord):
             url_path += '/'
         return url_path
 
-    @property
-    def root(self):
-        parent = self.parent
-        if parent is None:
-            return self
-        return parent.root
-
     def is_child_of(self, path):
         this_path = cleanup_path(self['_path']).split('/')
         crumbs = cleanup_path(path).split('/')
@@ -377,6 +367,10 @@ class Page(_BaseRecord):
         path are queried.
         """
         return Query(path=self['_path'], pad=self.pad)
+
+    def find_page(self, path):
+        """Finds a child page."""
+        return self.children.get(path)
 
     @property
     def attachments(self):
