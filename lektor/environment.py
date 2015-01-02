@@ -41,7 +41,7 @@ class CustomJinjaEnvironment(jinja2.Environment):
         rv = jinja2.Environment._load_template(self, name, globals)
         oplog = get_oplog()
         if oplog is not None:
-            oplog.record_file_usage(rv.filename)
+            oplog.record_path_usage(rv.filename)
         return rv
 
 
@@ -58,6 +58,11 @@ class Environment(object):
             loader=jinja2.FileSystemLoader(
                 os.path.join(self.root_path, 'templates'))
         )
+
+    def is_uninteresting_filename(self, filename):
+        # XXX: add more stuff here?
+        return filename[:1] in '._' or (
+            filename.lower() in ('thumbs.db', 'desktop.ini'))
 
     def get_template(self, name):
         return self.jinja_env.get_template(name)

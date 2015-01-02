@@ -15,7 +15,7 @@ def make_thumbnail(oplog, source_image, source_url_path, width, height=None):
     dst_url_path = get_dependent_url(source_url_path, suffix)
     op = ThumbnailOperation(dst_url_path, source_image, width, height)
     oplog.record_operation(op)
-    oplog.record_file_usage(op.source_filename)
+    oplog.record_path_usage(op.source_filename)
 
     return Thumbnail(dst_url_path, width, height)
 

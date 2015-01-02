@@ -36,10 +36,10 @@ def _require_oplog(record):
     oplog = get_oplog()
     if oplog is None:
         raise RuntimeError('This operation requires an oplog but none was '
-                           'on the stack.  This is a bug.')
+                           'on the stack.')
     if oplog.pad is not record.pad:
         raise RuntimeError('The oplog on the stack does not match the '
-                           'pad of the record.  This is a bug.')
+                           'pad of the record.')
     return oplog
 
 
@@ -207,6 +207,8 @@ class _BaseRecord(object):
         self._data = data
         self._fast_source_hash = None
 
+    cache_classification = 'record'
+
     @property
     def source_filename(self):
         raise NotImplementedError()
@@ -311,8 +313,10 @@ class _BaseRecord(object):
         )
 
 
-class Record(_BaseRecord):
+class Page(_BaseRecord):
     """This represents a loaded record."""
+
+    cache_classification = 'page'
 
     @property
     def source_filename(self):
@@ -362,7 +366,7 @@ class Record(_BaseRecord):
         this_path = self._data['_path']
         parent_path = posixpath.dirname(this_path)
         if parent_path != this_path:
-            return self.pad.db.get_record(
+            return self.pad.db.get_page(
                 parent_path, self.pad,
                 persist=self.pad.cache.is_persistent(self))
 
@@ -386,6 +390,8 @@ class Record(_BaseRecord):
 class Attachment(_BaseRecord):
     """This represents a loaded attachment."""
 
+    cache_classification = 'attachment'
+
     @property
     def source_filename(self):
         return self.pad.db.get_fs_path(self['_path'], record_type='attachment')
@@ -397,7 +403,7 @@ class Attachment(_BaseRecord):
     @property
     def parent(self):
         """The associated record for this attachment."""
-        return self.pad.db.get_record(
+        return self.pad.db.get_page(
             self._data['_attachment_for'], self.pad,
             persist=self.pad.cache.is_persistent(self))
 
@@ -409,13 +415,19 @@ class Attachment(_BaseRecord):
             yield self.source_filename
         yield self.attachment_filename
 
+
+class Image(Attachment):
+    """Specific class for image attachments."""
+
     def thumbnail(self, width, height=None):
-        if self['_attachment_type'] != 'image':
-            raise TypeError('Cannot create thumbnails for attachments of '
-                            'type %r' % self['_attachment_type'])
         return make_thumbnail(_require_oplog(self),
             self.attachment_filename, self.url_path,
             width=width, height=height)
+
+
+attachment_classes = {
+    'image': Image,
+}
 
 
 class Query(object):
@@ -439,12 +451,12 @@ class Query(object):
 
     def _get(self, id):
         """Low level record access."""
-        return self.pad.db.get_record('%s/%s' % (self.path, id),
-                                      self.pad, persist=True)
+        return self.pad.db.get_page('%s/%s' % (self.path, id),
+                                    self.pad, persist=True)
 
     def _iterate(self):
         """Low level record iteration."""
-        for record in self.pad.db.iter_records(self.path, self.pad):
+        for record in self.pad.db.iter_pages(self.path, self.pad):
             for filter in self._filters or ():
                 if not filter.__eval__(record):
                     break
@@ -462,7 +474,7 @@ class Query(object):
         """Returns the order that should be used."""
         if self._order_by is not None:
             return self._order_by
-        base_record = self.pad.db.get_record(self.path, self.pad)
+        base_record = self.pad.db.get_page(self.path, self.pad)
         if base_record is not None:
             return base_record.datamodel.child_config.order_by
 
@@ -637,14 +649,19 @@ class Database(object):
         else:
             record.pad.cache.remember(record)
 
-    def _record_dependency(self, record):
+    def _track_record_dependency(self, record):
         oplog = get_oplog()
         if oplog is not None:
             for filename in record.iter_dependent_filenames():
-                oplog.record_file_usage(filename)
-                if record.datamodel.filename:
-                    oplog.record_file_usage(record.datamodel.filename)
+                oplog.record_path_usage(filename)
+            if record.datamodel.filename:
+                oplog.record_path_usage(record.datamodel.filename)
         return record
+
+    def _track_fs_dependency(self, fs_path):
+        oplog = get_oplog()
+        if oplog is not None:
+            oplog.record_path_usage(fs_path)
 
     def get_datamodel(self, raw_record, pad, record_type='record'):
         """Returns the datamodel for a given raw record."""
@@ -661,7 +678,7 @@ class Database(object):
         if parent == raw_record['_path']:
             return self.empty_model
 
-        parent_obj = self.get_record(parent, pad)
+        parent_obj = self.get_page(parent, pad)
         if parent_obj is None:
             return self.empty_model
 
@@ -676,38 +693,40 @@ class Database(object):
             return self.empty_model
         return self.datamodels.get(datamodel_name, self.empty_model)
 
-    def get_record(self, path, pad, persist=False):
+    def get_page(self, path, pad, persist=False):
         """Low-level interface for fetching a single record."""
         path = cleanup_path(path)
-        rv = pad.cache[Record, path]
+        rv = pad.cache['page', path]
         if rv is not None:
-            return self._record_dependency(rv)
+            return self._track_record_dependency(rv)
 
         raw_record = self.load_raw_record(path, 'record')
         if raw_record is None:
             return None
 
         datamodel = self.get_datamodel(raw_record, pad)
-        rv = Record(pad, datamodel.process_raw_record(raw_record))
+        rv = Page(pad, datamodel.process_raw_record(raw_record))
         self.postprocess_record(rv, persist)
-        return self._record_dependency(rv)
+        return self._track_record_dependency(rv)
 
-    def iter_records(self, path, pad):
+    def iter_pages(self, path, pad):
         """Low-level interface for iterating over records."""
         path = cleanup_path(path)
         fs_path = self.get_fs_path(path, 'base')
+        self._track_fs_dependency(fs_path)
+
         try:
             files = os.listdir(fs_path)
             files.sort(key=lambda x: x.lower())
         except OSError:
             return
         for filename in files:
-            if filename[:1] in '._' or \
+            if self.env.is_uninteresting_filename(filename) or \
                not os.path.isdir(os.path.join(fs_path, filename)):
                 continue
 
             this_path = posixpath.join(path, filename)
-            record = self.get_record(this_path, pad)
+            record = self.get_page(this_path, pad)
             if record is not None:
                 yield record
 
@@ -716,12 +735,16 @@ class Database(object):
         return self.env.config['ATTACHMENT_TYPES'].get(
             posixpath.splitext(path)[1])
 
+    def get_attachment_class(self, attachment_type):
+        """Returns the class for the given attachment type."""
+        return attachment_classes.get(attachment_type, Attachment)
+
     def get_attachment(self, path, pad, persist=False):
         """Low-level interface for fetching a single attachment."""
         path = cleanup_path(path)
-        rv = pad.cache[Attachment, path]
+        rv = pad.cache['attachment', path]
         if rv is not None:
-            return self._record_dependency(rv)
+            return self._track_record_dependency(rv)
 
         raw_record = self.load_raw_record(path, 'attachment')
         if raw_record is None:
@@ -730,23 +753,25 @@ class Database(object):
         raw_record['_attachment_for'] = posixpath.dirname(path)
         if '_attachment_type' not in raw_record:
             raw_record['_attachment_type'] = self.get_attachment_type(path)
+        cls = self.get_attachment_class(raw_record['_attachment_type'])
 
         datamodel = self.get_datamodel(raw_record, pad, 'attachment')
-        rv = Attachment(pad, datamodel.process_raw_record(raw_record))
+        rv = cls(pad, datamodel.process_raw_record(raw_record))
         self.postprocess_record(rv, persist)
-        return self._record_dependency(rv)
+        return self._track_record_dependency(rv)
 
     def iter_attachments(self, path, pad):
         """Low-level interface for iterating over attachments."""
         path = cleanup_path(path)
         fs_path = self.get_fs_path(path, 'base')
+        self._track_fs_dependency(fs_path)
         try:
             files = os.listdir(fs_path)
             files.sort(key=lambda x: x.lower())
         except OSError:
             return
         for filename in files:
-            if filename[:1] in '._' or \
+            if self.env.is_uninteresting_filename(filename) or \
                filename[-3:] == '.lr' or \
                not os.path.isfile(os.path.join(fs_path, filename)):
                 continue
@@ -768,17 +793,17 @@ class RecordCache(object):
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
     def is_persistent(self, record):
-        cache_key = type(record), record['_path']
+        cache_key = record.cache_classification, record['_path']
         return cache_key in self.persistent
 
     def remember(self, record):
-        cache_key = type(record), record['_path']
+        cache_key = record.cache_classification, record['_path']
         if cache_key in self.persistent or cache_key in self.ephemeral:
             return
         self.ephemeral[cache_key] = record
 
     def persist(self, record):
-        cache_key = type(record), record['_path']
+        cache_key = record.cache_classification, record['_path']
         self.persistent[cache_key] = record
         try:
             del self.ephemeral[cache_key]
@@ -786,7 +811,7 @@ class RecordCache(object):
             pass
 
     def persist_if_cached(self, record):
-        cache_key = type(record), record['_path']
+        cache_key = record.cache_classification, record['_path']
         if cache_key in self.ephemeral:
             self.persist(record)
 
@@ -830,8 +855,8 @@ class Pad(object):
 
     @property
     def root(self):
-        """The root record of the database."""
-        return self.db.get_record('/', pad=self, persist=True)
+        """The root page of the database."""
+        return self.db.get_page('/', pad=self, persist=True)
 
     def query(self, path=None):
         """Queries the database either at root level or below a certain
@@ -842,5 +867,5 @@ class Pad(object):
 
     def get(self, path):
         """Loads an element by path."""
-        return self.db.get_record('/' + path.strip('/'), pad=self,
-                                  persist=True)
+        return self.db.get_page('/' + path.strip('/'), pad=self,
+                                persist=True)

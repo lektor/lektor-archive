@@ -1,4 +1,3 @@
-import os
 import posixpath
 
 from threading import local
@@ -34,11 +33,12 @@ class OperationLog(object):
 
     def __init__(self, pad):
         self.pad = pad
-        self.referenced_files = []
+        self.referenced_paths = set()
+        self.referenced_folders = set()
         self.operations = {}
 
-    def record_file_usage(self, filename):
-        self.referenced_files.append(filename)
+    def record_path_usage(self, filename):
+        self.referenced_paths.add(filename)
 
     def record_operation(self, operation):
         key = operation.__class__, operation.get_unique_key()

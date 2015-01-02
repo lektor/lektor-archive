@@ -1,23 +1,23 @@
 import os
+import stat
 import errno
 import shutil
 import hashlib
 
 from lektor.utils import atomic_open
 from lektor.operationlog import OperationLog
-from lektor.db import Record, Attachment
+from lektor.db import Page, Attachment
 
 
-# TODO: files do not get deleted properly, This also cause constant
+# TODO: paths do not get deleted properly, This also cause constant
 # rebuilds
 
 
 class _Tree(object):
 
-    def __init__(self, root_path=None):
-        if root_path is not None:
-            root_path = os.path.abspath(root_path)
-        self.root_path = root_path
+    def __init__(self, env):
+        self.env = env
+        self.root_path = os.path.abspath(env.root_path)
 
     def abbreviate_filename(self, filename):
         filename = os.path.join(self.root_path, filename)
@@ -29,33 +29,46 @@ class _Tree(object):
 
 
 class SourceTree(_Tree):
-    """The source tree remembers the state of the files they had last time
+    """The source tree remembers the state of the paths they had last time
     the were processed.
     """
 
-    def __init__(self, root_path=None):
-        _Tree.__init__(self, root_path)
-        self.files = {}
+    def __init__(self, env=None):
+        _Tree.__init__(self, env)
+        self.paths = {}
         self._newly_added = set()
 
-    def _get_file_meta(self, filename):
+    def _get_path_meta(self, filename):
+        p = os.path.join(self.root_path, filename)
         try:
-            stat = os.stat(os.path.join(self.root_path, filename))
-            mtime = int(stat.st_mtime)
-            size = int(stat.st_size)
+            st = os.stat(p)
+            mtime = int(st.st_mtime)
+            if stat.S_ISDIR(st.st_mode):
+                size = len(os.listdir(p))
+            else:
+                size = int(st.st_size)
             return mtime, size
         except OSError:
             pass
 
-    def _get_file_checksum(self, filename):
+    def _get_path_checksum(self, filename):
+        p = os.path.join(self.root_path, filename)
         try:
             h = hashlib.sha1()
-            with open(os.path.join(self.root_path, filename), 'rb') as f:
-                while 1:
-                    chunk = f.read(16 * 1024)
-                    if not chunk:
-                        break
-                    h.update(chunk)
+            if os.path.isdir(p):
+                for filename in sorted(os.listdir(p)):
+                    if self.env.is_uninteresting_filename(filename):
+                        continue
+                    if isinstance(filename, unicode):
+                        filename = filename.encode('utf-8')
+                    h.update(filename + '|')
+            else:
+                with open(p, 'rb') as f:
+                    while 1:
+                        chunk = f.read(16 * 1024)
+                        if not chunk:
+                            break
+                        h.update(chunk)
             return h.hexdigest()
         except IOError:
             pass
@@ -63,7 +76,7 @@ class SourceTree(_Tree):
     def dump(self, filename):
         """Dumps the source tree into a file."""
         with atomic_open(filename) as f:
-            for filename, tup in sorted(self.files.items()):
+            for filename, tup in sorted(self.paths.items()):
                 mtime, size, checksum = tup
                 f.write('%s\n' % u'\t'.join((
                     filename,
@@ -83,7 +96,7 @@ class SourceTree(_Tree):
                         continue
                     filename, mtime, size, checksum = line
                     try:
-                        rv.files[filename.decode('utf-8')] = \
+                        rv.paths[filename.decode('utf-8')] = \
                             (int(mtime), int(size), checksum)
                     except ValueError:
                         continue
@@ -92,24 +105,24 @@ class SourceTree(_Tree):
                 raise
         return rv
 
-    def add_file(self, filename):
-        """Adds a file to the source tree."""
-        tup = self._get_file_meta(filename)
+    def add_path(self, filename):
+        """Adds a path to the source tree."""
+        tup = self._get_path_meta(filename)
         if tup is None:
             return False
-        checksum = self._get_file_checksum(filename)
+        checksum = self._get_path_checksum(filename)
         if checksum is None:
             return False
         filename = self.abbreviate_filename(filename)
         if filename in self._newly_added:
             return True
-        self.files[filename] = tup + (checksum,)
+        self.paths[filename] = tup + (checksum,)
         return True
 
-    def remove_file(self, filename):
-        """Removes a file from the source tree again."""
+    def remove_path(self, filename):
+        """Removes a path from the source tree again."""
         filename = self.abbreviate_filename(filename)
-        tup = self.files.pop(filename, None)
+        tup = self.paths.pop(filename, None)
         return tup is not None
 
     def is_current(self, filename):
@@ -117,13 +130,13 @@ class SourceTree(_Tree):
         source tree.
         """
         abbr_filename = self.abbreviate_filename(filename)
-        tup = self.files.get(abbr_filename)
+        tup = self.paths.get(abbr_filename)
         if tup is None:
             return False
 
         mtime, size, checksum = tup
-        if self._get_file_meta(filename) != (mtime, size):
-            if checksum != self._get_file_checksum(filename):
+        if self._get_path_meta(filename) != (mtime, size):
+            if checksum != self._get_path_checksum(filename):
                 return False
             return True
 
@@ -131,15 +144,15 @@ class SourceTree(_Tree):
 
     def clear_newly_added(self):
         """Clears the internal newly added flag which optimizes calls to
-        :meth:`add_file`.
+        :meth:`add_path`.
         """
         self._newly_added.clear()
 
 
 class DependencyTree(_Tree):
 
-    def __init__(self, root_path=None):
-        _Tree.__init__(self, root_path)
+    def __init__(self, env=None):
+        _Tree.__init__(self, env)
         self.dependencies = {}
 
     def dump(self, filename):
@@ -170,18 +183,20 @@ class DependencyTree(_Tree):
         return rv
 
     def add_dependency(self, source, dependency):
-        self.dependencies.setdefault(self.abbreviate_filename(source), set()) \
-            .add(self.abbreviate_filename(dependency))
+        src = self.abbreviate_filename(source)
+        dep = self.abbreviate_filename(dependency)
+        if src != dep:
+            self.dependencies.setdefault(src, set()).add(dep)
 
     def iter_dependencies(self, source):
-        return iter(self.dependencies.get(
-            self.abbreviate_filename(source)) or ())
+        for fn in self.dependencies.get(self.abbreviate_filename(source), ()):
+            yield fn
 
     def add_missing_to_source_tree(self, st):
         for filename, deps in self.dependencies.iteritems():
-            st.add_file(filename)
+            st.add_path(filename)
             for dep in deps:
-                st.add_file(dep)
+                st.add_path(dep)
 
 
 class Builder(object):
@@ -196,9 +211,9 @@ class Builder(object):
             destination_path, '.dependencies')
 
         self.source_tree = SourceTree.load(
-            self.source_tree_filename, pad.db.env.root_path, create_empty=True)
+            self.source_tree_filename, pad.db.env, create_empty=True)
         self.dependency_tree = DependencyTree.load(
-            self.dependency_tree_filename, pad.db.env.root_path, create_empty=True)
+            self.dependency_tree_filename, pad.db.env, create_empty=True)
 
     @property
     def env(self):
@@ -218,8 +233,8 @@ class Builder(object):
     def get_build_program(self, record):
         """Returns the build program for a given record."""
         if record.is_exposed:
-            if isinstance(record, Record):
-                return self._build_record
+            if isinstance(record, Page):
+                return self._build_page
             elif isinstance(record, Attachment):
                 return self._build_attachment
 
@@ -229,12 +244,12 @@ class Builder(object):
             rv += 'index.html'
         return rv
 
-    def _build_record(self, record):
-        dst = self.get_destination_path(record.url_path)
+    def _build_page(self, page):
+        dst = self.get_destination_path(page.url_path)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as f:
-            tmpl = self.env.get_template(record['_template'])
-            f.write(tmpl.render(page=record, root=record.root)
+            tmpl = self.env.get_template(page['_template'])
+            f.write(tmpl.render(page=page, root=page.root)
                     .encode('utf-8') + '\n')
 
     def _build_attachment(self, attachment):
@@ -254,11 +269,6 @@ class Builder(object):
                 if not self.source_tree.is_current(dependency):
                     return True
 
-        # Canges on children
-        for child in record.iter_child_records():
-            if self.should_build_record(child):
-                return True
-
         return False
 
     def build_record(self, record, force=False):
@@ -276,10 +286,10 @@ class Builder(object):
         with oplog:
             build_program(record)
             for filename in record.iter_dependent_filenames():
-                self.source_tree.add_file(filename)
-                for dep in oplog.referenced_files:
+                self.source_tree.add_path(filename)
+                for dep in oplog.referenced_paths:
                     self.dependency_tree.add_dependency(filename, dep)
-                self.source_tree.add_file(filename)
+                self.source_tree.add_path(filename)
 
             for op in oplog.iter_operations():
                 op.execute(self)
@@ -309,7 +319,7 @@ class Builder(object):
                 with atomic_open(dst_path) as df:
                     with open(src_path) as sf:
                         shutil.copyfileobj(sf, df)
-                self.source_tree.add_file(src_path)
+                self.source_tree.add_path(src_path)
 
     def build_all(self):
         to_build = [self.pad.root]
