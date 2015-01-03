@@ -1,25 +1,28 @@
 import os
 import stat
-import errno
 import shutil
 import click
 import hashlib
+import sqlite3
 
 from lektor.utils import atomic_open, prune_file_and_folder
 from lektor.operationlog import OperationLog
 from lektor.db import Page, Attachment
 
 
-# TODO: paths do not get deleted properly, This also cause constant
-# rebuilds
-
-
 class _Tree(object):
 
     def __init__(self, env, filename):
         self.env = env
-        self.root_path = os.path.abspath(env.root_path)
         self.filename = filename
+        self.root_path = os.path.abspath(env.root_path)
+
+        con = self.get_connection()
+        con.execute(self.schema)
+        con.close()
+
+    def get_connection(self):
+        return sqlite3.connect(self.filename)
 
     def abbreviate_filename(self, filename):
         filename = os.path.join(self.root_path, filename)
@@ -34,11 +37,26 @@ class SourceTree(_Tree):
     """The source tree remembers the state of the paths they had last time
     the were processed.
     """
+    schema = '''
+        create table if not exists sources (
+            filename text,
+            mtime integer,
+            size integer,
+            checksum text,
+            primary key (filename)
+        );
+    '''
 
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
         self.paths = {}
-        self._newly_added = set()
+        self._changed = set()
+
+        con = self.get_connection()
+        rv = con.execute('select filename, mtime, size, checksum from sources')
+        for (filename, mtime, size, checksum) in rv:
+            self.paths[filename] = (mtime, size, checksum)
+        con.close()
 
     def _get_path_meta(self, filename):
         p = os.path.join(self.root_path, filename)
@@ -84,38 +102,6 @@ class SourceTree(_Tree):
         mtime, size, checksum = tup
         return checksum
 
-    def dump(self):
-        """Dumps the source tree into a file."""
-        with atomic_open(self.filename) as f:
-            for filename, tup in sorted(self.paths.items()):
-                mtime, size, checksum = tup
-                f.write('%s\n' % u'\t'.join((
-                    filename,
-                    unicode(mtime),
-                    unicode(size),
-                    checksum,
-                )).encode('utf-8'))
-
-    @classmethod
-    def load(cls, env, filename, create_empty=False):
-        rv = cls(env, filename)
-        try:
-            with open(filename, 'rb') as f:
-                for line in f:
-                    line = line.strip().split('\t')
-                    if len(line) != 4:
-                        continue
-                    filename, mtime, size, checksum = line
-                    try:
-                        rv.paths[filename.decode('utf-8')] = \
-                            (int(mtime), int(size), checksum)
-                    except ValueError:
-                        continue
-        except IOError as e:
-            if e.errno != errno.ENOENT or not create_empty:
-                raise
-        return rv
-
     def add_path(self, filename):
         """Adds a path to the source tree."""
         tup = self._get_path_meta(filename)
@@ -125,14 +111,16 @@ class SourceTree(_Tree):
         if checksum is None:
             return None
         filename = self.abbreviate_filename(filename)
-        if filename not in self._newly_added:
+        if filename not in self._changed:
             self.paths[filename] = tup + (checksum,)
+            self._changed.add(filename)
         return checksum
 
     def remove_path(self, filename):
         """Removes a path from the source tree again."""
         filename = self.abbreviate_filename(filename)
         tup = self.paths.pop(filename, None)
+        self._changed.add(filename)
         return tup is not None
 
     def is_current(self, filename, reference_checksum=None):
@@ -156,117 +144,153 @@ class SourceTree(_Tree):
 
         return True
 
-    def clear_newly_added(self):
-        """Clears the internal newly added flag which optimizes calls to
-        :meth:`add_path`.
-        """
-        self._newly_added.clear()
+    def commit(self):
+        con = self.get_connection()
+        values = []
+        to_delete = []
+        for filename in self._changed:
+            tup = self.paths.get(filename)
+            if tup is None:
+                to_delete.append((filename,))
+            else:
+                mtime, size, checksum = tup
+                values.append((filename, mtime, size, checksum))
+        if to_delete:
+            con.executemany('delete from sources where filename = ?', to_delete)
+        if values:
+            con.executemany('''
+                insert or replace into sources
+                    (filename, mtime, size, checksum) values (?, ?, ?, ?);
+            ''', values)
+        self._changes = set()
+        con.commit()
 
 
 class DependencyTree(_Tree):
+    schema = '''
+        create table if not exists dependencies (
+            filename text,
+            dependency text,
+            checksum text,
+            primary key (filename, dependency)
+        );
+    '''
 
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
         self.dependencies = {}
+        self._changes = set()
 
-    def dump(self):
-        with atomic_open(self.filename) as f:
-            for filename, deps in sorted(self.dependencies.items()):
-                for dep, cs in sorted(deps.items()):
-                    f.write('%s\n' % u'\t'.join((
-                        filename,
-                        dep,
-                        cs,
-                    )).encode('utf-8'))
+        con = self.get_connection()
+        rv = con.execute('select filename, dependency, checksum '
+                         'from dependencies')
+        for (fn, dep, cs) in rv:
+            self.dependencies.setdefault(fn, {})[dep] = cs
+        con.close()
 
-    @classmethod
-    def load(cls, env, filename, create_empty=False):
-        rv = cls(env, filename)
-        try:
-            with open(filename, 'rb') as f:
-                for line in f:
-                    line = line.strip().split('\t')
-                    if len(line) != 3:
-                        continue
-                    fn, dep, cs = line
-                    rv.dependencies.setdefault(fn.decode('utf-8'),
-                                               {})[dep.decode('utf-8')] = cs
-        except IOError as e:
-            if e.errno != errno.ENOENT or not create_empty:
-                raise
-        return rv
+    def commit(self):
+        con = self.get_connection()
+        values = []
+        to_delete = []
+        for source in self._changes:
+            deps = self.dependencies.get(source)
+            to_delete.append((source,))
+            if not deps:
+                continue
+            for dep, cs in deps.iteritems():
+                values.append((source, dep, cs))
+
+        if to_delete:
+            con.executemany('delete from dependencies where filename = ?',
+                            to_delete)
+        if values:
+            con.executemany('''
+                insert or replace into dependencies
+                    (filename, dependency, checksum) values (?, ?, ?);
+            ''', values)
+        con.commit()
 
     def add_dependency(self, source, dependency, cs):
         src = self.abbreviate_filename(source)
         dep = self.abbreviate_filename(dependency)
         if src != dep:
             self.dependencies.setdefault(src, {})[dep] = cs
+            self._changes.add(src)
 
     def clean_dependencies(self, source):
         source = self.abbreviate_filename(source)
+        self._changes.add(source)
         return self.dependencies.pop(source, None) is not None
 
     def remove_source(self, source):
         source = self.abbreviate_filename(source)
+        self._changes.add(source)
         rv = self.dependencies.pop(source, None) is not None
-        for _, s in self.dependencies.iteritems():
+        for other_source, s in self.dependencies.iteritems():
             if not rv:
                 rv = source in s
             s.pop(source, None)
+            self._changes.add(other_source)
         return rv
 
     def iter_dependencies(self, source):
         return self.dependencies.get(
             self.abbreviate_filename(source), {}).iteritems()
 
-    def add_missing_to_source_tree(self, st):
-        for filename, deps in self.dependencies.iteritems():
-            st.add_path(filename)
-            for dep in deps:
-                st.add_path(dep)
-
 
 class ArtifactTree(_Tree):
+    schema = '''
+        create table if not exists artifacts (
+            filename text,
+            artifact text,
+            checksum text,
+            primary key (filename, artifact)
+        );
+    '''
 
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
         self.artifacts = {}
-        self.known_artifacts = set()
+        self._changes = set()
 
-    def dump(self):
-        with atomic_open(self.filename) as f:
-            for filename, afts in sorted(self.artifacts.items()):
-                for aft, checksum in sorted(afts.items()):
-                    f.write('%s\n' % u'\t'.join((
-                        filename,
-                        aft,
-                        checksum,
-                    )).encode('utf-8'))
+        con = self.get_connection()
+        rv = con.execute('select filename, artifact, checksum '
+                         'from artifacts')
+        for (fn, aft, cs) in rv:
+            self.artifacts.setdefault(fn, {})[aft] = cs
+        con.close()
 
-    @classmethod
-    def load(cls, env, filename, create_empty=False):
-        rv = cls(env, filename)
-        try:
-            with open(filename, 'rb') as f:
-                for line in f:
-                    line = line.strip().split('\t')
-                    if len(line) != 3:
-                        continue
-                    fn, aft, cs = line
-                    rv.artifacts.setdefault(
-                        fn.decode('utf-8'), {})[aft.decode('utf-8')] = cs
-        except IOError as e:
-            if e.errno != errno.ENOENT or not create_empty:
-                raise
-        return rv
+    def commit(self):
+        con = self.get_connection()
+        values = []
+        to_delete = []
+        for source in self._changes:
+            afts = self.artifacts.get(source)
+            to_delete.append((source,))
+            if not afts:
+                continue
+            for aft, cs in afts.iteritems():
+                values.append((source, aft, cs))
+
+        if to_delete:
+            con.executemany('delete from artifacts where filename = ?',
+                            to_delete)
+        if values:
+            con.executemany('''
+                insert or replace into artifacts
+                    (filename, artifact, checksum) values (?, ?, ?);
+            ''', values)
+        con.commit()
 
     def add_artifact(self, source, artifact, checksum):
         src = self.abbreviate_filename(source)
         aft = self.abbreviate_filename(artifact)
         self.artifacts.setdefault(src, {})[aft] = checksum
+        self._changes.add(src)
 
     def remove_source(self, source):
         src = self.abbreviate_filename(source)
+        self._changes.add(src)
         return self.artifacts.pop(src, None) is not None
 
     def artifacts_are_recent(self, source, checksum):
@@ -293,15 +317,16 @@ class Builder(object):
         self.destination_path = destination_path
 
         self.referenced_sources = set()
-        self.source_tree = SourceTree.load(
-            pad.db.env,
-            os.path.join(destination_path, '.sources'), create_empty=True)
-        self.dependency_tree = DependencyTree.load(
-            pad.db.env,
-            os.path.join(destination_path, '.dependencies'), create_empty=True)
-        self.artifact_tree = ArtifactTree.load(
-            pad.db.env,
-            os.path.join(destination_path, '.artifacts'), create_empty=True)
+
+        try:
+            os.makedirs(destination_path)
+        except OSError:
+            pass
+
+        db_fn = os.path.abspath(os.path.join(destination_path, '.buildstate'))
+        self.source_tree = SourceTree(pad.db.env, db_fn)
+        self.dependency_tree = DependencyTree(pad.db.env, db_fn)
+        self.artifact_tree = ArtifactTree(pad.db.env, db_fn)
 
     @property
     def env(self):
@@ -450,10 +475,9 @@ class Builder(object):
             self.artifact_tree.remove_source(src)
 
     def finalize(self):
-        self.dependency_tree.add_missing_to_source_tree(self.source_tree)
-        self.source_tree.dump()
-        self.dependency_tree.dump()
-        self.artifact_tree.dump()
+        self.source_tree.commit()
+        self.dependency_tree.commit()
+        self.artifact_tree.commit()
 
     def iter_build_all(self):
         to_build = [self.pad.root]
