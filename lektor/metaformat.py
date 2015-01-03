@@ -40,7 +40,7 @@ def tokenize(iterable, interesting_keys=None, encoding='utf-8'):
 
         if line.rstrip() == b'---':
             want_newline = False
-            if key is not None:
+            if key:
                 yield _flush_item()
         elif key:
             if want_newline:
@@ -65,5 +65,5 @@ def tokenize(iterable, interesting_keys=None, encoding='utf-8'):
                         buf = []
                         want_newline = True
 
-    if key is not None:
+    if key:
         yield _flush_item()
