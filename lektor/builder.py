@@ -424,14 +424,16 @@ class Builder(object):
         self.dependency_tree.dump()
         self.artifact_tree.dump()
 
-    def build_all(self):
+    def iter_build_all(self):
         to_build = [self.pad.root]
         while to_build:
             node = to_build.pop()
             to_build.extend(node.iter_child_records())
-            self.build_record(node)
+            yield node, self.build_record(node)
 
+    def build_all(self):
+        for _ in self.iter_build_all():
+            pass
         self.copy_assets()
-
         self.remove_old_artifacts()
         self.finalize()
