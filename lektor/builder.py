@@ -1,7 +1,9 @@
 import os
+import time
 import stat
 import errno
 import shutil
+import click
 import hashlib
 
 from lektor.utils import atomic_open, prune_file_and_folder
@@ -188,6 +190,10 @@ class DependencyTree(_Tree):
         if src != dep:
             self.dependencies.setdefault(src, set()).add(dep)
 
+    def clean_dependencies(self, source):
+        source = self.abbreviate_filename(source)
+        return self.dependencies.pop(source, None) is not None
+
     def remove_source(self, source):
         source = self.abbreviate_filename(source)
         rv = self.dependencies.pop(source, None) is not None
@@ -264,6 +270,7 @@ class Builder(object):
         self.pad = pad
         self.destination_path = destination_path
 
+        self.referenced_sources = set()
         self.source_tree = SourceTree.load(
             pad.db.env,
             os.path.join(destination_path, '.sources'), create_empty=True)
@@ -332,19 +339,18 @@ class Builder(object):
 
         return False
 
-    def build_record(self, record, referenced_sources, force=False):
+    def build_record(self, record, force=False):
         """Writes a record to the destination path."""
-        referenced_sources.update(record.iter_dependent_filenames())
+        self.referenced_sources.update(record.iter_dependent_filenames())
 
         build_program = self.get_build_program(record)
         if not build_program:
-            print 'no program', record['_path']
             return
 
         if not force and not self.should_build_record(record):
             return
 
-        print 'build', record['_path']
+        click.echo('Record %s' % click.style(record['_path'], fg='cyan'))
         oplog = OperationLog(self.pad)
         with oplog:
             build_program(record, oplog)
@@ -353,6 +359,7 @@ class Builder(object):
                 op.execute(self, oplog)
 
             for filename in record.iter_dependent_filenames():
+                self.dependency_tree.clean_dependencies(filename)
                 self.source_tree.add_path(filename)
                 for dep in oplog.referenced_paths:
                     self.dependency_tree.add_dependency(filename, dep)
@@ -360,7 +367,7 @@ class Builder(object):
                     self.artifact_tree.add_artifact(filename, aft)
                 self.source_tree.add_path(filename)
 
-    def copy_assets(self, referenced_sources):
+    def copy_assets(self):
         asset_path = os.path.join(self.env.root_path, 'assets')
 
         for dirpath, dirnames, filenames in os.walk(asset_path):
@@ -373,12 +380,11 @@ class Builder(object):
                     continue
 
                 src_path = os.path.join(asset_path, base, filename)
-                referenced_sources.add(src_path)
+                self.referenced_sources.add(src_path)
                 if self.source_tree.is_current(src_path):
                     continue
 
-                print 'build asset', src_path
-
+                click.echo('Asset %s' % click.style(src_path, fg='cyan'))
                 dst_path = os.path.join(self.destination_path, base, filename)
                 try:
                     os.makedirs(os.path.dirname(dst_path))
@@ -390,32 +396,33 @@ class Builder(object):
                 self.source_tree.add_path(src_path)
                 self.artifact_tree.add_artifact(src_path, dst_path)
 
-    def remove_old_artifacts(self, sources):
-        for src, afts in self.artifact_tree.iter_unused_artifacts(sources):
-            print 'removing artifacts of', src
+    def remove_old_artifacts(self):
+        ua = self.artifact_tree.iter_unused_artifacts(self.referenced_sources)
+        for src, afts in ua:
+            click.echo('Removing artifacts of %s' %
+                click.style(src, fg='cyan'))
             for aft in afts:
                 prune_file_and_folder(aft, self.destination_path)
-                print '  ', aft
             self.source_tree.remove_path(src)
             self.dependency_tree.remove_source(src)
             self.artifact_tree.remove_source(src)
 
-    def remove_artifact(self, filename):
-        print 'remove old artifact', filename
-
     def build_all(self):
-        referenced_sources = set()
+        start = time.time()
+        click.secho('Building from %s' % self.env.root_path, fg='green')
         to_build = [self.pad.root]
         while to_build:
             node = to_build.pop()
             to_build.extend(node.iter_child_records())
-            self.build_record(node, referenced_sources)
+            self.build_record(node)
 
-        self.copy_assets(referenced_sources)
+        self.copy_assets()
 
-        self.remove_old_artifacts(referenced_sources)
-
+        self.remove_old_artifacts()
         self.dependency_tree.add_missing_to_source_tree(self.source_tree)
         self.source_tree.dump()
         self.dependency_tree.dump()
         self.artifact_tree.dump()
+
+        click.secho('Done!', fg='green')
+        click.echo('Total time: %.2f sec' % (time.time() - start))
