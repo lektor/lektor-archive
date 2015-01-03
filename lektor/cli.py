@@ -45,14 +45,18 @@ pass_context = click.make_pass_decorator(Context, ensure=True)
               help='The path to the lektor tree to work with.')
 @pass_context
 def cli(ctx, tree=None):
-    """The lektor application."""
+    """The lektor management application.
+
+    This command can invoke lektor locally and serve up the website.  It's
+    intended for local development of websites.
+    """
     if tree is not None:
         ctx.tree = tree
 
 
 @cli.command('build')
 @click.option('-O', '--output-path', type=click.Path(), default='build',
-              help='The output path')
+              help='The output path.', show_default=True)
 @click.option('--watch', is_flag=True, help='If this is enabled the build '
               'process goes into an automatic loop where it watches the '
               'file system for changes and rebuilds.')
@@ -84,17 +88,27 @@ def build_cmd(ctx, output_path, watch):
             last_build = time.time()
 
 
-@cli.command('devserver')
-@click.option('-h', '--host', default='127.0.0.1')
-@click.option('-p', '--port', default=5000)
+@cli.command('devserver', short_help='Launch a local development server.')
+@click.option('-h', '--host', default='127.0.0.1',
+              help='The network interface to bind to.  The default is the '
+              'loopback device, but by setting it to 0.0.0.0 it becomes '
+              'available on all network interfaces.')
+@click.option('-p', '--port', default=5000, help='The port to bind to.',
+              show_default=True)
 @click.option('-O', '--output-path', type=click.Path(), default='build',
               help='The dev server will build into the same folder as '
-              'the build command by default.')
+              'the build command by default.', show_default=True)
 @pass_context
 def devserver_cmd(ctx, host, port, output_path):
+    """The devserver command will launch a local server for development.
+
+    Lektor's developemnt server will automatically build all files into
+    pages similar to how the build command with the `--watch` switch
+    works, but also at the same time serve up the website on a local
+    HTTP server.
+    """
     from lektor.devserver import run_server
-    run_server((host, port), env=ctx.get_env(),
-               output_path=output_path)
+    run_server((host, port), env=ctx.get_env(), output_path=output_path)
 
 
 main = cli
