@@ -22,18 +22,30 @@ class EventHandler(FileSystemEventHandler):
         self.queue.put((time.time(), event.event_type, event.src_path))
 
 
-def watch(env):
-    """Returns a generator of file system events in the environment."""
-    event_handler = EventHandler(env)
-    observer = Observer()
-    observer.schedule(event_handler, env.root_path, recursive=True)
-    observer.setDaemon(True)
-    observer.start()
-    try:
+class Watcher(object):
+
+    def __init__(self, env):
+        self.env = env
+        self.event_handler = EventHandler(env)
+        self.observer = Observer()
+        self.observer.schedule(self.event_handler, env.root_path,
+                               recursive=True)
+        self.observer.setDaemon(True)
+
+    def __iter__(self):
         while 1:
             try:
-                yield event_handler.queue.get(timeout=1)
+                yield self.event_handler.queue.get(timeout=1)
             except Queue.Empty:
                 pass
+
+
+def watch(env):
+    """Returns a generator of file system events in the environment."""
+    watcher = Watcher(env)
+    watcher.observer.start()
+    try:
+        for event in watcher:
+            yield event
     except KeyboardInterrupt:
-        observer.stop()
+        watcher.observer.stop()

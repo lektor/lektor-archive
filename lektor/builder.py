@@ -1,5 +1,4 @@
 import os
-import time
 import stat
 import errno
 import shutil
@@ -256,6 +255,9 @@ class ArtifactTree(_Tree):
         src = self.abbreviate_filename(source)
         return self.artifacts.pop(src, None) is not None
 
+    def has_artifacts(self, source):
+        return self.abbreviate_filename(source) in self.artifacts
+
     def iter_unused_artifacts(self, sources):
         sources = set(self.abbreviate_filename(x) for x in sources)
         for src, artifacts in self.artifacts.items():
@@ -327,9 +329,17 @@ class Builder(object):
                 shutil.copyfileobj(sf, df)
         oplog.record_artifact(filename)
 
+    def should_build_sourcefile(self, source_filename):
+        return (
+            not self.artifact_tree.has_artifacts(source_filename) or
+            not self.source_tree.is_current(source_filename)
+        )
+
     def should_build_record(self, record):
-        # Direct changes
         for filename in record.iter_dependent_filenames():
+            if not self.artifact_tree.has_artifacts(filename):
+                return True
+
             if not self.source_tree.is_current(filename):
                 return True
 
@@ -407,6 +417,12 @@ class Builder(object):
             self.dependency_tree.remove_source(src)
             self.artifact_tree.remove_source(src)
 
+    def finalize(self):
+        self.dependency_tree.add_missing_to_source_tree(self.source_tree)
+        self.source_tree.dump()
+        self.dependency_tree.dump()
+        self.artifact_tree.dump()
+
     def build_all(self):
         to_build = [self.pad.root]
         while to_build:
@@ -417,7 +433,4 @@ class Builder(object):
         self.copy_assets()
 
         self.remove_old_artifacts()
-        self.dependency_tree.add_missing_to_source_tree(self.source_tree)
-        self.source_tree.dump()
-        self.dependency_tree.dump()
-        self.artifact_tree.dump()
+        self.finalize()

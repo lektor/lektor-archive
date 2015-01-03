@@ -33,7 +33,7 @@ class ThumbnailOperation(Operation):
         return self.url_path
 
     def execute(self, builder, oplog):
-        if builder.source_tree.is_current(self.source_filename):
+        if not builder.should_build_sourcefile(self.source_filename):
             return
 
         dst_filename = builder.get_fs_path(

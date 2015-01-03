@@ -84,4 +84,16 @@ def build_cmd(ctx, output_path, watch):
             last_build = time.time()
 
 
+@cli.command('devserver')
+@click.option('-h', '--host', default='127.0.0.1')
+@click.option('-p', '--port', default=5000)
+@click.option('--cache-path', type=click.Path(), default='.lektor-devcache',
+              help='The output path to use for caching.')
+@pass_context
+def devserver_cmd(ctx, host, port, cache_path):
+    from lektor.devserver import run_server
+    run_server((host, port), env=ctx.get_env(),
+               output_path=cache_path)
+
+
 main = cli
