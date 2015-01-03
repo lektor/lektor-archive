@@ -4,7 +4,7 @@ import errno
 import shutil
 import hashlib
 
-from lektor.utils import atomic_open
+from lektor.utils import atomic_open, prune_file_and_folder
 from lektor.operationlog import OperationLog
 from lektor.db import Page, Attachment
 
@@ -15,9 +15,10 @@ from lektor.db import Page, Attachment
 
 class _Tree(object):
 
-    def __init__(self, env):
+    def __init__(self, env, filename):
         self.env = env
         self.root_path = os.path.abspath(env.root_path)
+        self.filename = filename
 
     def abbreviate_filename(self, filename):
         filename = os.path.join(self.root_path, filename)
@@ -33,8 +34,8 @@ class SourceTree(_Tree):
     the were processed.
     """
 
-    def __init__(self, env=None):
-        _Tree.__init__(self, env)
+    def __init__(self, env, filename):
+        _Tree.__init__(self, env, filename)
         self.paths = {}
         self._newly_added = set()
 
@@ -73,9 +74,9 @@ class SourceTree(_Tree):
         except IOError:
             pass
 
-    def dump(self, filename):
+    def dump(self):
         """Dumps the source tree into a file."""
-        with atomic_open(filename) as f:
+        with atomic_open(self.filename) as f:
             for filename, tup in sorted(self.paths.items()):
                 mtime, size, checksum = tup
                 f.write('%s\n' % u'\t'.join((
@@ -86,8 +87,8 @@ class SourceTree(_Tree):
                 )).encode('utf-8'))
 
     @classmethod
-    def load(cls, filename, root_path=None, create_empty=False):
-        rv = cls(root_path)
+    def load(cls, env, filename, create_empty=False):
+        rv = cls(env, filename)
         try:
             with open(filename, 'rb') as f:
                 for line in f:
@@ -151,13 +152,12 @@ class SourceTree(_Tree):
 
 class DependencyTree(_Tree):
 
-    def __init__(self, env=None):
-        _Tree.__init__(self, env)
+    def __init__(self, env, filename):
+        _Tree.__init__(self, env, filename)
         self.dependencies = {}
 
-    def dump(self, filename):
-        """Dumps the source tree into a file."""
-        with atomic_open(filename) as f:
+    def dump(self):
+        with atomic_open(self.filename) as f:
             for filename, deps in sorted(self.dependencies.items()):
                 for dep in sorted(deps):
                     f.write('%s\n' % u'\t'.join((
@@ -166,8 +166,8 @@ class DependencyTree(_Tree):
                     )).encode('utf-8'))
 
     @classmethod
-    def load(cls, filename, root_path=None, create_empty=False):
-        rv = cls(root_path)
+    def load(cls, env, filename, create_empty=False):
+        rv = cls(env, filename)
         try:
             with open(filename, 'rb') as f:
                 for line in f:
@@ -188,6 +188,15 @@ class DependencyTree(_Tree):
         if src != dep:
             self.dependencies.setdefault(src, set()).add(dep)
 
+    def remove_source(self, source):
+        source = self.abbreviate_filename(source)
+        rv = self.dependencies.pop(source, None) is not None
+        for _, s in self.dependencies.iteritems():
+            if not rv:
+                rv = source in s
+            s.discard(source)
+        return rv
+
     def iter_dependencies(self, source):
         for fn in self.dependencies.get(self.abbreviate_filename(source), ()):
             yield fn
@@ -199,21 +208,71 @@ class DependencyTree(_Tree):
                 st.add_path(dep)
 
 
+class ArtifactTree(_Tree):
+
+    def __init__(self, env, filename):
+        _Tree.__init__(self, env, filename)
+        self.artifacts = {}
+        self.known_artifacts = set()
+
+    def dump(self):
+        with atomic_open(self.filename) as f:
+            for filename, afts in sorted(self.artifacts.items()):
+                for aft in sorted(afts):
+                    f.write('%s\n' % u'\t'.join((
+                        filename,
+                        aft,
+                    )).encode('utf-8'))
+
+    @classmethod
+    def load(cls, env, filename, create_empty=False):
+        rv = cls(env, filename)
+        try:
+            with open(filename, 'rb') as f:
+                for line in f:
+                    line = line.strip().split('\t')
+                    if len(line) != 2:
+                        continue
+                    fn, aft = line
+                    rv.artifacts.setdefault(fn.decode('utf-8'),
+                                            set()).add(aft.decode('utf-8'))
+        except IOError as e:
+            if e.errno != errno.ENOENT or not create_empty:
+                raise
+        return rv
+
+    def add_artifact(self, source, artifact):
+        src = self.abbreviate_filename(source)
+        aft = self.abbreviate_filename(artifact)
+        self.artifacts.setdefault(src, set()).add(aft)
+
+    def remove_source(self, source):
+        src = self.abbreviate_filename(source)
+        return self.artifacts.pop(src, None) is not None
+
+    def iter_unused_artifacts(self, sources):
+        sources = set(self.abbreviate_filename(x) for x in sources)
+        for src, artifacts in self.artifacts.items():
+            if src in sources:
+                continue
+            yield src, artifacts
+
+
 class Builder(object):
 
     def __init__(self, pad, destination_path):
         self.pad = pad
         self.destination_path = destination_path
 
-        self.source_tree_filename = os.path.join(
-            destination_path, '.sources')
-        self.dependency_tree_filename = os.path.join(
-            destination_path, '.dependencies')
-
         self.source_tree = SourceTree.load(
-            self.source_tree_filename, pad.db.env, create_empty=True)
+            pad.db.env,
+            os.path.join(destination_path, '.sources'), create_empty=True)
         self.dependency_tree = DependencyTree.load(
-            self.dependency_tree_filename, pad.db.env, create_empty=True)
+            pad.db.env,
+            os.path.join(destination_path, '.dependencies'), create_empty=True)
+        self.artifact_tree = ArtifactTree.load(
+            pad.db.env,
+            os.path.join(destination_path, '.artifacts'), create_empty=True)
 
     @property
     def env(self):
@@ -244,20 +303,22 @@ class Builder(object):
             rv += 'index.html'
         return rv
 
-    def _build_page(self, page):
+    def _build_page(self, page, oplog):
         dst = self.get_destination_path(page.url_path)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as f:
             tmpl = self.env.get_template(page['_template'])
             f.write(tmpl.render(page=page, root=self.pad.root)
                     .encode('utf-8') + '\n')
+        oplog.record_artifact(filename)
 
-    def _build_attachment(self, attachment):
+    def _build_attachment(self, attachment, oplog):
         dst = self.get_destination_path(attachment.url_path)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as df:
             with open(attachment.attachment_filename) as sf:
                 shutil.copyfileobj(sf, df)
+        oplog.record_artifact(filename)
 
     def should_build_record(self, record):
         # Direct changes
@@ -271,8 +332,10 @@ class Builder(object):
 
         return False
 
-    def build_record(self, record, force=False):
+    def build_record(self, record, referenced_sources, force=False):
         """Writes a record to the destination path."""
+        referenced_sources.update(record.iter_dependent_filenames())
+
         build_program = self.get_build_program(record)
         if not build_program:
             print 'no program', record['_path']
@@ -284,28 +347,33 @@ class Builder(object):
         print 'build', record['_path']
         oplog = OperationLog(self.pad)
         with oplog:
-            build_program(record)
+            build_program(record, oplog)
+
+            for op in oplog.iter_operations():
+                op.execute(self, oplog)
+
             for filename in record.iter_dependent_filenames():
                 self.source_tree.add_path(filename)
                 for dep in oplog.referenced_paths:
                     self.dependency_tree.add_dependency(filename, dep)
+                for aft in oplog.produced_artifacts:
+                    self.artifact_tree.add_artifact(filename, aft)
                 self.source_tree.add_path(filename)
 
-            for op in oplog.iter_operations():
-                op.execute(self)
-
-    def copy_assets(self):
+    def copy_assets(self, referenced_sources):
         asset_path = os.path.join(self.env.root_path, 'assets')
 
         for dirpath, dirnames, filenames in os.walk(asset_path):
             self.env.jinja_env.cache
-            dirnames[:] = [x for x in dirnames if x[:1] != '.']
+            dirnames[:] = [x for x in dirnames if
+                           not self.env.is_uninteresting_filename(x)]
             base = dirpath[len(asset_path) + 1:]
             for filename in filenames:
-                if filename[:1] == '.':
+                if self.env.is_uninteresting_filename(filename):
                     continue
 
                 src_path = os.path.join(asset_path, base, filename)
+                referenced_sources.add(src_path)
                 if self.source_tree.is_current(src_path):
                     continue
 
@@ -320,15 +388,34 @@ class Builder(object):
                     with open(src_path) as sf:
                         shutil.copyfileobj(sf, df)
                 self.source_tree.add_path(src_path)
+                self.artifact_tree.add_artifact(src_path, dst_path)
+
+    def remove_old_artifacts(self, sources):
+        for src, afts in self.artifact_tree.iter_unused_artifacts(sources):
+            print 'removing artifacts of', src
+            for aft in afts:
+                prune_file_and_folder(aft, self.destination_path)
+                print '  ', aft
+            self.source_tree.remove_path(src)
+            self.dependency_tree.remove_source(src)
+            self.artifact_tree.remove_source(src)
+
+    def remove_artifact(self, filename):
+        print 'remove old artifact', filename
 
     def build_all(self):
+        referenced_sources = set()
         to_build = [self.pad.root]
         while to_build:
             node = to_build.pop()
             to_build.extend(node.iter_child_records())
-            self.build_record(node)
-        self.copy_assets()
+            self.build_record(node, referenced_sources)
+
+        self.copy_assets(referenced_sources)
+
+        self.remove_old_artifacts(referenced_sources)
 
         self.dependency_tree.add_missing_to_source_tree(self.source_tree)
-        self.source_tree.dump(self.source_tree_filename)
-        self.dependency_tree.dump(self.dependency_tree_filename)
+        self.source_tree.dump()
+        self.dependency_tree.dump()
+        self.artifact_tree.dump()

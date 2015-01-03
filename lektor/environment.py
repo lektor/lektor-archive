@@ -3,6 +3,7 @@ import os
 import jinja2
 
 from lektor.operationlog import get_oplog
+from lektor.db import R
 
 
 DEFAULT_CONFIG = {
@@ -58,6 +59,8 @@ class Environment(object):
             loader=jinja2.FileSystemLoader(
                 os.path.join(self.root_path, 'templates'))
         )
+
+        self.jinja_env.globals['R'] = R
 
     def is_uninteresting_filename(self, filename):
         # XXX: add more stuff here?

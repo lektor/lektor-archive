@@ -13,6 +13,7 @@ def get_suffix(width, height):
 def make_thumbnail(oplog, source_image, source_url_path, width, height=None):
     suffix = get_suffix(width, height)
     dst_url_path = get_dependent_url(source_url_path, suffix)
+
     op = ThumbnailOperation(dst_url_path, source_image, width, height)
     oplog.record_operation(op)
     oplog.record_path_usage(op.source_filename)
@@ -31,12 +32,13 @@ class ThumbnailOperation(Operation):
     def get_unique_key(self):
         return self.url_path
 
-    def execute(self, builder):
+    def execute(self, builder, oplog):
         if builder.source_tree.is_current(self.source_filename):
             return
 
         dst_filename = builder.get_fs_path(
             builder.get_destination_path(self.url_path), make_folder=True)
+        oplog.record_artifact(dst_filename)
 
         resize_key = str(self.width)
         if self.height is not None:

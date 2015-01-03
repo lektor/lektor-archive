@@ -35,6 +35,7 @@ class OperationLog(object):
         self.pad = pad
         self.referenced_paths = set()
         self.referenced_folders = set()
+        self.produced_artifacts = set()
         self.operations = {}
 
     def record_path_usage(self, filename):
@@ -43,6 +44,9 @@ class OperationLog(object):
     def record_operation(self, operation):
         key = operation.__class__, operation.get_unique_key()
         self.operations[key] = operation
+
+    def record_artifact(self, filename):
+        self.produced_artifacts.add(filename)
 
     def iter_operations(self):
         return self.operations.itervalues()
