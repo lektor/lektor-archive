@@ -93,10 +93,8 @@ class SourceTree(_Tree):
         except IOError:
             pass
 
-    def get_checksum(self, filename, current=False):
+    def get_checksum(self, filename):
         """Returns the checksum for a file."""
-        if current:
-            return self._get_path_checksum(filename)
         abbr_filename = self.abbreviate_filename(filename)
         tup = self.paths.get(abbr_filename)
         if tup is None:
@@ -416,7 +414,7 @@ class Builder(object):
                     self.dependency_tree.clean_dependencies(filename)
                     checksum = self.source_tree.add_path(filename)
                     for dep in oplog.referenced_paths:
-                        cs = self.source_tree.get_checksum(dep, current=True)
+                        cs = self.source_tree.add_path(dep)
                         self.dependency_tree.add_dependency(filename, dep, cs)
                     for aft in oplog.produced_artifacts:
                         self.artifact_tree.add_artifact(filename, aft, checksum)
