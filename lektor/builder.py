@@ -75,6 +75,15 @@ class SourceTree(_Tree):
         except IOError:
             pass
 
+    def get_checksum(self, filename):
+        """Returns the checksum for a file."""
+        abbr_filename = self.abbreviate_filename(filename)
+        tup = self.paths.get(abbr_filename)
+        if tup is None:
+            return self.add_path(filename)
+        mtime, size, checksum = tup
+        return checksum
+
     def dump(self):
         """Dumps the source tree into a file."""
         with atomic_open(self.filename) as f:
@@ -111,15 +120,14 @@ class SourceTree(_Tree):
         """Adds a path to the source tree."""
         tup = self._get_path_meta(filename)
         if tup is None:
-            return False
+            return None
         checksum = self._get_path_checksum(filename)
         if checksum is None:
-            return False
+            return None
         filename = self.abbreviate_filename(filename)
-        if filename in self._newly_added:
-            return True
-        self.paths[filename] = tup + (checksum,)
-        return True
+        if filename not in self._newly_added:
+            self.paths[filename] = tup + (checksum,)
+        return checksum
 
     def remove_path(self, filename):
         """Removes a path from the source tree again."""
@@ -127,7 +135,7 @@ class SourceTree(_Tree):
         tup = self.paths.pop(filename, None)
         return tup is not None
 
-    def is_current(self, filename):
+    def is_current(self, filename, reference_checksum=None):
         """Checks if a filename is current compared to the information in the
         source tree.
         """
@@ -137,6 +145,10 @@ class SourceTree(_Tree):
             return False
 
         mtime, size, checksum = tup
+        if reference_checksum is not None and \
+           checksum != reference_checksum:
+            return False
+
         if self._get_path_meta(filename) != (mtime, size):
             if checksum != self._get_path_checksum(filename):
                 return False
@@ -160,10 +172,11 @@ class DependencyTree(_Tree):
     def dump(self):
         with atomic_open(self.filename) as f:
             for filename, deps in sorted(self.dependencies.items()):
-                for dep in sorted(deps):
+                for dep, cs in sorted(deps.items()):
                     f.write('%s\n' % u'\t'.join((
                         filename,
                         dep,
+                        cs,
                     )).encode('utf-8'))
 
     @classmethod
@@ -173,21 +186,21 @@ class DependencyTree(_Tree):
             with open(filename, 'rb') as f:
                 for line in f:
                     line = line.strip().split('\t')
-                    if len(line) != 2:
+                    if len(line) != 3:
                         continue
-                    fn, dep = line
+                    fn, dep, cs = line
                     rv.dependencies.setdefault(fn.decode('utf-8'),
-                                               set()).add(dep.decode('utf-8'))
+                                               {})[dep.decode('utf-8')] = cs
         except IOError as e:
             if e.errno != errno.ENOENT or not create_empty:
                 raise
         return rv
 
-    def add_dependency(self, source, dependency):
+    def add_dependency(self, source, dependency, cs):
         src = self.abbreviate_filename(source)
         dep = self.abbreviate_filename(dependency)
         if src != dep:
-            self.dependencies.setdefault(src, set()).add(dep)
+            self.dependencies.setdefault(src, {})[dep] = cs
 
     def clean_dependencies(self, source):
         source = self.abbreviate_filename(source)
@@ -199,12 +212,12 @@ class DependencyTree(_Tree):
         for _, s in self.dependencies.iteritems():
             if not rv:
                 rv = source in s
-            s.discard(source)
+            s.pop(source, None)
         return rv
 
     def iter_dependencies(self, source):
-        for fn in self.dependencies.get(self.abbreviate_filename(source), ()):
-            yield fn
+        return self.dependencies.get(
+            self.abbreviate_filename(source), {}).iteritems()
 
     def add_missing_to_source_tree(self, st):
         for filename, deps in self.dependencies.iteritems():
@@ -218,15 +231,17 @@ class ArtifactTree(_Tree):
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
         self.artifacts = {}
+        self.checksums = {}
         self.known_artifacts = set()
 
     def dump(self):
         with atomic_open(self.filename) as f:
             for filename, afts in sorted(self.artifacts.items()):
-                for aft in sorted(afts):
+                for aft, checksum in sorted(afts.items()):
                     f.write('%s\n' % u'\t'.join((
                         filename,
                         aft,
+                        checksum,
                     )).encode('utf-8'))
 
     @classmethod
@@ -236,34 +251,40 @@ class ArtifactTree(_Tree):
             with open(filename, 'rb') as f:
                 for line in f:
                     line = line.strip().split('\t')
-                    if len(line) != 2:
+                    if len(line) != 3:
                         continue
-                    fn, aft = line
-                    rv.artifacts.setdefault(fn.decode('utf-8'),
-                                            set()).add(aft.decode('utf-8'))
+                    fn, aft, cs = line
+                    rv.artifacts.setdefault(
+                        fn.decode('utf-8'), {})[aft.decode('utf-8')] = cs
         except IOError as e:
             if e.errno != errno.ENOENT or not create_empty:
                 raise
         return rv
 
-    def add_artifact(self, source, artifact):
+    def add_artifact(self, source, artifact, checksum):
         src = self.abbreviate_filename(source)
         aft = self.abbreviate_filename(artifact)
-        self.artifacts.setdefault(src, set()).add(aft)
+        self.artifacts.setdefault(src, {})[aft] = checksum
 
     def remove_source(self, source):
         src = self.abbreviate_filename(source)
         return self.artifacts.pop(src, None) is not None
 
-    def has_artifacts(self, source):
-        return self.abbreviate_filename(source) in self.artifacts
+    def artifacts_are_recent(self, source, checksum):
+        afts = self.artifacts.get(self.abbreviate_filename(source))
+        if not afts:
+            return False
+        for _, cs in (afts or {}).iteritems():
+            if cs != checksum:
+                return False
+        return True
 
     def iter_unused_artifacts(self, sources):
         sources = set(self.abbreviate_filename(x) for x in sources)
         for src, artifacts in self.artifacts.items():
             if src in sources:
                 continue
-            yield src, artifacts
+            yield src, artifacts.keys()
 
 
 class Builder(object):
@@ -330,53 +351,64 @@ class Builder(object):
         oplog.record_artifact(filename)
 
     def should_build_sourcefile(self, source_filename):
-        return (
-            not self.artifact_tree.has_artifacts(source_filename) or
-            not self.source_tree.is_current(source_filename)
-        )
+        if not self.source_tree.is_current(source_filename):
+            return True
+        cs = self.source_tree.get_checksum(source_filename)
+        if not self.artifact_tree.artifacts_are_recent(source_filename, cs):
+            return True
+        return False
 
-    def should_build_record(self, record):
+    def _should_build_record(self, record):
         for filename in record.iter_dependent_filenames():
-            if not self.artifact_tree.has_artifacts(filename):
+            if self.should_build_sourcefile(filename):
                 return True
 
-            if not self.source_tree.is_current(filename):
-                return True
-
-            for dependency in self.dependency_tree.iter_dependencies(filename):
-                if not self.source_tree.is_current(dependency):
+            for dependency, cs in self.dependency_tree.iter_dependencies(filename):
+                if not self.source_tree.is_current(dependency, cs):
                     return True
 
         return False
 
-    def build_record(self, record, force=False):
-        """Writes a record to the destination path."""
+    def build_record_twophase(self, record, force=False):
         self.referenced_sources.update(record.iter_dependent_filenames())
 
         build_program = self.get_build_program(record)
         if not build_program:
+            return
+
+        if not force and not self._should_build_record(record):
+            return
+
+        def build_func():
+            click.echo('Record %s' % click.style(record['_path'], fg='cyan'))
+            oplog = OperationLog(self.pad)
+            with oplog:
+                build_program(record, oplog)
+
+                oplog.execute_pending_operations(self)
+
+                for filename in record.iter_dependent_filenames():
+                    self.dependency_tree.clean_dependencies(filename)
+                    checksum = self.source_tree.add_path(filename)
+                    for dep in oplog.referenced_paths:
+                        cs = self.source_tree.get_checksum(dep)
+                        self.dependency_tree.add_dependency(filename, dep, cs)
+                    for aft in oplog.produced_artifacts:
+                        self.artifact_tree.add_artifact(filename, aft, checksum)
+                    self.source_tree.add_path(filename)
+
+        return build_func
+
+    def build_record(self, record, force=False):
+        """Writes a record to the destination path."""
+        build_func = self.build_record_twophase(record, force)
+        if build_func is None:
             return False
-
-        if not force and not self.should_build_record(record):
-            return False
-
-        click.echo('Record %s' % click.style(record['_path'], fg='cyan'))
-        oplog = OperationLog(self.pad)
-        with oplog:
-            build_program(record, oplog)
-
-            oplog.execute_pending_operations(self)
-
-            for filename in record.iter_dependent_filenames():
-                self.dependency_tree.clean_dependencies(filename)
-                self.source_tree.add_path(filename)
-                for dep in oplog.referenced_paths:
-                    self.dependency_tree.add_dependency(filename, dep)
-                for aft in oplog.produced_artifacts:
-                    self.artifact_tree.add_artifact(filename, aft)
-                self.source_tree.add_path(filename)
-
+        build_func()
         return True
+
+    def need_to_build_record(self, record):
+        return self.build_record_twophase(record) is not None
 
     def copy_assets(self):
         asset_path = self.env.asset_path
@@ -404,8 +436,8 @@ class Builder(object):
                 with atomic_open(dst_path) as df:
                     with open(src_path) as sf:
                         shutil.copyfileobj(sf, df)
-                self.source_tree.add_path(src_path)
-                self.artifact_tree.add_artifact(src_path, dst_path)
+                checksum = self.source_tree.add_path(src_path)
+                self.artifact_tree.add_artifact(src_path, dst_path, checksum)
 
     def remove_old_artifacts(self):
         ua = self.artifact_tree.iter_unused_artifacts(self.referenced_sources)
@@ -429,11 +461,13 @@ class Builder(object):
         while to_build:
             node = to_build.pop()
             to_build.extend(node.iter_child_records())
-            yield node, self.build_record(node)
+            build_func = self.build_record_twophase(node)
+            yield node, build_func
 
     def build_all(self):
-        for _ in self.iter_build_all():
-            pass
+        for node, build_func in self.iter_build_all():
+            if build_func is not None:
+                build_func()
         self.copy_assets()
         self.remove_old_artifacts()
         self.finalize()

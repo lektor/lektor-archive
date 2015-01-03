@@ -1,5 +1,4 @@
 import os
-import time
 import mimetypes
 import posixpath
 import threading
@@ -78,6 +77,8 @@ class WsgiApp(object):
         self.env = env
         self.output_path = output_path
         self.background_builder = background_builder
+
+        # Chached a bit for speed
         self._pad = None
 
     def get_pad(self):
@@ -97,17 +98,23 @@ class WsgiApp(object):
         record = pad.resolve_url_path(request.path)
         if record is None:
             return self.try_serve_asset(request, pad, record)
-        return self.serve_record(request, pad, record)
 
-    def serve_record(self, request, pad, record):
-        builder = Builder(pad, self.output_path)
-        if builder.build_record(record):
+        builder = self.background_builder.get_builder()
+
+        # First we check if we need to build it.  Only if we need, we
+        # actually acquire the builder in exclusive mode.  We also need
+        # to match the record here a second time because of concurrency
+        # problems.
+        if builder.need_to_build_record(record):
             try:
-                self.background_builder.pause_for_build()
-                builder.finalize()
+                builder = self.background_builder.acquire_builder()
+                record = builder.pad.resolve_url_path(request.path)
+                if record is not None:
+                    builder.build_record(record)
                 self.refresh_pad()
             finally:
-                self.background_builder.unpause()
+                self.background_builder.release_builder(commit=True)
+
         return send_file(request, builder.get_fs_path(
             builder.get_destination_path(record.url_path)))
 
@@ -128,6 +135,10 @@ class WsgiApp(object):
         return response(environ, start_response)
 
 
+class BuilderGone(Exception):
+    pass
+
+
 class BackgroundBuilder(threading.Thread):
 
     def __init__(self, env, watcher, output_path):
@@ -135,43 +146,74 @@ class BackgroundBuilder(threading.Thread):
         self.env = env
         self.watcher = watcher
         self.output_path = output_path
-        self.wait_mutex = threading.Lock()
-        self.last_build = 0
-        self.should_refresh = False
 
-    def pause_for_build(self):
-        self.wait_mutex.acquire()
-        self.should_refresh = True
+        self._builder = None
+        self._builder_mutex = threading.Lock()
+        self._exclusive_mutex = threading.Lock()
 
-    def unpause(self):
-        self.wait_mutex.release()
+    def get_builder(self):
+        """Returns the builder.  Note that the builder is not in an exclusive
+        mode when returned from here.
+        """
+        rv = self._builder
+        if rv is not None:
+            return rv
+        with self._builder_mutex:
+            rv = self._builder
+            if rv is not None:
+                return rv
+            db = Database(self.env)
+            pad = db.new_pad()
+            rv = Builder(pad, self.output_path)
+            self._builder = rv
+            return rv
+
+    def acquire_builder(self):
+        self._exclusive_mutex.acquire()
+        return self.get_builder()
+
+    def release_builder(self, commit=False):
+        self._exclusive_mutex.release()
+        if commit:
+            self.commit()
+            return False
+        return True
+
+    def commit(self):
+        builder = self.acquire_builder()
+        try:
+            builder.finalize()
+            self._builder = None
+        finally:
+            self.release_builder()
+        return False
 
     def build(self):
-        db = Database(self.env)
-        pad = db.new_pad()
         while 1:
-            builder = Builder(pad, self.output_path)
-            for node, has_built in builder.iter_build_all():
-                self.wait_mutex.acquire()
-                try:
-                    if self.should_refresh:
-                        self.should_refresh = False
-                        break
-                    if has_built:
-                        builder.finalize()
-                finally:
-                    self.wait_mutex.release()
-            else:
-                self.last_build = time.time()
-                break
+            try:
+                self.build_iteration()
+            except BuilderGone:
+                continue
+            self.commit()
+
+    def build_iteration(self):
+        builder = self.get_builder()
+        for node, build_func in builder.iter_build_all():
+            if build_func is None:
+                continue
+            builder_gone = False
+            builder = self.acquire_builder()
+            try:
+                build_func()
+            finally:
+                builder_gone = not self.release_builder()
+            if builder_gone:
+                raise BuilderGone()
 
     def run(self):
         self.build()
-        for ts, _, _ in self.watcher:
-            if ts < self.last_build:
-                continue
-            else:
-                self.build()
+        for _ in self.watcher:
+            self.build()
 
 
 def run_server(bindaddr, env, output_path):
