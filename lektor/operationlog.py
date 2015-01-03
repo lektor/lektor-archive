@@ -2,6 +2,8 @@ import posixpath
 
 from threading import local
 
+from lektor.utils import WorkerPool, safe_call
+
 
 _log_local = local()
 
@@ -29,6 +31,14 @@ class Operation(object):
         pass
 
 
+class Result(object):
+
+    def __init__(self, dst_filename, produce_func, concurrent=False):
+        self.dst_filename = dst_filename
+        self.produce_func = produce_func
+        self.concurrent = concurrent
+
+
 class OperationLog(object):
 
     def __init__(self, pad):
@@ -50,6 +60,25 @@ class OperationLog(object):
 
     def iter_operations(self):
         return self.operations.itervalues()
+
+    def execute_pending_operations(self, builder):
+        concurrent_ops = []
+        for op in self.iter_operations():
+            for result in op.execute(builder, self) or ():
+                self.record_artifact(result.dst_filename)
+                if result.concurrent:
+                    concurrent_ops.append(result.produce_func)
+                else:
+                    safe_call(result.produce_func)
+
+        if concurrent_ops:
+            if len(concurrent_ops) > 1:
+                pool = WorkerPool()
+                for op in concurrent_ops:
+                    pool.add_task(op)
+                pool.wait_for_completion()
+            else:
+                safe_call(concurrent_ops[0])
 
     def push(self):
         _log_local.__dict__.setdefault('stack', []).append(self)

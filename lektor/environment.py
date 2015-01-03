@@ -62,6 +62,10 @@ class Environment(object):
 
         self.jinja_env.globals['R'] = R
 
+    @property
+    def asset_path(self):
+        return os.path.join(self.root_path, 'assets')
+
     def is_uninteresting_filename(self, filename):
         # XXX: add more stuff here?
         return filename[:1] in '._' or (

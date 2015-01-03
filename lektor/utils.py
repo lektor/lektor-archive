@@ -1,6 +1,10 @@
 import os
 import sys
 import tempfile
+import traceback
+import multiprocessing
+from Queue import Queue
+from threading import Thread
 
 from urlparse import urlparse
 
@@ -8,6 +12,45 @@ from contextlib import contextmanager
 
 
 is_windows = sys.platform.startswith('win')
+
+
+def safe_call(func, args=None, kwargs=None):
+    try:
+        return func(*(args or ()), **(kwargs or {}))
+    except Exception:
+        # XXX: logging
+        traceback.print_exc()
+
+
+class Worker(Thread):
+
+    def __init__(self, tasks):
+        Thread.__init__(self)
+        self.tasks = tasks
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        while 1:
+            func, args, kwargs = self.tasks.get()
+            safe_call(func, args, kwargs)
+            self.tasks.task_done()
+
+
+class WorkerPool(object):
+
+    def __init__(self, num_threads=None):
+        if num_threads is None:
+            num_threads = multiprocessing.cpu_count()
+        self.tasks = Queue(num_threads)
+        for _ in range(num_threads):
+            Worker(self.tasks)
+
+    def add_task(self, func, *args, **kargs):
+        self.tasks.put((func, args, kargs))
+
+    def wait_for_completion(self):
+        self.tasks.join()
 
 
 def slugify(value):

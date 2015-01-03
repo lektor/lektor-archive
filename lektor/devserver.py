@@ -92,8 +92,8 @@ class WsgiApp(object):
 
     def try_serve_asset(self, request, pad, record):
         try:
-            return send_file(request, safe_join(os.path.join(
-                self.env.root_path, 'assets'), request.path.strip('/')))
+            return send_file(request, safe_join(
+                self.env.asset_path, request.path.strip('/')))
         except NotFound:
             return send_file(request, safe_join(self.output_path,
                 request.path.strip('/')))

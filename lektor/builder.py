@@ -365,8 +365,7 @@ class Builder(object):
         with oplog:
             build_program(record, oplog)
 
-            for op in oplog.iter_operations():
-                op.execute(self, oplog)
+            oplog.execute_pending_operations(self)
 
             for filename in record.iter_dependent_filenames():
                 self.dependency_tree.clean_dependencies(filename)
@@ -378,7 +377,7 @@ class Builder(object):
                 self.source_tree.add_path(filename)
 
     def copy_assets(self):
-        asset_path = os.path.join(self.env.root_path, 'assets')
+        asset_path = self.env.asset_path
 
         for dirpath, dirnames, filenames in os.walk(asset_path):
             self.env.jinja_env.cache

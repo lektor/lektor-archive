@@ -1,6 +1,6 @@
 import subprocess
 
-from lektor.operationlog import Operation, get_dependent_url
+from lektor.operationlog import Operation, Result, get_dependent_url
 
 
 def get_suffix(width, height):
@@ -38,14 +38,17 @@ class ThumbnailOperation(Operation):
 
         dst_filename = builder.get_fs_path(
             builder.get_destination_path(self.url_path), make_folder=True)
-        oplog.record_artifact(dst_filename)
 
-        resize_key = str(self.width)
-        if self.height is not None:
-            resize_key += 'x' + str(self.height)
-        subprocess.Popen(['convert', self.source_filename,
-                          '-resize', resize_key,
-                          dst_filename]).wait()
+        def producer():
+            resize_key = str(self.width)
+            if self.height is not None:
+                resize_key += 'x' + str(self.height)
+            subprocess.Popen(['convert', self.source_filename,
+                              '-resize', resize_key,
+                              dst_filename]).wait()
+
+        oplog.record_artifact(dst_filename)
+        yield Result(dst_filename, producer, concurrent=True)
 
 
 class Thumbnail(object):
