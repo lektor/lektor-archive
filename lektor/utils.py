@@ -7,6 +7,9 @@ from urlparse import urlparse
 from contextlib import contextmanager
 
 
+is_windows = sys.platform.startswith('win')
+
+
 def slugify(value):
     # XXX: not good enough
     return u'-'.join(value.strip().split()).lower()
@@ -14,6 +17,11 @@ def slugify(value):
 
 @contextmanager
 def atomic_open(filename, mode='wb'):
+    # Does not work on windows
+    if is_windows:
+        yield open(filename, mode)
+        return
+
     fd, tmp_filename = tempfile.mkstemp(
         dir=os.path.dirname(filename), prefix='.__atomic-write')
     try:
