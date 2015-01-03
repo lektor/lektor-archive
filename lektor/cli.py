@@ -68,14 +68,21 @@ def buildwatch_cmd(ctx, output_path):
     """This runs the builder whenever files change."""
     from lektor.builder import Builder
     from lektor.watcher import watch
-    builder = Builder(ctx.get_pad(), output_path)
+
+    env = ctx.get_env()
     click.secho('Building in real-time from %s' %
-                builder.env.root_path, fg='green')
-    builder.build_all()
+                env.root_path, fg='green')
+
+    def _build():
+        builder = Builder(ctx.get_pad(), output_path)
+        builder.build_all()
+        builder.build_all()
+
+    _build()
     last_build = time.time()
-    for ts, _, _ in watch(builder.env):
+    for ts, _, _ in watch(env):
         if ts > last_build:
-            builder.build_all()
+            _build()
             last_build = time.time()
 
 
