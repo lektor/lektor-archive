@@ -231,7 +231,6 @@ class ArtifactTree(_Tree):
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
         self.artifacts = {}
-        self.checksums = {}
         self.known_artifacts = set()
 
     def dump(self):
