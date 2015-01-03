@@ -74,10 +74,19 @@ class WsgiApp(object):
     def __init__(self, env, output_path):
         self.env = env
         self.output_path = output_path
+        self._pad = None
 
-    def handle_request(self, request):
+    def get_pad(self):
+        rv = self._pad
+        if rv is not None:
+            return rv
         db = Database(self.env)
         pad = db.new_pad()
+        self._pad = pad
+        return pad
+
+    def handle_request(self, request):
+        pad = self.get_pad()
         record = pad.resolve_url_path(request.path)
         if record is None:
             return self.try_serve_asset(request, pad, record)
@@ -85,10 +94,11 @@ class WsgiApp(object):
 
     def serve_record(self, request, pad, record):
         builder = Builder(pad, self.output_path)
-        builder.build_record(record)
-        builder.finalize()
-        fn = builder.get_fs_path(builder.get_destination_path(record.url_path))
-        return send_file(request, fn)
+        if builder.build_record(record):
+            builder.finalize()
+            self._pad = None
+        return send_file(request, builder.get_fs_path(
+            builder.get_destination_path(record.url_path)))
 
     def try_serve_asset(self, request, pad, record):
         try:

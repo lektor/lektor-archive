@@ -355,10 +355,10 @@ class Builder(object):
 
         build_program = self.get_build_program(record)
         if not build_program:
-            return
+            return False
 
         if not force and not self.should_build_record(record):
-            return
+            return False
 
         click.echo('Record %s' % click.style(record['_path'], fg='cyan'))
         oplog = OperationLog(self.pad)
@@ -375,6 +375,8 @@ class Builder(object):
                 for aft in oplog.produced_artifacts:
                     self.artifact_tree.add_artifact(filename, aft)
                 self.source_tree.add_path(filename)
+
+        return True
 
     def copy_assets(self):
         asset_path = self.env.asset_path
