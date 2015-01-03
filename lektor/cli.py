@@ -7,6 +7,7 @@ class Context(object):
 
     def __init__(self):
         self.tree = None
+        self._env = None
 
     def get_tree(self):
         if self.tree is not None:
@@ -23,10 +24,14 @@ class Context(object):
         raise click.UsageError('Could not find tree')
 
     def get_env(self):
+        if self._env is not None:
+            return self._env
         from lektor.environment import Environment
-        return Environment(self.get_tree())
+        env = Environment(self.get_tree())
+        self._env = env
+        return env
 
-    def get_pad(self):
+    def new_pad(self):
         from lektor.db import Database
         env = self.get_env()
         return Database(env).new_pad()
@@ -48,37 +53,30 @@ def cli(ctx, tree=None):
 @cli.command('build')
 @click.option('-O', '--output-path', type=click.Path(), default='build',
               help='The output path')
+@click.option('--watch', is_flag=True, help='If this is enabled the build '
+              'process goes into an automatic loop where it watches the '
+              'file system for changes and rebuilds.')
 @pass_context
-def build_cmd(ctx, output_path):
+def build_cmd(ctx, output_path, watch):
     """Builds the entire site out."""
     from lektor.builder import Builder
-    builder = Builder(ctx.get_pad(), output_path)
-    start = time.time()
-    click.secho('Building from %s' % builder.env.root_path, fg='green')
-    builder.build_all()
-    click.secho('Done!', fg='green')
-    click.echo('Total time: %.2f sec' % (time.time() - start))
-
-
-@cli.command('buildwatch')
-@click.option('-O', '--output-path', type=click.Path(), default='build',
-              help='The output path')
-@pass_context
-def buildwatch_cmd(ctx, output_path):
-    """This runs the builder whenever files change."""
-    from lektor.builder import Builder
-    from lektor.watcher import watch
 
     env = ctx.get_env()
-    click.secho('Building in real-time from %s' %
-                env.root_path, fg='green')
+    click.secho('Building from %s' % env.root_path, fg='green')
 
     def _build():
-        builder = Builder(ctx.get_pad(), output_path)
+        builder = Builder(ctx.new_pad(), output_path)
+        start = time.time()
         builder.build_all()
-        builder.build_all()
+        click.echo('Built in %.2f sec' % (time.time() - start))
 
     _build()
+    if not watch:
+        click.secho('Done!', fg='green')
+        return
+
+    from lektor.watcher import watch
+    click.secho('Watching for file system changes', fg='cyan')
     last_build = time.time()
     for ts, _, _ in watch(env):
         if ts > last_build:
