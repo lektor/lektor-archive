@@ -15,6 +15,7 @@ setup(
     install_requires=[
         'Jinja2>=2.4',
         'click>=2.0',
+        'watchdog',
         # XXX: python-inifile
     ],
     classifiers=[
