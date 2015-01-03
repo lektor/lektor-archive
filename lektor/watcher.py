@@ -22,7 +22,7 @@ class EventHandler(FileSystemEventHandler):
         self.queue.put((time.time(), event.event_type, event.src_path))
 
 
-def observe(env):
+def watch(env):
     """Returns a generator of file system events in the environment."""
     event_handler = EventHandler(env)
     observer = Observer()

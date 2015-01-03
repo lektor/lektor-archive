@@ -1,4 +1,5 @@
 import os
+import time
 import click
 
 
@@ -52,12 +53,30 @@ def build_cmd(ctx, output_path):
     """Builds the entire site out."""
     from lektor.builder import Builder
     builder = Builder(ctx.get_pad(), output_path)
+    start = time.time()
+    click.secho('Building from %s' % builder.env.root_path, fg='green')
     builder.build_all()
+    click.secho('Done!', fg='green')
+    click.echo('Total time: %.2f sec' % (time.time() - start))
 
 
-@cli.command('develop')
-def develop_cmd():
-    """Runs a development server that automatically builds."""
+@cli.command('buildwatch')
+@click.option('-O', '--output-path', type=click.Path(), default='build',
+              help='The output path')
+@pass_context
+def buildwatch_cmd(ctx, output_path):
+    """This runs the builder whenever files change."""
+    from lektor.builder import Builder
+    from lektor.watcher import watch
+    builder = Builder(ctx.get_pad(), output_path)
+    click.secho('Building in real-time from %s' %
+                builder.env.root_path, fg='green')
+    builder.build_all()
+    last_build = time.time()
+    for ts, _, _ in watch(builder.env):
+        if ts > last_build:
+            builder.build_all()
+            last_build = time.time()
 
 
 main = cli

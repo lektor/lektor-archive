@@ -408,8 +408,6 @@ class Builder(object):
             self.artifact_tree.remove_source(src)
 
     def build_all(self):
-        start = time.time()
-        click.secho('Building from %s' % self.env.root_path, fg='green')
         to_build = [self.pad.root]
         while to_build:
             node = to_build.pop()
@@ -423,6 +421,3 @@ class Builder(object):
         self.source_tree.dump()
         self.dependency_tree.dump()
         self.artifact_tree.dump()
-
-        click.secho('Done!', fg='green')
-        click.echo('Total time: %.2f sec' % (time.time() - start))
