@@ -7,6 +7,7 @@ from lektor.db import R
 
 
 DEFAULT_CONFIG = {
+    'IMAGEMAGICK_PATH': None,
     'EPHEMERAL_RECORD_CACHE_SIZE': 500,
     'ATTACHMENT_TYPES': {
         '.jpg': 'image',
