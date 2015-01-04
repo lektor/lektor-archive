@@ -24,8 +24,7 @@ class Context(object):
         raise click.UsageError('Could not find tree')
 
     def get_default_output_path(self):
-        tree = self.get_tree()
-        return os.path.join(os.path.dirname(tree), 'build')
+        return os.path.join(self.get_tree(), 'build')
 
     def get_env(self):
         if self._env is not None:

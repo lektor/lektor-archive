@@ -276,8 +276,9 @@ class ArtifactTree(_Tree):
         );
     '''
 
-    def __init__(self, env, filename):
+    def __init__(self, env, filename, destination_path):
         _Tree.__init__(self, env, filename)
+        self.destination_path = os.path.abspath(destination_path)
         self._artifacts = {}
         self._changes = set()
 
@@ -287,6 +288,15 @@ class ArtifactTree(_Tree):
         for (fn, aft, cs) in rv:
             self._artifacts.setdefault(fn, {})[aft] = cs
         con.close()
+
+    def abbreviate_destination_filename(self, filename):
+        filename = os.path.join(self.destination_path, filename)
+        if self.destination_path is not None \
+           and filename.startswith(self.destination_path):
+            filename = filename[len(self.destination_path):].lstrip(os.path.sep)
+            if os.path.altsep:
+                filename = filename.lstrip(os.path.altsep)
+        return filename
 
     def commit(self):
         con = self.get_connection()
@@ -313,7 +323,7 @@ class ArtifactTree(_Tree):
 
     def add_artifact(self, source, artifact, checksum):
         src = self.abbreviate_filename(source)
-        aft = self.abbreviate_filename(artifact)
+        aft = self.abbreviate_destination_filename(artifact)
         self._artifacts.setdefault(src, {})[aft] = checksum
         self._changes.add(src)
 
@@ -379,7 +389,7 @@ class Builder(object):
 
     def __init__(self, pad, destination_path):
         self.pad = pad
-        self.destination_path = destination_path
+        self.destination_path = os.path.abspath(destination_path)
 
         self.referenced_sources = set()
 
@@ -391,7 +401,7 @@ class Builder(object):
         db_fn = os.path.abspath(os.path.join(destination_path, '.buildstate'))
         self.source_tree = SourceTree(pad.db.env, db_fn)
         self.dependency_tree = DependencyTree(pad.db.env, db_fn)
-        self.artifact_tree = ArtifactTree(pad.db.env, db_fn)
+        self.artifact_tree = ArtifactTree(pad.db.env, db_fn, destination_path)
 
     @property
     def env(self):
