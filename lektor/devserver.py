@@ -182,7 +182,7 @@ class BackgroundBuilder(threading.Thread):
     def commit(self):
         builder = self.acquire_builder()
         try:
-            builder.finalize()
+            builder.commit()
             self._builder = None
         finally:
             self.release_builder()

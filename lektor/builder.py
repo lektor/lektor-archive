@@ -10,6 +10,9 @@ from lektor.operationlog import OperationLog
 from lektor.db import Page, Attachment
 
 
+_missing = object()
+
+
 class _Tree(object):
 
     def __init__(self, env, filename):
@@ -49,14 +52,8 @@ class SourceTree(_Tree):
 
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
-        self.paths = {}
+        self._paths = {}
         self._changed = set()
-
-        con = self.get_connection()
-        rv = con.execute('select filename, mtime, size, checksum from sources')
-        for (filename, mtime, size, checksum) in rv:
-            self.paths[filename] = (mtime, size, checksum)
-        con.close()
 
     def _get_path_meta(self, filename):
         p = os.path.join(self.root_path, filename)
@@ -96,7 +93,7 @@ class SourceTree(_Tree):
     def get_checksum(self, filename):
         """Returns the checksum for a file."""
         abbr_filename = self.abbreviate_filename(filename)
-        tup = self.paths.get(abbr_filename)
+        tup = self.get_path_info(abbr_filename)
         if tup is None:
             return self._get_path_checksum(filename)
         mtime, size, checksum = tup
@@ -111,14 +108,32 @@ class SourceTree(_Tree):
         if checksum is None:
             return None
         filename = self.abbreviate_filename(filename)
-        self.paths[filename] = tup + (checksum,)
+        self._paths[filename] = tup + (checksum,)
         self._changed.add(filename)
         return checksum
+
+    def get_path_info(self, filename):
+        filename = self.abbreviate_filename(filename)
+        rv = self._paths.get(filename, _missing)
+        if rv is not _missing:
+            return rv
+
+        con = self.get_connection()
+        rv = con.execute('''
+            select filename, mtime, size, checksum from sources
+             where filename = ?
+        ''', (filename,)).fetchone()
+        con.close()
+
+        if rv is not None:
+            filename, mtime, size, checksum = rv
+            self._paths[filename] = rv = (mtime, size, checksum)
+        return rv
 
     def remove_path(self, filename):
         """Removes a path from the source tree again."""
         filename = self.abbreviate_filename(filename)
-        tup = self.paths.pop(filename, None)
+        tup = self._paths.pop(filename, None)
         self._changed.add(filename)
         return tup is not None
 
@@ -127,7 +142,7 @@ class SourceTree(_Tree):
         source tree.
         """
         abbr_filename = self.abbreviate_filename(filename)
-        tup = self.paths.get(abbr_filename)
+        tup = self.get_path_info(abbr_filename)
         if tup is None:
             return False
 
@@ -148,7 +163,7 @@ class SourceTree(_Tree):
         values = []
         to_delete = []
         for filename in self._changed:
-            tup = self.paths.get(filename)
+            tup = self._paths.get(filename)
             if tup is None:
                 to_delete.append((filename,))
             else:
@@ -177,22 +192,15 @@ class DependencyTree(_Tree):
 
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
-        self.dependencies = {}
+        self._dependencies = {}
         self._changes = set()
-
-        con = self.get_connection()
-        rv = con.execute('select filename, dependency, checksum '
-                         'from dependencies')
-        for (fn, dep, cs) in rv:
-            self.dependencies.setdefault(fn, {})[dep] = cs
-        con.close()
 
     def commit(self):
         con = self.get_connection()
         values = []
         to_delete = []
         for source in self._changes:
-            deps = self.dependencies.get(source)
+            deps = self._dependencies.get(source)
             to_delete.append((source,))
             if not deps:
                 continue
@@ -207,34 +215,55 @@ class DependencyTree(_Tree):
                 insert or replace into dependencies
                     (filename, dependency, checksum) values (?, ?, ?);
             ''', values)
+        self._changes = set()
         con.commit()
 
     def add_dependency(self, source, dependency, cs):
         src = self.abbreviate_filename(source)
         dep = self.abbreviate_filename(dependency)
         if src != dep:
-            self.dependencies.setdefault(src, {})[dep] = cs
+            self._dependencies.setdefault(src, {})[dep] = cs
             self._changes.add(src)
 
     def clean_dependencies(self, source):
         source = self.abbreviate_filename(source)
         self._changes.add(source)
-        return self.dependencies.pop(source, None) is not None
+        return self._dependencies.pop(source, None) is not None
 
     def remove_source(self, source):
         source = self.abbreviate_filename(source)
-        self._changes.add(source)
-        rv = self.dependencies.pop(source, None) is not None
-        for other_source, s in self.dependencies.iteritems():
-            if not rv:
-                rv = source in s
-            s.pop(source, None)
-            self._changes.add(other_source)
-        return rv
+        con = self.get_connection()
+        con.execute('''
+            delete from dependencies
+             where filename = ? or dependency = ?
+        ''', (source, source))
+        con.commit()
+        con.close()
+
+        # remove from local cache data just in case
+        self._dependencies.pop(source, None)
+        for key, deps in self._dependencies.iteritems():
+            deps.pop(source, None)
 
     def iter_dependencies(self, source):
-        return self.dependencies.get(
-            self.abbreviate_filename(source), {}).iteritems()
+        src = self.abbreviate_filename(source)
+        return self.get_dependency_info(src).iteritems()
+
+    def get_dependency_info(self, path):
+        path = self.abbreviate_filename(path)
+        rv = self._dependencies.get(path)
+        if rv is None and path not in self._changes:
+            con = self.get_connection()
+            iterable = con.execute('''
+                select filename, dependency, checksum from dependencies
+                where filename = ?
+            ''', (path,))
+            rv = {}
+            for (fn, dep, cs) in iterable:
+                rv[dep] = cs
+            self._dependencies[fn] = rv
+            con.close()
+        return rv
 
 
 class ArtifactTree(_Tree):
@@ -249,14 +278,14 @@ class ArtifactTree(_Tree):
 
     def __init__(self, env, filename):
         _Tree.__init__(self, env, filename)
-        self.artifacts = {}
+        self._artifacts = {}
         self._changes = set()
 
         con = self.get_connection()
         rv = con.execute('select filename, artifact, checksum '
                          'from artifacts')
         for (fn, aft, cs) in rv:
-            self.artifacts.setdefault(fn, {})[aft] = cs
+            self._artifacts.setdefault(fn, {})[aft] = cs
         con.close()
 
     def commit(self):
@@ -264,7 +293,7 @@ class ArtifactTree(_Tree):
         values = []
         to_delete = []
         for source in self._changes:
-            afts = self.artifacts.get(source)
+            afts = self._artifacts.get(source)
             to_delete.append((source,))
             if not afts:
                 continue
@@ -279,21 +308,45 @@ class ArtifactTree(_Tree):
                 insert or replace into artifacts
                     (filename, artifact, checksum) values (?, ?, ?);
             ''', values)
+        self._changes = set()
         con.commit()
 
     def add_artifact(self, source, artifact, checksum):
         src = self.abbreviate_filename(source)
         aft = self.abbreviate_filename(artifact)
-        self.artifacts.setdefault(src, {})[aft] = checksum
+        self._artifacts.setdefault(src, {})[aft] = checksum
         self._changes.add(src)
 
     def remove_source(self, source):
-        src = self.abbreviate_filename(source)
-        self._changes.add(src)
-        return self.artifacts.pop(src, None) is not None
+        source = self.abbreviate_filename(source)
+        con = self.get_connection()
+        con.execute('''
+            delete from artifacts where filename = ?
+        ''', (source,))
+        con.commit()
+        con.close()
+
+        # remove from local cache data just in case
+        self._artifacts.pop(source, None)
+
+    def get_artifact_info(self, source):
+        source = self.abbreviate_filename(source)
+        rv = self._artifacts.get(source)
+        if rv is None and source not in self._changes:
+            con = self.get_connection()
+            iterable = con.execute('''
+                select filename, artifact, checksum from artifacts
+                where filename = ?
+            ''', (source,))
+            rv = {}
+            for (fn, aft, cs) in iterable:
+                rv[aft] = cs
+            self._artifacts[source] = rv
+            con.close()
+        return rv
 
     def artifacts_are_recent(self, source, checksum):
-        afts = self.artifacts.get(self.abbreviate_filename(source))
+        afts = self.get_artifact_info(source)
         if not afts:
             return False
         for _, cs in (afts or {}).iteritems():
@@ -302,11 +355,22 @@ class ArtifactTree(_Tree):
         return True
 
     def iter_unused_artifacts(self, sources):
+        # XXX: this is not using local modifications
         sources = set(self.abbreviate_filename(x) for x in sources)
-        for src, artifacts in self.artifacts.items():
-            if src in sources:
-                continue
-            yield src, artifacts.keys()
+        if not sources:
+            return
+
+        con = self.get_connection()
+        iterable = con.execute('''
+            select filename, artifact from artifacts
+            where filename not in (%s)
+        ''' % ', '.join((('?',) * len(sources))), list(sources))
+
+        rv = {}
+        for src, artifact in iterable:
+            rv.setdefault(src, set()).add(artifact)
+        con.close()
+        return rv.iteritems()
 
 
 class Builder(object):
@@ -462,6 +526,7 @@ class Builder(object):
                 self.artifact_tree.add_artifact(src_path, dst_path, checksum)
 
     def remove_old_artifacts(self):
+        changed = False
         ua = self.artifact_tree.iter_unused_artifacts(self.referenced_sources)
         for src, afts in ua:
             click.echo('Removing artifacts of %s' %
@@ -471,8 +536,11 @@ class Builder(object):
             self.source_tree.remove_path(src)
             self.dependency_tree.remove_source(src)
             self.artifact_tree.remove_source(src)
+            changed = True
+        if changed:
+            self.commit()
 
-    def finalize(self):
+    def commit(self):
         self.source_tree.commit()
         self.dependency_tree.commit()
         self.artifact_tree.commit()
@@ -490,5 +558,8 @@ class Builder(object):
             if build_func is not None:
                 build_func()
         self.copy_assets()
+        self.commit()
+
+        # XXX: This needs to come after commit because the removing currently
+        # only works on committed data.
         self.remove_old_artifacts()
-        self.finalize()
