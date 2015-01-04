@@ -360,6 +360,7 @@ class ArtifactTree(_Tree):
         if not sources:
             return
 
+        # TODO: do not delete artifacts used by other sources
         con = self.get_connection()
         iterable = con.execute('''
             select filename, artifact from artifacts
