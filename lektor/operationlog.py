@@ -48,6 +48,10 @@ class OperationLog(object):
         self.produced_artifacts = set()
         self.operations = {}
 
+    @property
+    def env(self):
+        return self.pad.db.env
+
     def record_path_usage(self, filename):
         self.referenced_paths.add(filename)
 
