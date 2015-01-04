@@ -23,6 +23,10 @@ class Context(object):
 
         raise click.UsageError('Could not find tree')
 
+    def get_default_output_path(self):
+        tree = self.get_tree()
+        return os.path.join(os.path.dirname(tree), 'build')
+
     def get_env(self):
         if self._env is not None:
             return self._env
@@ -55,8 +59,8 @@ def cli(ctx, tree=None):
 
 
 @cli.command('build')
-@click.option('-O', '--output-path', type=click.Path(), default='build',
-              help='The output path.', show_default=True)
+@click.option('-O', '--output-path', type=click.Path(), default=None,
+              help='The output path.')
 @click.option('--watch', is_flag=True, help='If this is enabled the build '
               'process goes into an automatic loop where it watches the '
               'file system for changes and rebuilds.')
@@ -64,6 +68,8 @@ def cli(ctx, tree=None):
 def build_cmd(ctx, output_path, watch):
     """Builds the entire site out."""
     from lektor.builder import Builder
+    if output_path is None:
+        output_path = ctx.get_default_output_path()
 
     env = ctx.get_env()
     click.secho('Building from %s' % env.root_path, fg='green')
@@ -95,9 +101,9 @@ def build_cmd(ctx, output_path, watch):
               'available on all network interfaces.')
 @click.option('-p', '--port', default=5000, help='The port to bind to.',
               show_default=True)
-@click.option('-O', '--output-path', type=click.Path(), default='build',
+@click.option('-O', '--output-path', type=click.Path(), default=None,
               help='The dev server will build into the same folder as '
-              'the build command by default.', show_default=True)
+              'the build command by default.')
 @pass_context
 def devserver_cmd(ctx, host, port, output_path):
     """The devserver command will launch a local server for development.
@@ -108,6 +114,10 @@ def devserver_cmd(ctx, host, port, output_path):
     HTTP server.
     """
     from lektor.devserver import run_server
+    if output_path is None:
+        output_path = ctx.get_default_output_path()
+    print ' * Tree path: %s' % ctx.get_tree()
+    print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path)
 
 
