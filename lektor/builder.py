@@ -346,6 +346,7 @@ class ArtifactTree(_Tree):
         return rv
 
     def artifacts_are_recent(self, source, checksum):
+        source = self.abbreviate_filename(source)
         afts = self.get_artifact_info(source)
         if not afts:
             return False

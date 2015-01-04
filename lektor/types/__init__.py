@@ -48,9 +48,11 @@ from lektor.types.primitives import \
      StringType, UuidType, TextType, HtmlType, IntegerType, FloatType, \
      BooleanType, DateType
 from lektor.types.special import SortKeyType, SlugType, UrlType
+from lektor.types.formats import MarkdownType
 
 
 builtin_types = {
+    # Primitive
     'string': StringType(),
     'text': TextType(),
     'html': HtmlType(),
@@ -59,7 +61,12 @@ builtin_types = {
     'float': FloatType(),
     'boolean': BooleanType(),
     'date': DateType(),
+
+    # Special
     'sort_key': SortKeyType(),
     'slug': SlugType(),
     'url': UrlType(),
+
+    # Formats
+    'markdown': MarkdownType(),
 }
