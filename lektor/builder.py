@@ -327,6 +327,13 @@ class ArtifactTree(_Tree):
         self._artifacts.setdefault(src, {})[aft] = checksum
         self._changes.add(src)
 
+    def remove_artifact(self, source, artifact):
+        src = self.abbreviate_filename(source)
+        aft = self.abbreviate_destination_filename(artifact)
+        if src in self._artifacts:
+            self._artifacts[src].pop(aft, None)
+            self._changes.add(src)
+
     def remove_source(self, source):
         source = self.abbreviate_filename(source)
         con = self.get_connection()
@@ -355,17 +362,24 @@ class ArtifactTree(_Tree):
             con.close()
         return rv
 
+    def iter_old_source_artifacts(self, source, checksum):
+        source = self.abbreviate_filename(source)
+        afts = self.get_artifact_info(source)
+        for aft, cs in list((afts or {}).items()):
+            if cs != checksum:
+                yield aft
+
     def artifacts_are_recent(self, source, checksum):
         source = self.abbreviate_filename(source)
         afts = self.get_artifact_info(source)
         if not afts:
             return False
-        for _, cs in (afts or {}).iteritems():
+        for _, cs in afts.iteritems():
             if cs != checksum:
                 return False
         return True
 
-    def iter_unused_artifacts(self, sources):
+    def iter_unreferenced_artifacts(self, sources):
         # XXX: this is not using local modifications
         sources = set(self.abbreviate_filename(x) for x in sources)
         if not sources:
@@ -495,6 +509,8 @@ class Builder(object):
                     for aft in oplog.produced_artifacts:
                         self.artifact_tree.add_artifact(filename, aft, checksum)
 
+                    self.remove_old_artifacts(filename, checksum)
+
         return build_func
 
     def build_record(self, record, force=False):
@@ -537,9 +553,17 @@ class Builder(object):
                 checksum = self.source_tree.add_path(src_path)
                 self.artifact_tree.add_artifact(src_path, dst_path, checksum)
 
-    def remove_old_artifacts(self):
+    def remove_old_artifacts(self, filename, checksum):
+        for aft in self.artifact_tree.iter_old_source_artifacts(
+                filename, checksum):
+            prune_file_and_folder(aft, self.destination_path)
+            self.artifact_tree.remove_artifact(filename, aft)
+
+    def remove_unreferenced_artifacts(self):
         changed = False
-        ua = self.artifact_tree.iter_unused_artifacts(self.referenced_sources)
+        ua = self.artifact_tree.iter_unreferenced_artifacts(
+            self.referenced_sources)
+
         for src, afts in ua:
             click.echo('Removing artifacts of %s' %
                 click.style(src, fg='cyan'))
@@ -574,4 +598,4 @@ class Builder(object):
 
         # XXX: This needs to come after commit because the removing currently
         # only works on committed data.
-        self.remove_old_artifacts()
+        self.remove_unreferenced_artifacts()

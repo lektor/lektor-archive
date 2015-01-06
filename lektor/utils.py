@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import traceback
+import unicodedata
 import multiprocessing
 from Queue import Queue
 from threading import Thread
@@ -124,3 +125,7 @@ def prune_file_and_folder(name, base):
             break
         head, tail = os.path.split(head)
     return True
+
+
+def sort_normalize_string(s):
+    return unicodedata.normalize('NFD', unicode(s).lower().strip())

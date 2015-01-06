@@ -16,6 +16,7 @@ from jinja2.utils import LRUCache
 from inifile import IniFile
 
 from lektor import metaformat
+from lektor.utils import sort_normalize_string
 from lektor.operationlog import get_oplog
 from lektor.datamodel import datamodel_from_ini, DataModel
 from lektor.thumbnail import make_thumbnail
@@ -69,10 +70,10 @@ class _CmpHelper(object):
 
     @staticmethod
     def coerce(a, b):
+        if isinstance(a, basestring) and isinstance(b, basestring):
+            return sort_normalize_string(a), sort_normalize_string(b)
         if type(a) is type(b):
             return a, b
-        if isinstance(a, basestring) and isinstance(b, basestring):
-            return unicode(a).lower(), unicode(b).lower()
         if isinstance(a, (int, long, float)):
             try:
                 return a, type(a)(b)

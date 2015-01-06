@@ -41,11 +41,15 @@ class ThumbnailOperation(Operation):
         return self.url_path
 
     def execute(self, builder, oplog):
-        if not builder.should_build_sourcefile(self.source_filename):
-            return
-
         dst_filename = builder.get_fs_path(
             builder.get_destination_path(self.url_path), make_folder=True)
+        oplog.record_artifact(dst_filename)
+
+        # If our thumbnail is still active there really is no point in
+        # building it, however we must do this after the recorded the
+        # artifact or it would get deleted.
+        if not builder.should_build_sourcefile(self.source_filename):
+            return
 
         im = self.find_imagemagick()
 
@@ -57,7 +61,6 @@ class ThumbnailOperation(Operation):
                               '-resize', resize_key,
                               dst_filename]).wait()
 
-        oplog.record_artifact(dst_filename)
         yield Result(dst_filename, producer, concurrent=True)
 
 
