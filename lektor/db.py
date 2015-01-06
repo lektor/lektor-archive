@@ -248,6 +248,8 @@ class _BaseRecord(object):
         """
         expose = self._data['_expose']
         if is_undefined(expose):
+            if not self.datamodel.expose:
+                return False
             if self.parent is None:
                 return True
             return self.parent.is_exposed
@@ -676,16 +678,23 @@ class Database(object):
         if parent == raw_record['_path']:
             return self.empty_model
 
+        datamodel_name = None
         parent_obj = self.get_page(parent, pad)
-        if parent_obj is None:
-            return self.empty_model
+        if parent_obj is not None:
+            if record_type == 'record':
+                datamodel_name = parent_obj.datamodel.child_config.model
+            elif record_type == 'attachment':
+                datamodel_name = parent_obj.datamodel.attachment_config.model
+            else:
+                raise TypeError('Invalid record type')
 
-        if record_type == 'record':
-            datamodel_name = parent_obj.datamodel.child_config.model
-        elif record_type == 'attachment':
-            datamodel_name = parent_obj.datamodel.attachment_config.model
-        else:
-            raise TypeError('Invalid record type')
+        # Pick default datamodel name
+        if datamodel_name is None and record_type == 'record':
+            datamodel_name = posixpath.basename(raw_record['_path']
+                ).split('.')[0].replace('-', '_').lower()
+            if datamodel_name not in self.datamodels \
+               and 'page' in self.datamodels:
+                datamodel_name = 'page'
 
         if datamodel_name is None:
             return self.empty_model

@@ -58,13 +58,14 @@ class Field(object):
 class DataModel(object):
 
     def __init__(self, env, id, name, filename=None, contained=False,
-                 child_config=None, attachment_config=None,
+                 expose=True, child_config=None, attachment_config=None,
                  pagination_config=None, fields=None):
         self.env = env
         self.filename = filename
         self.id = id
         self.name = name
         self.contained = contained
+        self.expose = expose
         if child_config is None:
             child_config = ChildConfig()
         self.child_config = child_config
@@ -132,6 +133,7 @@ def datamodel_from_ini(id, inifile, env):
         id=id,
         name=inifile.get('model.name', id.title().replace('_', ' ')),
         contained=inifile.get_bool('model.contained'),
+        expose=inifile.get_bool('model.expose', True),
         child_config=ChildConfig(
             enabled=inifile.get_bool('children.enabled', True),
             slug_format=inifile.get('children.slug_format'),
