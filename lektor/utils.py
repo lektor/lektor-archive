@@ -1,18 +1,58 @@
 import os
 import sys
+import json
+import uuid
 import tempfile
 import traceback
 import unicodedata
 import multiprocessing
 from Queue import Queue
 from threading import Thread
+from datetime import datetime
 
 from urlparse import urlparse
+
+from werkzeug.http import http_date
+from jinja2 import is_undefined
+from markupsafe import Markup
 
 from contextlib import contextmanager
 
 
 is_windows = sys.platform.startswith('win')
+
+
+_slash_escape = '\\/' not in json.dumps('/')
+
+
+class JSONEncoder(json.JSONEncoder):
+
+    def default(self, o):
+        if is_undefined(o):
+            return None
+        if isinstance(o, datetime):
+            return http_date(o)
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        if hasattr(o, '__html__'):
+            return unicode(o.__html__())
+        return json.JSONEncoder.default(self, o)
+
+
+def htmlsafe_json_dump(obj, **kwargs):
+    kwargs.setdefault('cls', JSONEncoder)
+    rv = json.dumps(obj, **kwargs) \
+        .replace(u'<', u'\\u003c') \
+        .replace(u'>', u'\\u003e') \
+        .replace(u'&', u'\\u0026') \
+        .replace(u"'", u'\\u0027')
+    if not _slash_escape:
+        rv = rv.replace('\\/', '/')
+    return rv
+
+
+def tojson_filter(obj, **kwargs):
+    return Markup(htmlsafe_json_dump(obj, **kwargs))
 
 
 def safe_call(func, args=None, kwargs=None):

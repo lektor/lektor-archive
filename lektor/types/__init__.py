@@ -47,6 +47,7 @@ class Type(object):
 from lektor.types.primitives import \
      StringType, UuidType, TextType, HtmlType, IntegerType, FloatType, \
      BooleanType, DateType
+from lektor.types.multi import CheckboxesType
 from lektor.types.special import SortKeyType, SlugType, UrlType
 from lektor.types.formats import MarkdownType
 
@@ -61,6 +62,10 @@ builtin_types = {
     'float': FloatType(),
     'boolean': BooleanType(),
     'date': DateType(),
+
+    # Multi
+    # XXX: configurable!
+    'checkboxes': CheckboxesType(),
 
     # Special
     'sort_key': SortKeyType(),

@@ -4,6 +4,7 @@ import jinja2
 
 from lektor.operationlog import get_oplog
 from lektor.db import R
+from lektor.utils import tojson_filter
 
 
 DEFAULT_CONFIG = {
@@ -61,6 +62,7 @@ class Environment(object):
                 os.path.join(self.root_path, 'templates'))
         )
 
+        self.jinja_env.filters['tojson'] = tojson_filter
         self.jinja_env.globals['R'] = R
 
     @property

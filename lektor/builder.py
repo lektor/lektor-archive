@@ -451,7 +451,7 @@ class Builder(object):
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as f:
             tmpl = self.env.get_template(page['_template'])
-            f.write(tmpl.render(page=page, root=self.pad.root)
+            f.write(tmpl.render(page=page, site=self.pad)
                     .encode('utf-8') + '\n')
         oplog.record_artifact(filename)
 
