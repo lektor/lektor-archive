@@ -1,6 +1,7 @@
 import os
 import mimetypes
 import posixpath
+import traceback
 import threading
 from zlib import adler32
 
@@ -189,12 +190,15 @@ class BackgroundBuilder(threading.Thread):
         return False
 
     def build(self):
-        while 1:
-            try:
-                self.build_iteration()
-            except BuilderGone:
-                continue
-            self.commit()
+        try:
+            while 1:
+                try:
+                    self.build_iteration()
+                except BuilderGone:
+                    continue
+                self.commit()
+        except Exception:
+            traceback.print_exc()
 
     def build_iteration(self):
         builder = self.get_builder()
