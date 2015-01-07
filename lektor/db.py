@@ -689,21 +689,19 @@ class Database(object):
             return self.datamodels.get(datamodel_name, self.empty_model)
 
         parent = posixpath.dirname(raw_record['_path'])
+        datamodel_name = None
 
         # If we hit the root, and there is no model defined we need
         # to make sure we do not recurse onto ourselves.
-        if parent == raw_record['_path']:
-            return self.empty_model
-
-        datamodel_name = None
-        parent_obj = self.get_page(parent, pad)
-        if parent_obj is not None:
-            if record_type == 'record':
-                datamodel_name = parent_obj.datamodel.child_config.model
-            elif record_type == 'attachment':
-                datamodel_name = parent_obj.datamodel.attachment_config.model
-            else:
-                raise TypeError('Invalid record type')
+        if parent != raw_record['_path']:
+            parent_obj = self.get_page(parent, pad)
+            if parent_obj is not None:
+                if record_type == 'record':
+                    datamodel_name = parent_obj.datamodel.child_config.model
+                elif record_type == 'attachment':
+                    datamodel_name = parent_obj.datamodel.attachment_config.model
+                else:
+                    raise TypeError('Invalid record type')
 
         # Pick default datamodel name
         if datamodel_name is None and record_type == 'record':
