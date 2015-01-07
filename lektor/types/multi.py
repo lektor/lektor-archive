@@ -56,8 +56,8 @@ class ChoiceSource(object):
             iterable = env.eval_source_expr(self.source, pad=pad)
 
         for item in iterable:
-            key = env.eval_source_expr(self.item_key, pad=pad, item=item)
-            label = env.eval_source_expr(self.item_label, pad=pad, item=item)
+            key = env.eval_string_expr(self.item_key, pad=pad, item=item)
+            label = env.eval_string_expr(self.item_label, pad=pad, item=item)
             yield key, label
 
 

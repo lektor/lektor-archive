@@ -356,7 +356,7 @@ class Page(Record):
 
     def resolve_url_path(self, url_path):
         if not url_path:
-            return None
+            return self
 
         for idx in xrange(len(url_path)):
             piece = '/'.join(url_path[:idx + 1])
@@ -368,7 +368,10 @@ class Page(Record):
                 node = attachment
             else:
                 node = child
-            return node, url_path[idx + 1:]
+
+            rv = node.resolve_url_path(url_path[idx + 1:])
+            if rv is not None:
+                return rv
 
     @property
     def parent(self):
@@ -647,6 +650,8 @@ class Database(object):
             else:
                 slug = ''
             record['_slug'] = slug
+        else:
+            record['_slug'] = record['_slug'].strip('/')
 
         # Automatically fill in templates
         if is_undefined(record['_template']):
@@ -866,14 +871,9 @@ class Pad(object):
         if pieces == ['']:
             pieces = []
 
-        while pieces:
-            rv = node.resolve_url_path(pieces)
-            if rv is None:
-                return None
-            node, pieces = rv
-
-        if include_unexposed or node.is_exposed:
-            return node
+        rv = node.resolve_url_path(pieces)
+        if rv is not None and (include_unexposed or rv.is_exposed):
+            return rv
 
     @property
     def root(self):

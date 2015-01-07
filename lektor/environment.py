@@ -85,6 +85,11 @@ class Environment(object):
         vars['site'] = pad
         return tmpl.make_module(vars).rv
 
+    def eval_string_expr(self, expr, pad, **vars):
+        tmpl = self.compile_template(expr)
+        vars['site'] = pad
+        return tmpl.render(vars)
+
     def select_jinja_autoescape(self, filename):
         if filename is None:
             return False
