@@ -5,11 +5,12 @@ from lektor.utils import slugify
 class ChildConfig(object):
 
     def __init__(self, enabled=True, slug_format=None, model=None,
-                 order_by=None):
+                 order_by=None, replaced_with=None):
         self.enabled = enabled
         self.slug_format = slug_format
         self.model = model
         self.order_by = order_by
+        self.replaced_with = replaced_with
 
 
 class PaginationConfig(object):
@@ -89,6 +90,7 @@ class DataModel(object):
             self._field_map[key] = field
 
         self._child_slug_tmpl = None
+        self._child_replacements = None
 
     def get_default_child_slug(self, record):
         """Formats out the child slug."""
@@ -104,7 +106,26 @@ class DataModel(object):
             )
 
         return '_'.join(self._child_slug_tmpl[1].render(
-            page=record).strip().split()).strip('/')
+            this=record).strip().split()).strip('/')
+
+    def get_child_replacements(self, record):
+        """Returns the query that should be used as replacement for the
+        actual children.
+        """
+        replaced_with = self.child_config.replaced_with
+        if replaced_with is None:
+            return None
+
+        if self._child_replacements is None or \
+           self._child_replacements[0] != replaced_with:
+            self._child_replacements = (
+                replaced_with,
+                self.env.compile_template(
+                    '{%% set rv = (%s) %%}' % replaced_with)
+            )
+
+        return self._child_replacements[1].make_module(
+            {'this': record, 'site': record.pad}).rv
 
     def process_raw_record(self, raw_record):
         """Given a raw record from a cache this processes the item and
@@ -141,6 +162,7 @@ def datamodel_from_ini(id, inifile, env):
             slug_format=inifile.get('children.slug_format'),
             model=inifile.get('children.model'),
             order_by=_parse_order(inifile.get('children.order_by')),
+            replaced_with=inifile.get('children.replaced_with'),
         ),
         attachment_config=AttachmentConfig(
             enabled=inifile.get_bool('attachments.enabled', True),

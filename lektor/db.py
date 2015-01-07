@@ -185,7 +185,7 @@ class _ContainmentExpr(_Expr):
         seq = self.__seq.__eval__(record)
         item = self.__item.__eval__(record)
         if isinstance(item, Record):
-            item = item._id
+            item = item['_id']
         return item in seq
 
 
@@ -389,6 +389,9 @@ class Page(Record):
         a child path can be specified in which case the children of a sub
         path are queried.
         """
+        repl_query = self.datamodel.get_child_replacements(self)
+        if repl_query is not None:
+            return repl_query
         return Query(path=self['_path'], pad=self.pad)
 
     def find_page(self, path):
