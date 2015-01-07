@@ -197,6 +197,7 @@ class BackgroundBuilder(threading.Thread):
                 except BuilderGone:
                     continue
                 self.commit()
+                break
         except Exception:
             traceback.print_exc()
 
