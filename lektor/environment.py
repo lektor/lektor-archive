@@ -3,7 +3,7 @@ import os
 import jinja2
 
 from lektor.operationlog import get_oplog
-from lektor.db import R
+from lektor.db import F
 from lektor.utils import tojson_filter
 
 
@@ -63,7 +63,7 @@ class Environment(object):
         )
 
         self.jinja_env.filters['tojson'] = tojson_filter
-        self.jinja_env.globals['R'] = R
+        self.jinja_env.globals['F'] = F
 
     @property
     def asset_path(self):

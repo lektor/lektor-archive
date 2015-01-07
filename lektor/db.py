@@ -215,7 +215,7 @@ class _RecordQueryProxy(object):
             raise KeyError(name)
 
 
-R = _RecordQueryProxy()
+F = _RecordQueryProxy()
 
 
 class Record(object):
@@ -360,9 +360,9 @@ class Page(Record):
 
         for idx in xrange(len(url_path)):
             piece = '/'.join(url_path[:idx + 1])
-            child = self.children.filter(R._slug == piece).first()
+            child = self.children.filter(F._slug == piece).first()
             if child is None:
-                attachment = self.attachments.filter(R._slug == piece).first()
+                attachment = self.attachments.filter(F._slug == piece).first()
                 if attachment is None:
                     continue
                 node = attachment
@@ -566,17 +566,17 @@ class AttachmentsQuery(Query):
     @property
     def images(self):
         """Filters to images."""
-        return self.filter(R._attachment_type == 'image')
+        return self.filter(F._attachment_type == 'image')
 
     @property
     def videos(self):
         """Filters to videos."""
-        return self.filter(R._attachment_type == 'video')
+        return self.filter(F._attachment_type == 'video')
 
     @property
     def audio(self):
         """Filters to audio."""
-        return self.filter(R._attachment_type == 'audio')
+        return self.filter(F._attachment_type == 'audio')
 
     def _get(self, id):
         """Low level record access."""
