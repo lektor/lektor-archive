@@ -80,6 +80,11 @@ class Environment(object):
     def compile_template(self, string):
         return self.jinja_env.from_string(string)
 
+    def eval_source_expr(self, expr, pad, **vars):
+        tmpl = self.compile_template('{%% set rv = (%s) %%}' % expr)
+        vars['site'] = pad
+        return tmpl.make_module(vars).rv
+
     def select_jinja_autoescape(self, filename):
         if filename is None:
             return False

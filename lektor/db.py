@@ -132,6 +132,9 @@ class _Expr(object):
     def __le__(self, other):
         return _BinExpr(self, _auto_wrap_expr(other), operator.le)
 
+    def contains(self, item):
+        return _ContainmentExpr(self, _auto_wrap_expr(item))
+
     def startswith(self, other):
         return _BinExpr(self, _auto_wrap_expr(other),
             lambda a, b: unicode(a).lower().startswith(unicode(b).lower()))
@@ -172,6 +175,20 @@ class _BinExpr(_Expr):
         )
 
 
+class _ContainmentExpr(_Expr):
+
+    def __init__(self, seq, item):
+        self.__seq = seq
+        self.__item = item
+
+    def __eval__(self, record):
+        seq = self.__seq.__eval__(record)
+        item = self.__item.__eval__(record)
+        if isinstance(item, Record):
+            item = item._id
+        return item in seq
+
+
 class _RecordQueryField(_Expr):
 
     def __init__(self, field):
@@ -201,7 +218,7 @@ class _RecordQueryProxy(object):
 R = _RecordQueryProxy()
 
 
-class _BaseRecord(object):
+class Record(object):
 
     def __init__(self, pad, data):
         self._pad = weakref(pad)
@@ -313,7 +330,7 @@ class _BaseRecord(object):
         )
 
 
-class Page(_BaseRecord):
+class Page(Record):
     """This represents a loaded record."""
 
     cache_classification = 'page'
@@ -327,7 +344,7 @@ class Page(_BaseRecord):
 
     @property
     def url_path(self):
-        url_path = _BaseRecord.url_path.__get__(self)
+        url_path = Record.url_path.__get__(self)
         if url_path[-1:] != '/':
             url_path += '/'
         return url_path
@@ -384,7 +401,7 @@ class Page(_BaseRecord):
         return chain(self.children, self.attachments)
 
 
-class Attachment(_BaseRecord):
+class Attachment(Record):
     """This represents a loaded attachment."""
 
     cache_classification = 'attachment'

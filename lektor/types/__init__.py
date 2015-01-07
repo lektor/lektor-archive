@@ -34,6 +34,9 @@ class RawValue(object):
 
 class Type(object):
 
+    def __init__(self, options):
+        pass
+
     def value_to_raw(self, value):
         return unicode(value)
 
@@ -54,24 +57,24 @@ from lektor.types.formats import MarkdownType
 
 builtin_types = {
     # Primitive
-    'string': StringType(),
-    'text': TextType(),
-    'html': HtmlType(),
-    'uuid': UuidType(),
-    'integer': IntegerType(),
-    'float': FloatType(),
-    'boolean': BooleanType(),
-    'date': DateType(),
+    'string': StringType,
+    'text': TextType,
+    'html': HtmlType,
+    'uuid': UuidType,
+    'integer': IntegerType,
+    'float': FloatType,
+    'boolean': BooleanType,
+    'date': DateType,
 
     # Multi
     # XXX: configurable!
-    'checkboxes': CheckboxesType(),
+    'checkboxes': CheckboxesType,
 
     # Special
-    'sort_key': SortKeyType(),
-    'slug': SlugType(),
-    'url': UrlType(),
+    'sort_key': SortKeyType,
+    'slug': SlugType,
+    'url': UrlType,
 
     # Formats
-    'markdown': MarkdownType(),
+    'markdown': MarkdownType,
 }

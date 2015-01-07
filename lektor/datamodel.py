@@ -31,14 +31,16 @@ class AttachmentConfig(object):
 
 class Field(object):
 
-    def __init__(self, name, label=None, type=None):
+    def __init__(self, name, label=None, type=None, options=None):
         if type is None:
             type = types.builtin_types['string']
         self.name = name
         if label is None:
             label = name.title().replace('_', ' ')
         self.label = label
-        self.type = type
+        if options is None:
+            options = {}
+        self.type = type(options)
 
     def deserialize_value(self, value):
         raw_value = types.RawValue(self.name, value, field=self)
@@ -155,6 +157,7 @@ def datamodel_from_ini(id, inifile, env):
                 name=sect.split('.', 1)[1],
                 label=inifile.get(sect + '.label'),
                 type=types.builtin_types[inifile.get(sect + '.type')],
+                options=inifile.section_as_dict(sect),
             ) for sect in inifile.sections() if sect.startswith('fields.')
         ]
     )
