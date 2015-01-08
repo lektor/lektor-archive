@@ -1,5 +1,6 @@
 from lektor import types
 from lektor.utils import slugify
+from lektor.environment import Expression, FormatExpression
 
 
 class ChildConfig(object):
@@ -32,7 +33,7 @@ class AttachmentConfig(object):
 
 class Field(object):
 
-    def __init__(self, name, label=None, type=None, options=None):
+    def __init__(self, env, name, label=None, type=None, options=None):
         if type is None:
             type = types.builtin_types['string']
         self.name = name
@@ -41,7 +42,7 @@ class Field(object):
         self.label = label
         if options is None:
             options = {}
-        self.type = type(options)
+        self.type = type(env, options)
 
     def deserialize_value(self, value):
         raw_value = types.RawValue(self.name, value, field=self)
@@ -86,8 +87,8 @@ class DataModel(object):
         # which also includes the system fields.  This is primarily used
         # for fast internal operations.
         self._field_map = dict((x.name, x) for x in fields)
-        for key, field in system_fields.iteritems():
-            self._field_map[key] = field
+        for key, field_type in system_fields.iteritems():
+            self._field_map[key] = Field(env, name=key, type=field_type)
 
         self._child_slug_tmpl = None
         self._child_replacements = None
@@ -102,11 +103,11 @@ class DataModel(object):
            self._child_slug_tmpl[0] != slug_format:
             self._child_slug_tmpl = (
                 slug_format,
-                self.env.compile_template(slug_format)
+                FormatExpression(self.env, slug_format)
             )
 
-        return '_'.join(self._child_slug_tmpl[1].render(
-            this=record).strip().split()).strip('/')
+        return '_'.join(self._child_slug_tmpl[1].evaluate(
+            record.pad, this=record).strip().split()).strip('/')
 
     def get_child_replacements(self, record):
         """Returns the query that should be used as replacement for the
@@ -120,12 +121,10 @@ class DataModel(object):
            self._child_replacements[0] != replaced_with:
             self._child_replacements = (
                 replaced_with,
-                self.env.compile_template(
-                    '{%% set rv = (%s) %%}' % replaced_with)
+                Expression(self.env, replaced_with)
             )
 
-        return self._child_replacements[1].make_module(
-            {'this': record, 'site': record.pad}).rv
+        return self._child_replacements[1].evaluate(record.pad, this=record)
 
     def process_raw_record(self, raw_record):
         """Given a raw record from a cache this processes the item and
@@ -176,6 +175,7 @@ def datamodel_from_ini(id, inifile, env):
         ),
         fields=[
             Field(
+                env,
                 name=sect.split('.', 1)[1],
                 label=inifile.get(sect + '.label'),
                 type=types.builtin_types[inifile.get(sect + '.type')],
@@ -189,7 +189,7 @@ system_fields = {}
 
 
 def add_system_field(name, type):
-    system_fields[name] = Field(name, type=types.builtin_types[type])
+    system_fields[name] = types.builtin_types[type]
 
 
 add_system_field('_path', type='string')

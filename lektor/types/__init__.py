@@ -34,8 +34,8 @@ class RawValue(object):
 
 class Type(object):
 
-    def __init__(self, options):
-        pass
+    def __init__(self, env, options):
+        self.env = env
 
     def value_to_raw(self, value):
         return unicode(value)

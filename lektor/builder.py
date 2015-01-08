@@ -450,9 +450,8 @@ class Builder(object):
         dst = self.get_destination_path(page.url_path)
         filename = self.get_fs_path(dst, make_folder=True)
         with atomic_open(filename) as f:
-            tmpl = self.env.get_template(page['_template'])
-            f.write(tmpl.render(this=page, site=self.pad)
-                    .encode('utf-8') + '\n')
+            f.write(self.env.render_template(page['_template'], self.pad,
+                                             this=page).encode('utf-8') + '\n')
         oplog.record_artifact(filename)
 
     def _build_attachment(self, attachment, oplog):

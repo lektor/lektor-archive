@@ -1,4 +1,5 @@
 from lektor.types import Type
+from lektor.environment import Expression, FormatExpression
 
 
 def parse_choices(s):
@@ -35,37 +36,38 @@ def parse_choices(s):
 
 class ChoiceSource(object):
 
-    def __init__(self, options):
+    def __init__(self, env, options):
         source = options.get('source')
         if source is not None:
-            self.source = source
+            self.source = Expression(env, source)
             self.choices = None
-            self.item_key = options.get('item_key') or '{{ item._id }}'
-            self.item_label = options.get('item_label') or '{{ item._id }}'
+            item_key = options.get('item_key') or '{{ item._id }}'
+            item_label = options.get('item_label') or '{{ item._id }}'
         else:
             self.source = None
             self.choices = parse_choices(options.get('choices'))
-            self.item_key = options.get('item_key') or '{{ item.0 }}'
-            self.item_label = options.get('item_label') or '{{ item.1 }}'
+            item_key = options.get('item_key') or '{{ item.0 }}'
+            item_label = options.get('item_label') or '{{ item.1 }}'
+        self.item_key = FormatExpression(env, item_key)
+        self.item_label = FormatExpression(env, item_label)
 
     def iter_choices(self, pad):
-        env = pad.db.env
         if self.choices is not None:
             iterable = self.choices
         else:
-            iterable = env.eval_source_expr(self.source, pad=pad)
+            iterable = self.source.evaluate(pad)
 
         for item in iterable:
-            key = env.eval_string_expr(self.item_key, pad=pad, item=item)
-            label = env.eval_string_expr(self.item_label, pad=pad, item=item)
+            key = self.item_key.evaluate(pad, this=item)
+            label = self.item_label.evaluate(pad, this=item)
             yield key, label
 
 
 class MultiType(Type):
 
-    def __init__(self, options):
-        Type.__init__(self, options)
-        self.sources = ChoiceSource(options)
+    def __init__(self, env, options):
+        Type.__init__(self, env, options)
+        self.sources = ChoiceSource(env, options)
 
 
 class CheckboxesType(MultiType):

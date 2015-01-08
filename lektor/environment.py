@@ -3,7 +3,6 @@ import os
 import jinja2
 
 from lektor.operationlog import get_oplog
-from lektor.db import F
 from lektor.utils import tojson_filter
 
 
@@ -38,6 +37,34 @@ DEFAULT_CONFIG = {
 }
 
 
+class Expression(object):
+
+    def __init__(self, env, expr):
+        self.env = env
+        self.tmpl = env.jinja_env.from_string('{{ __result__(%s) }}' % expr)
+
+    def evaluate(self, pad, this=None, values=None):
+        result = []
+        def result_func(value):
+            result.append(value)
+            return u''
+        values = self.env.make_default_tmpl_values(pad, this, values)
+        values['__result__'] = result_func
+        self.tmpl.render(values)
+        return result[0]
+
+
+class FormatExpression(object):
+
+    def __init__(self, env, expr):
+        self.env = env
+        self.tmpl = env.jinja_env.from_string(expr)
+
+    def evaluate(self, pad, this=None, values=None):
+        values = self.env.make_default_tmpl_values(pad, this, values)
+        return self.tmpl.render(values)
+
+
 class CustomJinjaEnvironment(jinja2.Environment):
 
     def _load_template(self, name, globals):
@@ -62,6 +89,7 @@ class Environment(object):
                 os.path.join(self.root_path, 'templates'))
         )
 
+        from lektor.db import F
         self.jinja_env.filters['tojson'] = tojson_filter
         self.jinja_env.globals['F'] = F
 
@@ -74,21 +102,16 @@ class Environment(object):
         return filename[:1] in '._' or (
             filename.lower() in ('thumbs.db', 'desktop.ini'))
 
-    def get_template(self, name):
-        return self.jinja_env.get_template(name)
+    def render_template(self, name, pad, this=None, values=None):
+        ctx = self.make_default_tmpl_values(pad, this, values)
+        return self.jinja_env.get_template(name).render(ctx)
 
-    def compile_template(self, string):
-        return self.jinja_env.from_string(string)
-
-    def eval_source_expr(self, expr, pad, **vars):
-        tmpl = self.compile_template('{%% set rv = (%s) %%}' % expr)
-        vars['site'] = pad
-        return tmpl.make_module(vars).rv
-
-    def eval_string_expr(self, expr, pad, **vars):
-        tmpl = self.compile_template(expr)
-        vars['site'] = pad
-        return tmpl.render(vars)
+    def make_default_tmpl_values(self, pad, this=None, values=None):
+        values = dict(values or ())
+        values['site'] = pad
+        if this is not None:
+            values['this'] = this
+        return values
 
     def select_jinja_autoescape(self, filename):
         if filename is None:
