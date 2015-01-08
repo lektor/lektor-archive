@@ -235,7 +235,7 @@ class Record(object):
             return self.pad.db.datamodels[self._data['_model']]
         except LookupError:
             # If we cannot find the model we fall back to the default one.
-            return self.pad.db.empty_model
+            return self.pad.db.default_model
 
     @property
     def is_exposed(self):
@@ -584,8 +584,10 @@ class Database(object):
         self.datamodels = load_datamodels(env)
 
     @property
-    def empty_model(self):
+    def default_model(self):
         """The empty datamodel."""
+        if 'page' in self.datamodels:
+            return self.datamodels['page']
         return self.datamodels['none']
 
     def get_fs_path(self, path, record_type):
@@ -675,7 +677,7 @@ class Database(object):
 
         # If a datamodel is defined, we use it.
         if datamodel_name:
-            return self.datamodels.get(datamodel_name, self.empty_model)
+            return self.datamodels.get(datamodel_name, self.default_model)
 
         parent = posixpath.dirname(raw_record['_path'])
         datamodel_name = None
@@ -696,13 +698,10 @@ class Database(object):
         if datamodel_name is None and record_type == 'record':
             datamodel_name = posixpath.basename(raw_record['_path']
                 ).split('.')[0].replace('-', '_').lower()
-            if datamodel_name not in self.datamodels \
-               and 'page' in self.datamodels:
-                datamodel_name = 'page'
 
         if datamodel_name is None:
-            return self.empty_model
-        return self.datamodels.get(datamodel_name, self.empty_model)
+            return self.default_model
+        return self.datamodels.get(datamodel_name, self.default_model)
 
     def get_page(self, path, pad, persist=False):
         """Low-level interface for fetching a single record."""

@@ -292,6 +292,8 @@ def load_datamodels(env):
     for model_id in data.keys():
         get_model(model_id)
 
+    rv['none'] = DataModel(env, 'none', 'None')
+
     return rv
 
 
