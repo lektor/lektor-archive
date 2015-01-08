@@ -13,12 +13,10 @@ from itertools import islice, chain
 from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
 
-from inifile import IniFile
-
 from lektor import metaformat
 from lektor.utils import sort_normalize_string
 from lektor.operationlog import get_oplog
-from lektor.datamodel import datamodel_from_ini, DataModel
+from lektor.datamodel import load_datamodels
 from lektor.thumbnail import make_thumbnail
 
 
@@ -42,23 +40,6 @@ def _require_oplog(record):
         raise RuntimeError('The oplog on the stack does not match the '
                            'pad of the record.')
     return oplog
-
-
-def load_datamodels(env):
-    """Loads the datamodels for a specific environment."""
-    path = os.path.join(env.root_path, 'models')
-    rv = {}
-    for filename in os.listdir(path):
-        if not filename.endswith('.ini') or filename[:1] in '_.':
-            continue
-        fn = os.path.join(path, filename)
-        if os.path.isfile(fn):
-            model_id = filename[:-4].decode('ascii', 'replace')
-            inifile = IniFile(fn)
-            rv[model_id] = datamodel_from_ini(model_id, inifile, env)
-
-    rv['none'] = DataModel(env, 'none', 'No Model')
-    return rv
 
 
 @functools.total_ordering

@@ -1,3 +1,7 @@
+import os
+
+from inifile import IniFile
+
 from lektor import types
 from lektor.utils import slugify
 from lektor.environment import Expression, FormatExpression
@@ -63,7 +67,7 @@ class DataModel(object):
 
     def __init__(self, env, id, name, filename=None, contained=False,
                  expose=True, child_config=None, attachment_config=None,
-                 pagination_config=None, fields=None):
+                 pagination_config=None, fields=None, parent=None):
         self.env = env
         self.filename = filename
         self.id = id
@@ -82,6 +86,7 @@ class DataModel(object):
         if fields is None:
             fields = []
         self.fields = fields
+        self.parent = parent
 
         # This is an internal mapping of the key names to the actual field
         # which also includes the system fields.  This is primarily used
@@ -144,45 +149,150 @@ class DataModel(object):
         )
 
 
-def datamodel_from_ini(id, inifile, env):
+def datamodel_data_from_ini(id, inifile):
     def _parse_order(value):
+        value = (value or '').strip()
         if not value:
             return None
         return [x for x in [x.strip() for x in value.strip().split(',')] if x]
 
-    return DataModel(env,
+    return dict(
         filename=inifile.filename,
         id=id,
+        parent=inifile.get('model.inherits'),
         name=inifile.get('model.name', id.title().replace('_', ' ')),
-        contained=inifile.get_bool('model.contained'),
-        expose=inifile.get_bool('model.expose', True),
-        child_config=ChildConfig(
-            enabled=inifile.get_bool('children.enabled', True),
+        contained=inifile.get_bool('model.contained', default=None),
+        expose=inifile.get_bool('model.expose', default=None),
+        child_config=dict(
+            enabled=inifile.get_bool('children.enabled', default=None),
             slug_format=inifile.get('children.slug_format'),
             model=inifile.get('children.model'),
             order_by=_parse_order(inifile.get('children.order_by')),
             replaced_with=inifile.get('children.replaced_with'),
         ),
-        attachment_config=AttachmentConfig(
-            enabled=inifile.get_bool('attachments.enabled', True),
+        attachment_config=dict(
+            enabled=inifile.get_bool('attachments.enabled', default=None),
             model=inifile.get('attachments.model'),
             order_by=_parse_order(inifile.get('attachments.order_by')),
         ),
-        pagination_config=PaginationConfig(
-            enabled=inifile.get_bool('pagination.enabled', False),
-            per_page=inifile.get_int('pagination.per_page', 20),
+        pagination_config=dict(
+            enabled=inifile.get_bool('pagination.enabled', default=None),
+            per_page=inifile.get_int('pagination.per_page'),
             url_suffix=inifile.get('pagination.url_suffix'),
         ),
         fields=[
-            Field(
-                env,
-                name=sect.split('.', 1)[1],
-                label=inifile.get(sect + '.label'),
-                type=types.builtin_types[inifile.get(sect + '.type')],
-                options=inifile.section_as_dict(sect),
+            (
+                sect.split('.', 1)[1],
+                inifile.section_as_dict(sect)
             ) for sect in inifile.sections() if sect.startswith('fields.')
         ]
     )
+
+
+def datamodel_from_data(env, model_data, parent):
+    def get_value(key):
+        path = key.split('.')
+        node = model_data
+        for item in path:
+            node = node.get(item)
+        if node is not None:
+            return node
+        if parent is not None:
+            node = parent
+            for item in path:
+                node = getattr(node, item)
+            return node
+
+    fields = []
+    known_fields = set()
+
+    for name, options in model_data['fields']:
+        ty = types.builtin_types[options.get('field_type', 'string')]
+        fields.append(Field(env=env, name=name,
+                            label=options.get('label'), type=ty,
+                            options=options))
+        known_fields.add(name)
+
+    if parent is not None:
+        parent_fields = []
+        for field in parent.fields:
+            if field.name not in known_fields:
+                parent_fields.append(field)
+        fields = parent_fields + fields
+
+    return DataModel(
+        env,
+
+        # data that never inherits
+        filename=model_data['filename'],
+        id=model_data['id'],
+        parent=parent,
+        name=model_data['name'],
+
+        # direct data that can inherit
+        contained=get_value('contained'),
+        expose=get_value('expose'),
+        child_config=ChildConfig(
+            enabled=get_value('child_config.enabled'),
+            slug_format=get_value('child_config.slug_format'),
+            model=get_value('child_config.model'),
+            order_by=get_value('child_config.order_by'),
+            replaced_with=get_value('child_config.replaced_with'),
+        ),
+        attachment_config=AttachmentConfig(
+            enabled=get_value('attachment_config.enabled'),
+            model=get_value('attachment_config.model'),
+            order_by=get_value('attachment_config.order_by'),
+        ),
+        pagination_config=PaginationConfig(
+            enabled=get_value('pagination_config.enabled'),
+            per_page=get_value('pagination_config.per_page'),
+            url_suffix=get_value('pagination_config.url_suffix'),
+        ),
+        fields=fields,
+    )
+
+
+def load_datamodels(env):
+    """Loads the datamodels for a specific environment."""
+    path = os.path.join(env.root_path, 'models')
+    data = {}
+
+    for filename in os.listdir(path):
+        if not filename.endswith('.ini') or filename[:1] in '_.':
+            continue
+        fn = os.path.join(path, filename)
+        if os.path.isfile(fn):
+            model_id = filename[:-4].decode('ascii', 'replace')
+            inifile = IniFile(fn)
+            data[model_id] = datamodel_data_from_ini(model_id, inifile)
+
+    rv = {}
+
+    def get_model(model_id):
+        model = rv.get(model_id)
+        if model is not None:
+            return model
+        if model_id in data:
+            return create_model(model_id)
+
+    def create_model(model_id):
+        model_data = data.get(model_id)
+        if model_data is None:
+            raise RuntimeError('Model %r not found' % model_id)
+
+        if model_data['parent'] is not None:
+            parent = get_model(model_data['parent'])
+        else:
+            parent = None
+
+        rv[model_id] = mod = datamodel_from_data(env, model_data, parent)
+        return mod
+
+    for model_id in data.keys():
+        get_model(model_id)
+
+    return rv
 
 
 system_fields = {}
