@@ -9,8 +9,10 @@ from lektor.environment import Expression, FormatExpression
 
 class ChildConfig(object):
 
-    def __init__(self, enabled=True, slug_format=None, model=None,
+    def __init__(self, enabled=None, slug_format=None, model=None,
                  order_by=None, replaced_with=None):
+        if enabled is None:
+            enabled = True
         self.enabled = enabled
         self.slug_format = slug_format
         self.model = model
@@ -20,8 +22,9 @@ class ChildConfig(object):
 
 class PaginationConfig(object):
 
-    def __init__(self, enabled=False, per_page=None,
-                 url_suffix='/page/{{ page }}'):
+    def __init__(self, enabled=None, per_page=None, url_suffix=None):
+        if enabled is None:
+            enabled = True
         self.enabled = enabled
         self.per_page = per_page
         self.url_suffix = url_suffix
@@ -29,7 +32,9 @@ class PaginationConfig(object):
 
 class AttachmentConfig(object):
 
-    def __init__(self, enabled=True, model=None, order_by=None):
+    def __init__(self, enabled=None, model=None, order_by=None):
+        if enabled is None:
+            enabled = True
         self.enabled = enabled
         self.model = model
         self.order_by = order_by
@@ -65,14 +70,18 @@ class Field(object):
 
 class DataModel(object):
 
-    def __init__(self, env, id, name, filename=None, contained=False,
-                 expose=True, child_config=None, attachment_config=None,
+    def __init__(self, env, id, name, filename=None, contained=None,
+                 expose=None, child_config=None, attachment_config=None,
                  pagination_config=None, fields=None, parent=None):
         self.env = env
         self.filename = filename
         self.id = id
         self.name = name
+        if contained is None:
+            contained = False
         self.contained = contained
+        if expose is None:
+            expose = True
         self.expose = expose
         if child_config is None:
             child_config = ChildConfig()
@@ -207,7 +216,7 @@ def datamodel_from_data(env, model_data, parent):
     known_fields = set()
 
     for name, options in model_data['fields']:
-        ty = types.builtin_types[options.get('field_type', 'string')]
+        ty = types.builtin_types[options.get('type', 'string')]
         fields.append(Field(env=env, name=name,
                             label=options.get('label'), type=ty,
                             options=options))
