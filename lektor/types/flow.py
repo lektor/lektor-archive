@@ -1,6 +1,7 @@
 import re
 
-from jinja2 import is_undefined
+from jinja2 import is_undefined, TemplateNotFound
+from markupsafe import Markup
 
 from lektor.types import Type
 from lektor.metaformat import tokenize
@@ -32,6 +33,17 @@ class FlowBlock(object):
     def __getitem__(self, name):
         return self._data[name]
 
+    def __html__(self):
+        try:
+            return self.pad.db.env.render_template(
+                ['blocks/%s.html' % self._data['_flowblock'],
+                 'blocks/default.html'],
+                pad=self.pad,
+                this=self
+            )
+        except TemplateNotFound:
+            return Markup('[could not find snippet template]')
+
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,
@@ -43,6 +55,9 @@ class Flow(object):
 
     def __init__(self, blocks):
         self.blocks = blocks
+
+    def __html__(self):
+        return Markup(u'\n\n'.join(x.__html__() for x in self.blocks))
 
     def __repr__(self):
         return '<%s %r>' % (
