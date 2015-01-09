@@ -1,4 +1,5 @@
 import os
+import errno
 
 from inifile import IniFile
 
@@ -53,8 +54,8 @@ class Field(object):
             options = {}
         self.type = type(env, options)
 
-    def deserialize_value(self, value):
-        raw_value = types.RawValue(self.name, value, field=self)
+    def deserialize_value(self, value, pad=None):
+        raw_value = types.RawValue(self.name, value, field=self, pad=pad)
         return self.type.value_from_raw(raw_value)
 
     def serialize_value(self, value):
@@ -140,14 +141,11 @@ class DataModel(object):
 
         return self._child_replacements[1].evaluate(record.pad, this=record)
 
-    def process_raw_record(self, raw_record):
-        """Given a raw record from a cache this processes the item and
-        returns a record dictionary.
-        """
+    def process_raw_data(self, raw_data, pad=None):
         rv = {}
         for field in self._field_map.itervalues():
-            value = raw_record.get(field.name)
-            rv[field.name] = field.deserialize_value(value)
+            value = raw_data.get(field.name)
+            rv[field.name] = field.deserialize_value(value, pad=pad)
         rv['_model'] = self.id
         return rv
 
@@ -156,6 +154,43 @@ class DataModel(object):
             self.__class__.__name__,
             self.id,
         )
+
+
+class FlowBlock(object):
+
+    def __init__(self, env, id, name, filename=None, fields=None):
+        self.env = env
+        self.id = id
+        self.name = name
+        self.filename = filename
+        if fields is None:
+            fields = []
+        self.fields = fields
+
+        self._field_map = dict((x.name, x) for x in fields)
+        self._field_map['_flowblock'] = Field(
+            env, name='_flowblock', type=types.builtin_types['string'])
+
+    def process_raw_data(self, raw_data, pad=None):
+        rv = {}
+        for field in self._field_map.itervalues():
+            value = raw_data.get(field.name)
+            rv[field.name] = field.deserialize_value(value, pad=pad)
+        rv['_flowblock'] = self.id
+        return rv
+
+    def __repr__(self):
+        return '<%s %r>' % (
+            self.__class__.__name__,
+            self.id,
+        )
+
+
+def fielddata_from_ini(inifile):
+    return [(
+        sect.split('.', 1)[1],
+        inifile.section_as_dict(sect)
+    ) for sect in inifile.sections() if sect.startswith('fields.')]
 
 
 def datamodel_data_from_ini(id, inifile):
@@ -189,16 +224,41 @@ def datamodel_data_from_ini(id, inifile):
             per_page=inifile.get_int('pagination.per_page'),
             url_suffix=inifile.get('pagination.url_suffix'),
         ),
-        fields=[
-            (
-                sect.split('.', 1)[1],
-                inifile.section_as_dict(sect)
-            ) for sect in inifile.sections() if sect.startswith('fields.')
-        ]
+        fields=fielddata_from_ini(inifile),
     )
 
 
-def datamodel_from_data(env, model_data, parent):
+def flowblock_data_from_ini(id, inifile):
+    return dict(
+        filename=inifile.filename,
+        id=id,
+        name=inifile.get('block.name', id.title().replace('_', ' ')),
+        fields=fielddata_from_ini(inifile),
+    )
+
+
+def fields_from_data(env, data, parent_fields=None):
+    fields = []
+    known_fields = set()
+
+    for name, options in data:
+        ty = types.builtin_types[options.get('type', 'string')]
+        fields.append(Field(env=env, name=name,
+                            label=options.get('label'), type=ty,
+                            options=options))
+        known_fields.add(name)
+
+    if parent_fields is not None:
+        prepended_fields = []
+        for field in parent_fields:
+            if field.name not in known_fields:
+                prepended_fields.append(field)
+        fields = prepended_fields + fields
+
+    return fields
+
+
+def datamodel_from_data(env, model_data, parent=None):
     def get_value(key):
         path = key.split('.')
         node = model_data
@@ -212,22 +272,8 @@ def datamodel_from_data(env, model_data, parent):
                 node = getattr(node, item)
             return node
 
-    fields = []
-    known_fields = set()
-
-    for name, options in model_data['fields']:
-        ty = types.builtin_types[options.get('type', 'string')]
-        fields.append(Field(env=env, name=name,
-                            label=options.get('label'), type=ty,
-                            options=options))
-        known_fields.add(name)
-
-    if parent is not None:
-        parent_fields = []
-        for field in parent.fields:
-            if field.name not in known_fields:
-                parent_fields.append(field)
-        fields = parent_fields + fields
+    fields = fields_from_data(env, model_data['fields'],
+                              parent and parent.fields or None)
 
     return DataModel(
         env,
@@ -262,19 +308,38 @@ def datamodel_from_data(env, model_data, parent):
     )
 
 
+def flowblock_from_data(env, block_data):
+    return FlowBlock(
+        env,
+        filename=block_data['filename'],
+        id=block_data['id'],
+        name=block_data['name'],
+        fields=fields_from_data(env, block_data['fields']),
+    )
+
+
+def iter_inis(path):
+    try:
+        for filename in os.listdir(path):
+            if not filename.endswith('.ini') or filename[:1] in '_.':
+                continue
+            fn = os.path.join(path, filename)
+            if os.path.isfile(fn):
+                base = filename[:-4].decode('ascii', 'replace')
+                inifile = IniFile(fn)
+                yield base, inifile
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
 def load_datamodels(env):
     """Loads the datamodels for a specific environment."""
     path = os.path.join(env.root_path, 'models')
     data = {}
 
-    for filename in os.listdir(path):
-        if not filename.endswith('.ini') or filename[:1] in '_.':
-            continue
-        fn = os.path.join(path, filename)
-        if os.path.isfile(fn):
-            model_id = filename[:-4].decode('ascii', 'replace')
-            inifile = IniFile(fn)
-            data[model_id] = datamodel_data_from_ini(model_id, inifile)
+    for model_id, inifile in iter_inis(path):
+        data[model_id] = datamodel_data_from_ini(model_id, inifile)
 
     rv = {}
 
@@ -302,6 +367,18 @@ def load_datamodels(env):
         get_model(model_id)
 
     rv['none'] = DataModel(env, 'none', 'None')
+
+    return rv
+
+
+def load_flowblocks(env):
+    """Loads all the flow blocks for a specific environment."""
+    path = os.path.join(env.root_path, 'flowblocks')
+    rv = {}
+
+    for flowblock_id, inifile in iter_inis(path):
+        rv[flowblock_id] = flowblock_from_data(env,
+            flowblock_data_from_ini(flowblock_id, inifile))
 
     return rv
 

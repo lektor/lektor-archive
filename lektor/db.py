@@ -16,7 +16,7 @@ from jinja2.utils import LRUCache
 from lektor import metaformat
 from lektor.utils import sort_normalize_string
 from lektor.operationlog import get_oplog
-from lektor.datamodel import load_datamodels
+from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.thumbnail import make_thumbnail
 
 
@@ -535,6 +535,9 @@ class Query(object):
             raise RuntimeError('The query object is not pristine')
         return self._get(id)
 
+    def __nonzero__(self):
+        return self.first() is not None
+
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,
@@ -582,6 +585,7 @@ class Database(object):
     def __init__(self, env):
         self.env = env
         self.datamodels = load_datamodels(env)
+        self.flowblocks = load_flowblocks(env)
 
     @property
     def default_model(self):
@@ -608,7 +612,7 @@ class Database(object):
             return fn_base + '.lr'
         raise TypeError('Unknown record type %r' % record_type)
 
-    def load_raw_record(self, path, record_type):
+    def load_raw_data(self, path, record_type):
         """Internal helper that loads the raw record data."""
         path = cleanup_path(path)
 
@@ -616,7 +620,7 @@ class Database(object):
             rv = {}
             fn = self.get_fs_path(path, record_type=record_type)
             with open(fn, 'rb') as f:
-                for key, lines in metaformat.tokenize(f):
+                for key, lines in metaformat.tokenize(f, encoding='utf-8'):
                     rv[key] = u''.join(lines)
 
             rv['_path'] = path
@@ -671,20 +675,20 @@ class Database(object):
         if oplog is not None:
             oplog.record_path_usage(fs_path)
 
-    def get_datamodel(self, raw_record, pad, record_type='record'):
+    def get_datamodel(self, raw_data, pad, record_type='record'):
         """Returns the datamodel for a given raw record."""
-        datamodel_name = (raw_record.get('_model') or '').strip()
+        datamodel_name = (raw_data.get('_model') or '').strip()
 
         # If a datamodel is defined, we use it.
         if datamodel_name:
             return self.datamodels.get(datamodel_name, self.default_model)
 
-        parent = posixpath.dirname(raw_record['_path'])
+        parent = posixpath.dirname(raw_data['_path'])
         datamodel_name = None
 
         # If we hit the root, and there is no model defined we need
         # to make sure we do not recurse onto ourselves.
-        if parent != raw_record['_path']:
+        if parent != raw_data['_path']:
             parent_obj = self.get_page(parent, pad)
             if parent_obj is not None:
                 if record_type == 'record':
@@ -696,7 +700,7 @@ class Database(object):
 
         # Pick default datamodel name
         if datamodel_name is None and record_type == 'record':
-            datamodel_name = posixpath.basename(raw_record['_path']
+            datamodel_name = posixpath.basename(raw_data['_path']
                 ).split('.')[0].replace('-', '_').lower()
 
         if datamodel_name is None:
@@ -710,12 +714,12 @@ class Database(object):
         if rv is not None:
             return self._track_record_dependency(rv)
 
-        raw_record = self.load_raw_record(path, 'record')
-        if raw_record is None:
+        raw_data = self.load_raw_data(path, 'record')
+        if raw_data is None:
             return None
 
-        datamodel = self.get_datamodel(raw_record, pad)
-        rv = Page(pad, datamodel.process_raw_record(raw_record))
+        datamodel = self.get_datamodel(raw_data, pad)
+        rv = Page(pad, datamodel.process_raw_data(raw_data, pad))
         self.postprocess_record(rv, persist)
         return self._track_record_dependency(rv)
 
@@ -756,17 +760,17 @@ class Database(object):
         if rv is not None:
             return self._track_record_dependency(rv)
 
-        raw_record = self.load_raw_record(path, 'attachment')
-        if raw_record is None:
-            raw_record = {'_model': None, '_path': path,
-                          '_id': posixpath.basename(path)}
-        raw_record['_attachment_for'] = posixpath.dirname(path)
-        if '_attachment_type' not in raw_record:
-            raw_record['_attachment_type'] = self.get_attachment_type(path)
-        cls = self.get_attachment_class(raw_record['_attachment_type'])
+        raw_data = self.load_raw_data(path, 'attachment')
+        if raw_data is None:
+            raw_data = {'_model': None, '_path': path,
+                        '_id': posixpath.basename(path)}
+        raw_data['_attachment_for'] = posixpath.dirname(path)
+        if '_attachment_type' not in raw_data:
+            raw_data['_attachment_type'] = self.get_attachment_type(path)
+        cls = self.get_attachment_class(raw_data['_attachment_type'])
 
-        datamodel = self.get_datamodel(raw_record, pad, 'attachment')
-        rv = cls(pad, datamodel.process_raw_record(raw_record))
+        datamodel = self.get_datamodel(raw_data, pad, 'attachment')
+        rv = cls(pad, datamodel.process_raw_data(raw_data, pad))
         self.postprocess_record(rv, persist)
         return self._track_record_dependency(rv)
 

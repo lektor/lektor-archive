@@ -1,7 +1,11 @@
-def _process_buf(buf, encoding):
+def _line_is_dashes(line):
+    line = line.strip()
+    return line == u'-' * len(line) and len(line) >= 3
+
+
+def _process_buf(buf):
     for idx, line in enumerate(buf):
-        line = line.decode(encoding)
-        if line[:1] == '\\':
+        if _line_is_dashes(line):
             line = line[1:]
         buf[idx] = line
 
@@ -11,7 +15,7 @@ def _process_buf(buf, encoding):
     return buf[:]
 
 
-def tokenize(iterable, interesting_keys=None, encoding='utf-8'):
+def tokenize(iterable, interesting_keys=None, encoding=None):
     """This tokenizes an iterable of newlines as bytes into key value
     pairs out of the lektor bulk format.  By default it will process all
     fields, but optionally it can skip values of uninteresting keys and
@@ -31,14 +35,17 @@ def tokenize(iterable, interesting_keys=None, encoding='utf-8'):
         if not is_interesting:
             value = None
         else:
-            value = _process_buf(buf, encoding)
+            value = _process_buf(buf)
         del key[:], buf[:]
         return the_key, value
 
-    for line in iterable:
-        line = line.rstrip(b'\r\n') + b'\n'
+    if encoding is not None:
+        iterable = (x.decode(encoding, 'replace') for x in iterable)
 
-        if line.rstrip() == b'---':
+    for line in iterable:
+        line = line.rstrip(u'\r\n') + u'\n'
+
+        if line.rstrip() == u'---':
             want_newline = False
             if key:
                 yield _flush_item()
@@ -50,15 +57,15 @@ def tokenize(iterable, interesting_keys=None, encoding='utf-8'):
             if is_interesting:
                 buf.append(line)
         else:
-            bits = line.split(b':', 1)
+            bits = line.split(u':', 1)
             if len(bits) == 2:
-                key = [bits[0].strip().decode(encoding, 'replace')]
+                key = [bits[0].strip()]
                 if interesting_keys is None:
                     is_interesting = True
                 else:
                     is_interesting = key[0] in interesting_keys
                 if is_interesting:
-                    first_bit = bits[1].strip('\t ')
+                    first_bit = bits[1].strip(u'\t ')
                     if first_bit.strip():
                         buf = [first_bit]
                     else:

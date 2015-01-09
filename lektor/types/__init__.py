@@ -11,12 +11,13 @@ def get_undefined_info(undefined):
 
 
 class RawValue(object):
-    __slots__ = ('name', 'value', 'field')
+    __slots__ = ('name', 'value', 'field', 'pad')
 
-    def __init__(self, name, value=None, field=None):
+    def __init__(self, name, value=None, field=None, pad=None):
         self.name = name
         self.value = value
         self.field = field
+        self.pad = pad
 
     def _get_hint(self, prefix, reason):
         if self.field is not None:
@@ -53,6 +54,7 @@ from lektor.types.primitives import \
 from lektor.types.multi import CheckboxesType
 from lektor.types.special import SortKeyType, SlugType, UrlType
 from lektor.types.formats import MarkdownType
+from lektor.types.flow import FlowType
 
 
 builtin_types = {
@@ -77,4 +79,7 @@ builtin_types = {
 
     # Formats
     'markdown': MarkdownType,
+
+    # Flow
+    'flow': FlowType,
 }
