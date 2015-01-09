@@ -292,6 +292,9 @@ class Record(object):
     def iter_child_records(self):
         return iter(())
 
+    def __contains__(self, name):
+        return name in self._data and not is_undefined(self._data[name])
+
     def __getitem__(self, name):
         return self._data[name]
 

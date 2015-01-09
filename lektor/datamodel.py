@@ -156,7 +156,7 @@ class DataModel(object):
         )
 
 
-class FlowBlock(object):
+class FlowBlockModel(object):
 
     def __init__(self, env, id, name, filename=None, fields=None):
         self.env = env
@@ -309,7 +309,7 @@ def datamodel_from_data(env, model_data, parent=None):
 
 
 def flowblock_from_data(env, block_data):
-    return FlowBlock(
+    return FlowBlockModel(
         env,
         filename=block_data['filename'],
         id=block_data['id'],

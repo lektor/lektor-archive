@@ -1,5 +1,7 @@
 import re
 
+from jinja2 import is_undefined
+
 from lektor.types import Type
 from lektor.metaformat import tokenize
 
@@ -11,6 +13,42 @@ class BadFlowBlock(Exception):
 
     def __init__(self, message):
         self.message = message
+
+
+class FlowBlock(object):
+    """Represents a flowblock for the template."""
+
+    def __init__(self, data, pad):
+        self._data = data
+        self.pad = pad
+
+    @property
+    def flowblockmodel(self):
+        return self.pad.db.flowblocks[self._data['_flowblock']]
+
+    def __contains__(self, name):
+        return name in self._data and not is_undefined(self._data[name])
+
+    def __getitem__(self, name):
+        return self._data[name]
+
+    def __repr__(self):
+        return '<%s %r>' % (
+            self.__class__.__name__,
+            self['_flowblock'],
+        )
+
+
+class Flow(object):
+
+    def __init__(self, blocks):
+        self.blocks = blocks
+
+    def __repr__(self):
+        return '<%s %r>' % (
+            self.__class__.__name__,
+            self.blocks,
+        )
 
 
 def process_flowblock_data(raw_value):
@@ -59,15 +97,21 @@ class FlowType(Type):
         db = raw.pad.db
         rv = []
 
-        for block, block_lines in process_flowblock_data(raw.value):
-            # Unknown flow blocks are skipped for the moment
-            flowblock = db.flowblocks.get(block)
-            if flowblock is None:
-                continue
+        try:
+            for block, block_lines in process_flowblock_data(raw.value):
+                # Unknown flow blocks are skipped for the moment
+                flowblock = db.flowblocks.get(block)
+                if flowblock is None:
+                    continue
 
-            d = {}
-            for key, lines in tokenize(block_lines):
-                d[key] = u''.join(lines)
-            rv.append(flowblock.process_raw_data(d, pad=raw.pad))
+                d = {}
+                for key, lines in tokenize(block_lines):
+                    d[key] = u''.join(lines)
+                rv.append(FlowBlock(
+                    flowblock.process_raw_data(d, pad=raw.pad),
+                    pad=raw.pad
+                ))
+        except BadFlowBlock as e:
+            return raw.bad_value(e.message)
 
-        return rv
+        return Flow(rv)
