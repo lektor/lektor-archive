@@ -387,6 +387,7 @@ class Page(Record):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad)
 
+    # TODO: remove me
     def iter_child_records(self):
         return chain(self.children, self.attachments)
 
@@ -668,15 +669,15 @@ class Database(object):
         oplog = get_oplog()
         if oplog is not None:
             for filename in record.iter_dependent_filenames():
-                oplog.record_path_usage(filename)
+                oplog.record_dependency(filename)
             if record.datamodel.filename:
-                oplog.record_path_usage(record.datamodel.filename)
+                oplog.record_dependency(record.datamodel.filename)
         return record
 
     def _track_fs_dependency(self, fs_path):
         oplog = get_oplog()
         if oplog is not None:
-            oplog.record_path_usage(fs_path)
+            oplog.record_dependency(fs_path)
 
     def get_datamodel(self, raw_data, pad, record_type='record'):
         """Returns the datamodel for a given raw record."""

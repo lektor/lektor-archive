@@ -71,7 +71,7 @@ class CustomJinjaEnvironment(jinja2.Environment):
         rv = jinja2.Environment._load_template(self, name, globals)
         oplog = get_oplog()
         if oplog is not None:
-            oplog.record_path_usage(rv.filename)
+            oplog.record_dependency(rv.filename)
         return rv
 
 
@@ -104,7 +104,7 @@ class Environment(object):
 
     def render_template(self, name, pad, this=None, values=None):
         ctx = self.make_default_tmpl_values(pad, this, values)
-        return self.jinja_env.get_template(name).render(ctx)
+        return self.jinja_env.get_or_select_template(name).render(ctx)
 
     def make_default_tmpl_values(self, pad, this=None, values=None):
         values = dict(values or ())

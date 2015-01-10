@@ -2,8 +2,6 @@ import posixpath
 
 from threading import local
 
-from lektor.utils import WorkerPool, safe_call
-
 
 _log_local = local()
 
@@ -16,73 +14,21 @@ def get_oplog():
         return None
 
 
-def get_dependent_url(url_path, suffix):
-    url_directory, url_filename = posixpath.split(url_path)
-    url_base, url_ext = posixpath.splitext(url_filename)
-    return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
+class OpLog(object):
 
+    def __init__(self, artifact):
+        self.artifact = artifact
+        self.source = artifact.source_obj
 
-class Operation(object):
+        self.build_state = self.artifact.build_state
+        self.pad = self.build_state.pad
 
-    def get_unique_key(self):
-        raise NotImplementedError()
-
-    def execute(self, builder):
-        pass
-
-
-class Result(object):
-
-    def __init__(self, dst_filename, produce_func, concurrent=False):
-        self.dst_filename = dst_filename
-        self.produce_func = produce_func
-        self.concurrent = concurrent
-
-
-class OperationLog(object):
-
-    def __init__(self, pad):
-        self.pad = pad
-        self.referenced_paths = set()
-        self.referenced_folders = set()
-        self.produced_artifacts = set()
-        self.operations = {}
+        self.referenced_dependencies = set()
+        self.sub_artifacts = []
 
     @property
     def env(self):
         return self.pad.db.env
-
-    def record_path_usage(self, filename):
-        self.referenced_paths.add(filename)
-
-    def record_operation(self, operation):
-        key = operation.__class__, operation.get_unique_key()
-        self.operations[key] = operation
-
-    def record_artifact(self, filename):
-        self.produced_artifacts.add(filename)
-
-    def iter_operations(self):
-        return self.operations.itervalues()
-
-    def execute_pending_operations(self, builder):
-        concurrent_ops = []
-        for op in self.iter_operations():
-            for result in op.execute(builder, self) or ():
-                self.record_artifact(result.dst_filename)
-                if result.concurrent:
-                    concurrent_ops.append(result.produce_func)
-                else:
-                    safe_call(result.produce_func)
-
-        if concurrent_ops:
-            if len(concurrent_ops) > 1:
-                pool = WorkerPool()
-                for op in concurrent_ops:
-                    pool.add_task(op)
-                pool.wait_for_completion()
-            else:
-                safe_call(concurrent_ops[0])
 
     def push(self):
         _log_local.__dict__.setdefault('stack', []).append(self)
@@ -96,3 +42,25 @@ class OperationLog(object):
 
     def __exit__(self, exc_type, exc_value, tb):
         self.pop()
+
+    def add_sub_artifact(self, artifact_name, build_func=None,
+                         sources=None, source_obj=None):
+        """Sometimes it can happen that while building an artifact another
+        artifact needs building.  This function is generally used to record
+        this request.
+        """
+        self.sub_artifacts.append((self.build_state.new_artifact(
+            artifact_name=artifact_name,
+            sources=sources,
+            source_obj=source_obj,
+        ), build_func))
+
+    def record_dependency(self, filename):
+        # XXX: rename
+        self.referenced_dependencies.add(filename)
+
+
+def get_dependent_url(url_path, suffix):
+    url_directory, url_filename = posixpath.split(url_path)
+    url_base, url_ext = posixpath.splitext(url_filename)
+    return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
