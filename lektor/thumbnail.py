@@ -24,6 +24,7 @@ def make_thumbnail(oplog, source_image, source_url_path, width, height=None):
 
     im = find_imagemagick(oplog.env)
 
+    @oplog.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
     def build_func(artifact):
         resize_key = str(width)
         if height is not None:
@@ -32,10 +33,6 @@ def make_thumbnail(oplog, source_image, source_url_path, width, height=None):
         subprocess.Popen([im, source_image,
                           '-resize', resize_key,
                           artifact.dst_filename]).wait()
-
-    oplog.add_sub_artifact(artifact_name=dst_url_path,
-                           sources=[source_image],
-                           build_func=build_func)
 
     return Thumbnail(dst_url_path, width, height)
 

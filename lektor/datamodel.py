@@ -124,6 +124,15 @@ class DataModel(object):
         return '_'.join(self._child_slug_tmpl[1].evaluate(
             record.pad, this=record).strip().split()).strip('/')
 
+    @property
+    def has_own_children(self):
+        return self.child_config.replaced_with is None and \
+               self.child_config.enabled
+
+    @property
+    def has_own_attachments(self):
+        return self.attachment_config.enabled
+
     def get_child_replacements(self, record):
         """Returns the query that should be used as replacement for the
         actual children.

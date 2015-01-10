@@ -1,600 +1,594 @@
 import os
+import sys
 import stat
 import shutil
-import click
-import hashlib
 import sqlite3
+import hashlib
+import tempfile
+import posixpath
 
-from lektor.utils import atomic_open, prune_file_and_folder
-from lektor.operationlog import OperationLog
+import click
+
+from contextlib import contextmanager
+from itertools import chain
+
 from lektor.db import Page, Attachment
+from lektor.operationlog import OpLog
 
 
-_missing = object()
-
-
-class _Tree(object):
-
-    def __init__(self, env, filename):
-        self.env = env
-        self.filename = filename
-        self.root_path = os.path.abspath(env.root_path)
-
-        con = self.get_connection()
-        con.execute(self.schema)
+def create_tables(con):
+    try:
+        con.execute('''
+            create table if not exists artifacts (
+                artifact text,
+                source text,
+                source_mtime integer,
+                source_size integer,
+                source_checksum text,
+                primary key (artifact, source)
+            );
+        ''')
+    finally:
         con.close()
 
-    def get_connection(self):
-        return sqlite3.connect(self.filename)
 
-    def abbreviate_filename(self, filename):
-        filename = os.path.join(self.root_path, filename)
-        if self.root_path is not None and filename.startswith(self.root_path):
-            filename = filename[len(self.root_path):].lstrip(os.path.sep)
+class BuildState(object):
+
+    def __init__(self, generator, database_filename):
+        self.builder = generator
+        self.database_filename = database_filename
+
+        self.file_info_cache = {}
+
+        create_tables(self.connect_to_database())
+
+    @property
+    def pad(self):
+        """The pad for this buildstate."""
+        return self.builder.pad
+
+    @property
+    def env(self):
+        """The environment backing this buildstate."""
+        return self.builder.env
+
+    def get_file_info(self, filename):
+        """Returns the file info for a given file.  This will be cached
+        on the generator for the lifetime of it.  This means that further
+        accesses to this file info will not cause more IO but it might not
+        be safe to use the generator after modifications to the original
+        files have been performed on the outside.
+
+        Generally this function can be used to acquire the file info for
+        any file on the file system but it should onl be used for source
+        files or carefully for other things.
+
+        The filename given can be a source filename.
+        """
+        # XXX: this works on windows because slashes are still accepted.
+        fn = os.path.join(self.env.root_path, filename)
+        rv = self.file_info_cache.get(fn)
+        if rv is None:
+            self.file_info_cache[fn] = rv = FileInfo(self.env, fn)
+        return rv
+
+    def to_source_filename(self, filename):
+        """Given a path somewhere below the environment this will return the
+        short source filename that is used internally.  Unlike the given
+        path, this identifier is also platform independent.
+        """
+        folder = os.path.abspath(self.env.root_path)
+        filename = os.path.join(folder, filename)
+        if filename.startswith(folder):
+            filename = filename[len(folder):].lstrip(os.path.sep)
+            if os.path.altsep:
+                filename = filename.lstrip(os.path.altsep)
+        else:
+            raise ValueError('The given value (%r) is not below the '
+                             'source folder (%r)' %
+                             (filename, self.env.root_path))
+        return filename.replace(os.path.sep, '/')
+
+    def connect_to_database(self):
+        """Returns a database connection for the build state db."""
+        return sqlite3.connect(self.database_filename, timeout=10,
+                               check_same_thread=False)
+
+    def get_destination_filename(self, artifact_name):
+        """Returns the destination filename for an artifact name."""
+        return os.path.join(self.builder.destination_path,
+                            artifact_name.strip('/').replace('/', os.path.sep))
+
+    def artifact_name_from_destination_filename(self, filename):
+        """Returns the artifact name for a destination filename."""
+        dst = self.builder.destination_path
+        filename = os.path.join(dst, filename)
+        if filename.startswith(dst):
+            filename = filename[len(dst):].lstrip(os.path.sep)
             if os.path.altsep:
                 filename = filename.lstrip(os.path.altsep)
         return filename
 
+    def new_artifact(self, artifact_name, sources=None, source_obj=None):
+        dst_filename = self.get_destination_filename(artifact_name)
+        key = self.artifact_name_from_destination_filename(dst_filename)
+        return Artifact(self, key, dst_filename, sources, source_obj=source_obj)
 
-class SourceTree(_Tree):
-    """The source tree remembers the state of the paths they had last time
-    the were processed.
+    def artifact_exists(self, artifact_name):
+        """Given an artifact name this checks if it was already produced."""
+        dst_filename = self.get_destination_filename(artifact_name)
+        return os.path.exists(dst_filename)
+
+    def iter_artifact_dependencies(self, artifact_name):
+        """Given an artifact name this will iterate over all dependencies
+        of it as file info objects.
+        """
+        con = self.connect_to_database()
+        cur = con.cursor()
+        cur.execute('''
+            select source, source_mtime, source_size, source_checksum
+            from artifacts
+            where artifact = ?
+        ''', [artifact_name])
+        rv = cur.fetchall()
+        con.close()
+
+        for filename, mtime, size, checksum in rv:
+            yield FileInfo(self.env, filename, mtime, size, checksum)
+
+
+class FileInfo(object):
+    """A file info object holds metainformation of a file so that changes
+    can be detected easily.
     """
-    schema = '''
-        create table if not exists sources (
-            filename text,
-            mtime integer,
-            size integer,
-            checksum text,
-            primary key (filename)
-        );
-    '''
 
-    def __init__(self, env, filename):
-        _Tree.__init__(self, env, filename)
-        self._paths = {}
-        self._changed = set()
+    def __init__(self, env, filename, mtime=None, size=None, checksum=None):
+        self.env = env
+        self.filename = filename
+        if mtime is not None and size is not None:
+            self._stat = (mtime, size)
+        else:
+            self._stat = None
+        self._checksum = checksum
 
-    def _get_path_meta(self, filename):
-        p = os.path.join(self.root_path, filename)
+    def _get_stat(self):
+        rv = self._stat
+        if rv is not None:
+            return rv
+
         try:
-            st = os.stat(p)
+            st = os.stat(self.filename)
             mtime = int(st.st_mtime)
             if stat.S_ISDIR(st.st_mode):
-                size = len(os.listdir(p))
+                size = len(os.listdir(self.filename))
             else:
                 size = int(st.st_size)
-            return mtime, size
+            rv = mtime, size
         except OSError:
-            pass
+            rv = None, None
+        self._stat = rv
+        return rv
 
-    def _get_path_checksum(self, filename):
-        p = os.path.join(self.root_path, filename)
+    @property
+    def mtime(self):
+        """The timestamp of the last modification."""
+        return self._get_stat()[0]
+
+    @property
+    def size(self):
+        """The size of the file in bytes.  If the file is actually a
+        dictionary then the size is actually the number of files in it.
+        """
+        return self._get_stat()[1]
+
+    @property
+    def checksum(self):
+        """The checksum of the file or directory."""
+        rv = self._checksum
+        if rv is not None:
+            return rv
+
         try:
             h = hashlib.sha1()
-            if os.path.isdir(p):
-                for filename in sorted(os.listdir(p)):
+            if os.path.isdir(self.filename):
+                h.update('DIR\x00')
+                for filename in sorted(os.listdir(self.filename)):
                     if self.env.is_uninteresting_filename(filename):
                         continue
                     if isinstance(filename, unicode):
                         filename = filename.encode('utf-8')
-                    h.update(filename + '|')
+                    h.update(filename + '\x00')
             else:
-                with open(p, 'rb') as f:
+                with open(self.filename, 'rb') as f:
                     while 1:
                         chunk = f.read(16 * 1024)
                         if not chunk:
                             break
                         h.update(chunk)
-            return h.hexdigest()
-        except IOError:
-            pass
-
-    def get_checksum(self, filename):
-        """Returns the checksum for a file."""
-        abbr_filename = self.abbreviate_filename(filename)
-        tup = self.get_path_info(abbr_filename)
-        if tup is None:
-            return self._get_path_checksum(filename)
-        mtime, size, checksum = tup
+            checksum = h.hexdigest()
+        except (OSError, IOError):
+            checksum = '0' * 40
+        self._checksum = checksum
         return checksum
 
-    def add_path(self, filename):
-        """Adds a path to the source tree."""
-        tup = self._get_path_meta(filename)
-        if tup is None:
-            return None
-        checksum = self._get_path_checksum(filename)
-        if checksum is None:
-            return None
-        filename = self.abbreviate_filename(filename)
-        self._paths[filename] = tup + (checksum,)
-        self._changed.add(filename)
-        return checksum
-
-    def get_path_info(self, filename):
-        filename = self.abbreviate_filename(filename)
-        rv = self._paths.get(filename, _missing)
-        if rv is not _missing:
-            return rv
-
-        con = self.get_connection()
-        rv = con.execute('''
-            select filename, mtime, size, checksum from sources
-             where filename = ?
-        ''', (filename,)).fetchone()
-        con.close()
-
-        if rv is not None:
-            filename, mtime, size, checksum = rv
-            self._paths[filename] = rv = (mtime, size, checksum)
-        return rv
-
-    def remove_path(self, filename):
-        """Removes a path from the source tree again."""
-        filename = self.abbreviate_filename(filename)
-        tup = self._paths.pop(filename, None)
-        self._changed.add(filename)
-        return tup is not None
-
-    def is_current(self, filename, reference_checksum=None):
-        """Checks if a filename is current compared to the information in the
-        source tree.
-        """
-        abbr_filename = self.abbreviate_filename(filename)
-        tup = self.get_path_info(abbr_filename)
-        if tup is None:
+    def __eq__(self, other):
+        if type(other) is not FileInfo:
             return False
 
-        mtime, size, checksum = tup
-        if reference_checksum is not None and \
-           checksum != reference_checksum:
-            return False
-
-        if self._get_path_meta(filename) != (mtime, size):
-            if checksum != self._get_path_checksum(filename):
-                return False
+        # If mtime and size match, we skip the checksum comparison which
+        # might require a file read which we do not want in those cases.
+        if self.mtime == other.mtime and self.size == other.size:
             return True
 
-        return True
+        return self.checksum == other.checksum
 
-    def commit(self):
-        con = self.get_connection()
-        values = []
-        to_delete = []
-        for filename in self._changed:
-            tup = self._paths.get(filename)
-            if tup is None:
-                to_delete.append((filename,))
-            else:
-                mtime, size, checksum = tup
-                values.append((filename, mtime, size, checksum))
-        if to_delete:
-            con.executemany('delete from sources where filename = ?', to_delete)
-        if values:
-            con.executemany('''
-                insert or replace into sources
-                    (filename, mtime, size, checksum) values (?, ?, ?, ?);
-            ''', values)
-        self._changes = set()
-        con.commit()
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
-class DependencyTree(_Tree):
-    schema = '''
-        create table if not exists dependencies (
-            filename text,
-            dependency text,
-            checksum text,
-            primary key (filename, dependency)
-        );
-    '''
+class Artifact(object):
+    """This class represents a build artifact."""
 
-    def __init__(self, env, filename):
-        _Tree.__init__(self, env, filename)
-        self._dependencies = {}
-        self._changes = set()
+    def __init__(self, build_state, artifact_name, dst_filename, sources,
+                 source_obj=None):
+        self.build_state = build_state
+        self.artifact_name = artifact_name
+        self.dst_filename = dst_filename
+        self.sources = sources
+        self.in_update_block = False
+        self.updated = False
+        self.source_obj = source_obj
 
-    def commit(self):
-        con = self.get_connection()
-        values = []
-        to_delete = []
-        for source in self._changes:
-            deps = self._dependencies.get(source)
-            to_delete.append((source,))
-            if not deps:
-                continue
-            for dep, cs in deps.iteritems():
-                values.append((source, dep, cs))
+        self._update_con = None
+        self._new_artifact_file = None
 
-        if to_delete:
-            con.executemany('delete from dependencies where filename = ?',
-                            to_delete)
-        if values:
-            con.executemany('''
-                insert or replace into dependencies
-                    (filename, dependency, checksum) values (?, ?, ?);
-            ''', values)
-        self._changes = set()
-        con.commit()
+    def __repr__(self):
+        return '<%s %r>' % (
+            self.__class__.__name__,
+            self.dst_filename,
+        )
 
-    def add_dependency(self, source, dependency, cs):
-        src = self.abbreviate_filename(source)
-        dep = self.abbreviate_filename(dependency)
-        if src != dep:
-            self._dependencies.setdefault(src, {})[dep] = cs
-            self._changes.add(src)
-
-    def clean_dependencies(self, source):
-        source = self.abbreviate_filename(source)
-        self._changes.add(source)
-        return self._dependencies.pop(source, None) is not None
-
-    def remove_source(self, source):
-        source = self.abbreviate_filename(source)
-        con = self.get_connection()
-        con.execute('''
-            delete from dependencies
-             where filename = ? or dependency = ?
-        ''', (source, source))
-        con.commit()
-        con.close()
-
-        # remove from local cache data just in case
-        self._dependencies.pop(source, None)
-        for key, deps in self._dependencies.iteritems():
-            deps.pop(source, None)
-
-    def iter_dependencies(self, source):
-        src = self.abbreviate_filename(source)
-        return self.get_dependency_info(src).iteritems()
-
-    def get_dependency_info(self, path):
-        path = self.abbreviate_filename(path)
-        rv = self._dependencies.get(path)
-        if rv is None and path not in self._changes:
-            con = self.get_connection()
-            iterable = con.execute('''
-                select filename, dependency, checksum from dependencies
-                where filename = ?
-            ''', (path,))
-            rv = {}
-            for (fn, dep, cs) in iterable:
-                rv[dep] = cs
-            self._dependencies[fn] = rv
-            con.close()
+    def get_connection(self):
+        """Returns the exclusive database connection for this artifact."""
+        if not self.in_update_block:
+            raise RuntimeError('Can only only acquire buildstate connection '
+                               'if the artifact is open for updates.')
+        rv = self._update_con
+        if rv is None:
+            self._update_con = rv = self.build_state.connect_to_database()
         return rv
 
+    def iter_dependency_infos(self):
+        """This iterates over all dependencies as file info objects."""
+        i = self.build_state.iter_artifact_dependencies(self.artifact_name)
+        found = set()
+        for file_info in i:
+            filename = self.build_state.to_source_filename(file_info.filename)
+            found.add(filename)
+            yield filename, file_info
 
-class ArtifactTree(_Tree):
-    schema = '''
-        create table if not exists artifacts (
-            filename text,
-            artifact text,
-            checksum text,
-            primary key (filename, artifact)
-        );
-    '''
+        # In any case we also iterate over our direct sources, even if the
+        # build state does not know about them yet.  This can be caused by
+        # an initial build or a change in original configuration.
+        for source in self.sources:
+            filename = self.build_state.to_source_filename(source)
+            if filename not in found:
+                yield source, None
 
-    def __init__(self, env, filename, destination_path):
-        _Tree.__init__(self, env, filename)
-        self.destination_path = os.path.abspath(destination_path)
-        self._artifacts = {}
-        self._changes = set()
-
-        con = self.get_connection()
-        rv = con.execute('select filename, artifact, checksum '
-                         'from artifacts')
-        for (fn, aft, cs) in rv:
-            self._artifacts.setdefault(fn, {})[aft] = cs
-        con.close()
-
-    def abbreviate_destination_filename(self, filename):
-        filename = os.path.join(self.destination_path, filename)
-        if self.destination_path is not None \
-           and filename.startswith(self.destination_path):
-            filename = filename[len(self.destination_path):].lstrip(os.path.sep)
-            if os.path.altsep:
-                filename = filename.lstrip(os.path.altsep)
-        return filename
-
-    def commit(self):
-        con = self.get_connection()
-        values = []
-        to_delete = []
-        for source in self._changes:
-            afts = self._artifacts.get(source)
-            to_delete.append((source,))
-            if not afts:
-                continue
-            for aft, cs in afts.iteritems():
-                values.append((source, aft, cs))
-
-        if to_delete:
-            con.executemany('delete from artifacts where filename = ?',
-                            to_delete)
-        if values:
-            con.executemany('''
-                insert or replace into artifacts
-                    (filename, artifact, checksum) values (?, ?, ?);
-            ''', values)
-        self._changes = set()
-        con.commit()
-
-    def add_artifact(self, source, artifact, checksum):
-        src = self.abbreviate_filename(source)
-        aft = self.abbreviate_destination_filename(artifact)
-        self._artifacts.setdefault(src, {})[aft] = checksum
-        self._changes.add(src)
-
-    def remove_artifact(self, source, artifact):
-        src = self.abbreviate_filename(source)
-        aft = self.abbreviate_destination_filename(artifact)
-        if src in self._artifacts:
-            self._artifacts[src].pop(aft, None)
-            self._changes.add(src)
-
-    def remove_source(self, source):
-        source = self.abbreviate_filename(source)
-        con = self.get_connection()
-        con.execute('''
-            delete from artifacts where filename = ?
-        ''', (source,))
-        con.commit()
-        con.close()
-
-        # remove from local cache data just in case
-        self._artifacts.pop(source, None)
-
-    def get_artifact_info(self, source):
-        source = self.abbreviate_filename(source)
-        rv = self._artifacts.get(source)
-        if rv is None and source not in self._changes:
-            con = self.get_connection()
-            iterable = con.execute('''
-                select filename, artifact, checksum from artifacts
-                where filename = ?
-            ''', (source,))
-            rv = {}
-            for (fn, aft, cs) in iterable:
-                rv[aft] = cs
-            self._artifacts[source] = rv
-            con.close()
-        return rv
-
-    def iter_old_source_artifacts(self, source, checksum):
-        source = self.abbreviate_filename(source)
-        afts = self.get_artifact_info(source)
-        for aft, cs in list((afts or {}).items()):
-            if cs != checksum:
-                yield aft
-
-    def artifacts_are_recent(self, source, checksum):
-        source = self.abbreviate_filename(source)
-        afts = self.get_artifact_info(source)
-        if not afts:
+    @property
+    def is_current(self):
+        """Checks if the artifact is current."""
+        # If the artifact does not exist, we're not current.
+        if not os.path.isfile(self.dst_filename):
             return False
-        for _, cs in afts.iteritems():
-            if cs != checksum:
+
+        # If we do have an already existing artifact, we need to check if
+        # any of the source files we depend on changed.
+        for source_name, info in self.iter_dependency_infos():
+            # if we get a missing source info it means that we never
+            # saw this before.  This means we need to build it.
+            if info is None:
                 return False
+
+            # If the file info is different, then it clearly changed.
+            if info != self.build_state.get_file_info(info.filename):
+                return False
+
         return True
 
-    def iter_unreferenced_artifacts(self, sources):
-        # XXX: this is not using local modifications
-        sources = set(self.abbreviate_filename(x) for x in sources)
-        if not sources:
-            return
+    def ensure_dir(self):
+        """Creates the directory if it does not exist yet."""
+        dir = os.path.dirname(self.dst_filename)
+        try:
+            os.makedirs(dir)
+        except OSError:
+            pass
 
-        # TODO: do not delete artifacts used by other sources
+    def open(self, mode='rb', ensure_dir=False):
+        """Opens the artifact for reading or writing.  This is transaction
+        safe by writing into a temporary file and by moving it over the
+        actual source in commit.
+        """
+        if ensure_dir:
+            self.ensure_dir()
+        if 'r' in mode:
+            fn = self._new_artifact_file or self.dst_filename
+            return open(fn, mode)
+        if self._new_artifact_file is None:
+            fd, tmp_filename = tempfile.mkstemp(
+                dir=os.path.dirname(self.dst_filename), prefix='.__trans')
+            self._new_artifact_file = tmp_filename
+            return os.fdopen(fd, mode)
+        return open(self._new_artifact_file, mode)
+
+    def memorize_dependencies(self, dependencies=None):
+        """This updates the dependencies recorded for the artifact based
+        on the direct sources plus the provided dependencies.
+        """
+        seen = set()
+        rows = []
+        for source in chain(self.sources, dependencies or ()):
+            source = self.build_state.to_source_filename(source)
+            if source in seen:
+                continue
+            info = self.build_state.get_file_info(source)
+            rows.append((self.artifact_name, source, info.mtime,
+                         info.size, info.checksum))
+            seen.add(source)
+
         con = self.get_connection()
-        iterable = con.execute('''
-            select filename, artifact from artifacts
-            where filename not in (%s)
-        ''' % ', '.join((('?',) * len(sources))), list(sources))
+        cur = con.cursor()
+        cur.execute('delete from artifacts where artifact = ?',
+                    [self.artifact_name])
+        if rows:
+            cur.executemany('''
+                insert into artifacts (artifact, source, source_mtime,
+                                       source_size, source_checksum)
+                values (?, ?, ?, ?, ?)
+            ''', rows)
+        cur.close()
 
-        rv = {}
-        for src, artifact in iterable:
-            rv.setdefault(src, set()).add(artifact)
-        con.close()
-        return rv.iteritems()
+    def commit(self):
+        """Commits the artifact changes."""
+        if self._new_artifact_file is not None:
+            os.rename(self._new_artifact_file, self.dst_filename)
+            self._new_artifact_file = None
+        if self._update_con is not None:
+            self._update_con.commit()
+            self._update_con.close()
+            self._update_con = None
+
+    def rollback(self):
+        """Rolls back pending artifact changes."""
+        if self._new_artifact_file is not None:
+            try:
+                os.remove(self._new_artifact_file)
+            except OSError:
+                pass
+            self._new_artifact_file = None
+        if self._update_con is not None:
+            self._update_con.rollback()
+            self._update_con.close()
+            self._update_con = None
+
+    @contextmanager
+    def update(self):
+        """Opens the artifact for modifications.
+
+        Unlike the manual begin and update, this also performs a commit and
+        rollback based on the success of the block.
+        """
+        oplog = self.begin_update()
+        try:
+            try:
+                yield oplog
+            finally:
+                self.finish_update(oplog)
+        except Exception:
+            exc_type, exc_value, tb = sys.exc_info()
+            self.rollback()
+            raise exc_type, exc_value, tb
+        self.commit()
+
+    def begin_update(self):
+        """Begins an update block."""
+        if self.in_update_block:
+            raise RuntimeError('Artifact is already open for updates.')
+        self.updated = False
+        oplog = OpLog(self)
+        oplog.push()
+        self.in_update_block = True
+        return oplog
+
+    def finish_update(self, oplog):
+        """Finalizes an update block."""
+        if not self.in_update_block:
+            raise RuntimeError('Artifact is not open for updates.')
+        oplog.pop()
+        self.memorize_dependencies(oplog.referenced_dependencies)
+        self.in_update_block = False
+        self.updated = True
+
+
+class BuildResult(object):
+
+    def __init__(self, source):
+        self.source = source
+
+
+class BuildProgram(object):
+
+    def __init__(self, source, build_state):
+        self.source = source
+        self.build_state = build_state
+        self.artifacts = []
+        self._built = False
+
+    def build(self):
+        """Invokes the build program."""
+        if self._built:
+            raise RuntimeError('This build program was already used.')
+        self._built = True
+
+        self.produce_artifacts()
+
+        sub_artifacts = []
+
+        gen = self.build_state.builder
+        def _build(artifact, build_func):
+            oplog = gen.build_artifact(artifact, build_func)
+            if oplog is not None:
+                sub_artifacts.extend(oplog.sub_artifacts)
+
+        # XXX: if we fail building on sub artifacts and we crash, we
+        # forget that this went wrong.  The solution there would be
+        # something like a nested transaction for the whole thing, but
+        # we do not support that yet.
+
+        # Step one is building the artifacts that this build program
+        # knows about.
+        for artifact in self.artifacts:
+            _build(artifact, self.build_artifact)
+
+        # For as long as our oplog keeps producing sub artifacts, we
+        # want to process them as well.
+        while sub_artifacts:
+            artifact, build_func = sub_artifacts.pop()
+            _build(artifact, build_func)
+
+    def declare_artifact(self, artifact_name, sources=None, extra=None):
+        """This declares an artifact to be built in this program."""
+        self.artifacts.append(self.build_state.new_artifact(
+            artifact_name=artifact_name,
+            sources=sources,
+            source_obj=self.source
+        ))
+
+    def build_artifact(self, artifact):
+        """This is invoked for each artifact declared."""
+
+    def iter_child_sources(self):
+        """This allows a build program to produce children that also need
+        building.  An individual build never recurses down to this, but
+        a `build_all` will use this.
+        """
+        return iter(())
+
+
+build_programs = []
+
+
+def buildprogram(source_cls):
+    def decorator(builder_cls):
+        build_programs.append((source_cls, builder_cls))
+        return builder_cls
+    return decorator
+
+
+@buildprogram(Page)
+class PageBuildProgram(BuildProgram):
+
+    def produce_artifacts(self):
+        if self.source.is_exposed:
+            self.declare_artifact(
+                posixpath.join(self.source.url_path, 'index.html'),
+                sources=[self.source.source_filename])
+
+    def build_artifact(self, artifact):
+        with artifact.open('wb', ensure_dir=True) as f:
+            rv = self.build_state.env.render_template(
+                self.source['_template'], self.build_state.pad,
+                this=self.source)
+            f.write(rv.encode('utf-8') + b'\n')
+
+    def iter_child_sources(self):
+        if self.source.datamodel.has_own_children:
+            for child in self.source.children:
+                yield child
+        if self.source.datamodel.has_own_attachments:
+            for attachment in self.source.attachments:
+                yield attachment
+
+
+@buildprogram(Attachment)
+class AttachmentBuildProgram(BuildProgram):
+
+    def produce_artifacts(self):
+        if self.source.is_exposed:
+            self.declare_artifact(
+                self.source.url_path,
+                sources=[self.source.source_filename,
+                         self.source.attachment_filename])
+
+    def build_artifact(self, artifact):
+        with artifact.open('wb', ensure_dir=True) as df:
+            with open(self.source.attachment_filename) as sf:
+                shutil.copyfileobj(sf, df)
 
 
 class Builder(object):
 
     def __init__(self, pad, destination_path):
         self.pad = pad
-        self.destination_path = os.path.abspath(destination_path)
-
-        self.referenced_sources = set()
-
-        try:
-            os.makedirs(destination_path)
-        except OSError:
-            pass
-
-        db_fn = os.path.abspath(os.path.join(destination_path, '.buildstate'))
-        self.source_tree = SourceTree(pad.db.env, db_fn)
-        self.dependency_tree = DependencyTree(pad.db.env, db_fn)
-        self.artifact_tree = ArtifactTree(pad.db.env, db_fn, destination_path)
+        self.destination_path = os.path.join(
+            pad.db.env.root_path, destination_path)
 
     @property
     def env(self):
+        """The environment backing this generator."""
         return self.pad.db.env
 
-    def get_fs_path(self, dst_filename, make_folder=False):
-        p = os.path.join(self.destination_path,
-                         dst_filename.strip('/').replace('/', os.path.sep))
-        if make_folder:
-            dir = os.path.dirname(p)
-            try:
-                os.makedirs(dir)
-            except OSError:
-                pass
-        return p
+    def new_build_state(self):
+        """Creates a new build state."""
+        try:
+            os.makedirs(self.destination_path)
+        except OSError:
+            pass
+        return BuildState(self, os.path.join(
+            self.destination_path, '.buildstate'))
 
-    def get_build_program(self, record):
-        """Returns the build program for a given record."""
-        if record.is_exposed:
-            if isinstance(record, Page):
-                return self._build_page
-            elif isinstance(record, Attachment):
-                return self._build_attachment
+    def get_builder(self, source, build_state):
+        """Finds the right build function for the given source file."""
+        for cls, builder in build_programs:
+            if isinstance(source, cls):
+                return builder(source, build_state)
+        raise RuntimeError('I do not know how to build %r', source)
 
-    def get_destination_path(self, url_path):
-        rv = url_path.lstrip('/')
-        if not rv or rv[-1:] == '/':
-            rv += 'index.html'
-        return rv
+    def build_artifact(self, artifact, build_func):
+        """Various parts of the system once they have an artifact and a
+        function to build it, will invoke this function.  This ultimately
+        is what builds.
 
-    def _build_page(self, page, oplog):
-        dst = self.get_destination_path(page.url_path)
-        filename = self.get_fs_path(dst, make_folder=True)
-        with atomic_open(filename) as f:
-            f.write(self.env.render_template(page['_template'], self.pad,
-                                             this=page).encode('utf-8') + '\n')
-        oplog.record_artifact(filename)
+        The return value is the oplog that was used to build this thing
+        if it was built, or `None` otherwise.
+        """
+        if not artifact.is_current:
+            click.echo('%s %s' % (
+                click.style('U', fg='green'),
+                artifact.artifact_name,
+            ))
+            with artifact.update() as oplog:
+                build_func(artifact)
+                return oplog
+        else:
+            click.echo('%s %s' % (
+                click.style('X', fg='cyan'),
+                artifact.artifact_name
+            ))
 
-    def _build_attachment(self, attachment, oplog):
-        dst = self.get_destination_path(attachment.url_path)
-        filename = self.get_fs_path(dst, make_folder=True)
-        with atomic_open(filename) as df:
-            with open(attachment.attachment_filename) as sf:
-                shutil.copyfileobj(sf, df)
-        oplog.record_artifact(filename)
+    def build(self, source, build_state=None):
+        """Given a source object, builds it."""
+        if build_state is None:
+            build_state = self.new_build_state()
 
-    def should_build_sourcefile(self, source_filename):
-        if not self.source_tree.is_current(source_filename):
-            return True
-        cs = self.source_tree.get_checksum(source_filename)
-        if not self.artifact_tree.artifacts_are_recent(source_filename, cs):
-            return True
-        return False
-
-    def _should_build_record(self, record):
-        for filename in record.iter_dependent_filenames():
-            if self.should_build_sourcefile(filename):
-                return True
-
-            for dependency, cs in self.dependency_tree.iter_dependencies(filename):
-                if not self.source_tree.is_current(dependency, cs):
-                    return True
-
-        return False
-
-    def build_record_twophase(self, record, force=False):
-        self.referenced_sources.update(record.iter_dependent_filenames())
-
-        build_program = self.get_build_program(record)
-        if not build_program:
-            return
-
-        if not force and not self._should_build_record(record):
-            return
-
-        def build_func():
-            click.echo('Record %s' % click.style(record['_path'], fg='cyan'))
-            oplog = OperationLog(self.pad)
-            with oplog:
-                build_program(record, oplog)
-
-                oplog.execute_pending_operations(self)
-
-                for filename in record.iter_dependent_filenames():
-                    self.dependency_tree.clean_dependencies(filename)
-                    checksum = self.source_tree.add_path(filename)
-                    for dep in oplog.referenced_paths:
-                        cs = self.source_tree.add_path(dep)
-                        self.dependency_tree.add_dependency(filename, dep, cs)
-                    for aft in oplog.produced_artifacts:
-                        self.artifact_tree.add_artifact(filename, aft, checksum)
-
-                    self.remove_old_artifacts(filename, checksum)
-
-        return build_func
-
-    def build_record(self, record, force=False):
-        """Writes a record to the destination path."""
-        build_func = self.build_record_twophase(record, force)
-        if build_func is None:
-            return False
-        build_func()
-        return True
-
-    def need_to_build_record(self, record):
-        return self.build_record_twophase(record) is not None
-
-    def copy_assets(self):
-        asset_path = self.env.asset_path
-
-        for dirpath, dirnames, filenames in os.walk(asset_path):
-            self.env.jinja_env.cache
-            dirnames[:] = [x for x in dirnames if
-                           not self.env.is_uninteresting_filename(x)]
-            base = dirpath[len(asset_path) + 1:]
-            for filename in filenames:
-                if self.env.is_uninteresting_filename(filename):
-                    continue
-
-                src_path = os.path.join(asset_path, base, filename)
-                self.referenced_sources.add(src_path)
-                if self.source_tree.is_current(src_path):
-                    continue
-
-                click.echo('Asset %s' % click.style(src_path, fg='cyan'))
-                dst_path = os.path.join(self.destination_path, base, filename)
-                try:
-                    os.makedirs(os.path.dirname(dst_path))
-                except OSError:
-                    pass
-                with atomic_open(dst_path) as df:
-                    with open(src_path) as sf:
-                        shutil.copyfileobj(sf, df)
-                checksum = self.source_tree.add_path(src_path)
-                self.artifact_tree.add_artifact(src_path, dst_path, checksum)
-
-    def remove_old_artifacts(self, filename, checksum):
-        for aft in self.artifact_tree.iter_old_source_artifacts(
-                filename, checksum):
-            prune_file_and_folder(aft, self.destination_path)
-            self.artifact_tree.remove_artifact(filename, aft)
-
-    def remove_unreferenced_artifacts(self):
-        changed = False
-        ua = self.artifact_tree.iter_unreferenced_artifacts(
-            self.referenced_sources)
-
-        for src, afts in ua:
-            click.echo('Removing artifacts of %s' %
-                click.style(src, fg='cyan'))
-            for aft in afts:
-                prune_file_and_folder(aft, self.destination_path)
-            self.source_tree.remove_path(src)
-            self.dependency_tree.remove_source(src)
-            self.artifact_tree.remove_source(src)
-            changed = True
-        if changed:
-            self.commit()
-
-    def commit(self):
-        self.source_tree.commit()
-        self.dependency_tree.commit()
-        self.artifact_tree.commit()
-
-    def iter_build_all(self):
-        to_build = [self.pad.root]
-        while to_build:
-            node = to_build.pop()
-            to_build.extend(node.iter_child_records())
-            build_func = self.build_record_twophase(node)
-            yield node, build_func
+        builder = self.get_builder(source, build_state)
+        builder.build()
+        return builder
 
     def build_all(self):
-        for node, build_func in self.iter_build_all():
-            if build_func is not None:
-                build_func()
-        self.copy_assets()
-        self.commit()
-
-        # XXX: This needs to come after commit because the removing currently
-        # only works on committed data.
-        self.remove_unreferenced_artifacts()
+        """Builds the entire tree."""
+        to_build = [self.pad.root]
+        while to_build:
+            source = to_build.pop()
+            builder = self.build(source)
+            to_build.extend(builder.iter_child_sources())

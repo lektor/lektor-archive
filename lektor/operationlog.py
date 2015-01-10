@@ -43,6 +43,13 @@ class OpLog(object):
     def __exit__(self, exc_type, exc_value, tb):
         self.pop()
 
+    def sub_artifact(self, *args, **kwargs):
+        """Decorator version of :func:`add_sub_artifact`."""
+        def decorator(f):
+            self.add_sub_artifact(build_func=f, *args, **kwargs)
+            return f
+        return decorator
+
     def add_sub_artifact(self, artifact_name, build_func=None,
                          sources=None, source_obj=None):
         """Sometimes it can happen that while building an artifact another
