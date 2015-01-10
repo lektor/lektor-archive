@@ -344,7 +344,7 @@ class Page(Record):
 
         for idx in xrange(len(url_path)):
             piece = '/'.join(url_path[:idx + 1])
-            child = self.children.filter(F._slug == piece).first()
+            child = self.real_children.filter(F._slug == piece).first()
             if child is None:
                 attachment = self.attachments.filter(F._slug == piece).first()
                 if attachment is None:
@@ -377,6 +377,12 @@ class Page(Record):
         if repl_query is not None:
             return repl_query
         return Query(path=self['_path'], pad=self.pad)
+
+    @property
+    def real_children(self):
+        if self.datamodel.child_config.replaced_with is not None:
+            return iter(())
+        return self.children
 
     def find_page(self, path):
         """Finds a child page."""

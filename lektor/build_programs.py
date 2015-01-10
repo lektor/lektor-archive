@@ -1,6 +1,8 @@
 import shutil
 import posixpath
 
+from itertools import chain
+
 from lektor.db import Page, Attachment
 
 
@@ -38,11 +40,6 @@ class BuildProgram(object):
             if oplog is not None:
                 sub_artifacts.extend(oplog.sub_artifacts)
 
-        # XXX: if we fail building on sub artifacts and we crash, we
-        # forget that this went wrong.  The solution there would be
-        # something like a nested transaction for the whole thing, but
-        # we do not support that yet.
-
         # Step one is building the artifacts that this build program
         # knows about.
         for artifact in self.artifacts:
@@ -50,9 +47,16 @@ class BuildProgram(object):
 
         # For as long as our oplog keeps producing sub artifacts, we
         # want to process them as well.
-        while sub_artifacts:
-            artifact, build_func = sub_artifacts.pop()
-            _build(artifact, build_func)
+        try:
+            while sub_artifacts:
+                artifact, build_func = sub_artifacts.pop()
+                _build(artifact, build_func)
+        except:
+            # If we fail here, we want to mark the sources of our own
+            # artifacts as dirty so that we do not miss out on that next
+            # time.
+            self.build_state.mark_artifact_sources_dirty(self.artifacts)
+            raise
 
     def declare_artifact(self, artifact_name, sources=None, extra=None):
         """This declares an artifact to be built in this program."""
@@ -90,12 +94,7 @@ class PageBuildProgram(BuildProgram):
             f.write(rv.encode('utf-8') + b'\n')
 
     def iter_child_sources(self):
-        if self.source.datamodel.has_own_children:
-            for child in self.source.children:
-                yield child
-        if self.source.datamodel.has_own_attachments:
-            for attachment in self.source.attachments:
-                yield attachment
+        return chain(self.source.real_children, self.source.attachments)
 
 
 @buildprogram(Attachment)

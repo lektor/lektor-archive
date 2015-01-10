@@ -26,6 +26,12 @@ def create_tables(con):
                 primary key (artifact, source)
             );
         ''')
+        con.execute('''
+            create table if not exists dirty_sources (
+                source text,
+                primary key (source)
+            );
+        ''')
     finally:
         con.close()
 
@@ -108,6 +114,7 @@ class BuildState(object):
         return filename
 
     def new_artifact(self, artifact_name, sources=None, source_obj=None):
+        """Creates a new artifact and returns it."""
         dst_filename = self.get_destination_filename(artifact_name)
         key = self.artifact_name_from_destination_filename(dst_filename)
         return Artifact(self, key, dst_filename, sources, source_obj=source_obj)
@@ -133,6 +140,44 @@ class BuildState(object):
 
         for filename, mtime, size, checksum in rv:
             yield FileInfo(self.env, filename, mtime, size, checksum)
+
+    def any_sources_are_dirty(self, sources):
+        """Given a list of sources this checks if any of them are marked
+        as dirty.
+        """
+        sources = [self.to_source_filename(x) for x in sources]
+        if not sources:
+            return False
+
+        con = self.connect_to_database()
+        cur = con.cursor()
+        cur.execute('''
+            select source from dirty_sources where source in (%s)
+        ''' % ', '.join(['?'] * len(sources)), sources)
+        rv = cur.fetchall()
+        con.close()
+
+        return len(rv) > 0
+
+    def mark_artifact_sources_dirty(self, artifacts):
+        """Given a list of artifacts this will mark all of their sources
+        as dirty so that they will be rebuilt next time.
+        """
+        sources = set()
+        for artifact in artifacts:
+            for source in artifact.sources:
+                sources.add(self.to_source_filename(source))
+
+        if not sources:
+            return
+
+        con = self.connect_to_database()
+        cur = con.cursor()
+        cur.executemany('''
+            insert or replace into dirty_sources (source) values (?)
+        ''', [(x,) for x in sources])
+        con.commit()
+        con.close()
 
 
 class FileInfo(object):
@@ -280,6 +325,11 @@ class Artifact(object):
         if not os.path.isfile(self.dst_filename):
             return False
 
+        # If one of our source files is explicitly marked as dirty in the
+        # build state, we are not current.
+        if self.build_state.any_sources_are_dirty(self.sources):
+            return False
+
         # If we do have an already existing artifact, we need to check if
         # any of the source files we depend on changed.
         for source_name, info in self.iter_dependency_infos():
@@ -346,6 +396,17 @@ class Artifact(object):
             ''', rows)
         cur.close()
 
+    def clear_dirty_flag(self):
+        """Clears the dirty flag for all sources."""
+        sources = [self.build_state.to_source_filename(x)
+                   for x in self.sources]
+        con = self.get_connection()
+        cur = con.cursor()
+        cur.execute('''
+            delete from dirty_sources where source in (%s)
+        ''' % ', '.join(['?'] * len(sources)), sources)
+        cur.close()
+
     def commit(self):
         """Commits the artifact changes."""
         if self._new_artifact_file is not None:
@@ -382,7 +443,7 @@ class Artifact(object):
                 yield oplog
             finally:
                 self.finish_update(oplog)
-        except Exception:
+        except:
             exc_type, exc_value, tb = sys.exc_info()
             self.rollback()
             raise exc_type, exc_value, tb
@@ -404,6 +465,7 @@ class Artifact(object):
             raise RuntimeError('Artifact is not open for updates.')
         oplog.pop()
         self.memorize_dependencies(oplog.referenced_dependencies)
+        self.clear_dirty_flag()
         self.in_update_block = False
         self.updated = True
 
