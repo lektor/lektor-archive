@@ -399,13 +399,34 @@ def add_system_field(name, type):
     system_fields[name] = types.builtin_types[type]
 
 
+# The full path of the record
 add_system_field('_path', type='string')
+
+# The local ID (within a folder) of the record
 add_system_field('_id', type='string')
+
+# The global ID of the record (only really useful for caching i guess)
 add_system_field('_gid', type='uuid')
+
+# the model that defines the data of the record
 add_system_field('_model', type='string')
+
+# the template that should be used for rendering if not hidden and exposed
 add_system_field('_template', type='string')
+
+# the slug that should be used for this record.  This is added below the
+# slug of the parent.
 add_system_field('_slug', type='slug')
+
+# by default all records are exposed.  If a record is set to unexposed
+# then it is not rendered and neither are any of its children.
 add_system_field('_expose', type='boolean')
 
+# this is similar to expose but only affects the record itself.  This can
+# be used to create a "folder" that is actually empty but the children
+# itself are exposed.  Useful for error pages and similar things.
+add_system_field('_hidden', type='boolean')
+
+# Useful fields for attachments.
 add_system_field('_attachment_for', type='string')
 add_system_field('_attachment_type', type='string')

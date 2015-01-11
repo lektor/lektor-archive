@@ -255,6 +255,20 @@ class Record(object):
         return expose
 
     @property
+    def is_hidden(self):
+        """Hidden is similar to exposed but it does not inherit down to
+        children.
+        """
+        return self._data['_hidden'] or False
+
+    @property
+    def is_visible(self):
+        """Indicates that this page is actually visible.  That means it is
+        exposed and not hidden.
+        """
+        return self.is_exposed and not self.is_hidden
+
+    @property
     def url_path(self):
         """The target path where the record should end up."""
         bits = []
@@ -322,7 +336,7 @@ class Page(Record):
 
     @property
     def source_filename(self):
-        return self.pad.db.get_fs_path(self['_path'], record_type='record')
+        return self.pad.db.get_fs_path(self['_path'], record_type='page')
 
     def iter_dependent_filenames(self):
         yield self.source_filename
@@ -610,14 +624,14 @@ class Database(object):
         specific record type.  The following record types are available:
 
         - ``'base'``: the folder containing the record is targeted.
-        - ``'record'``: the content file of a record is targeted.
+        - ``'page'``: the content file of a page is targeted.
         - ``'attachment'``: the content file of a specific attachment is
           targeted.
         """
         fn_base = os.path.join(self.env.root_path, 'content', to_os_path(path))
         if record_type == 'base':
             return fn_base
-        elif record_type == 'record':
+        elif record_type == 'page':
             return os.path.join(fn_base, 'contents.lr')
         elif record_type == 'attachment':
             return fn_base + '.lr'
@@ -626,10 +640,10 @@ class Database(object):
     def load_raw_data(self, path, record_type):
         """Internal helper that loads the raw record data."""
         path = cleanup_path(path)
+        rv = {}
+        fn = self.get_fs_path(path, record_type=record_type)
 
         try:
-            rv = {}
-            fn = self.get_fs_path(path, record_type=record_type)
             with open(fn, 'rb') as f:
                 for key, lines in metaformat.tokenize(f, encoding='utf-8'):
                     rv[key] = u''.join(lines)
@@ -639,8 +653,8 @@ class Database(object):
 
             return rv
         except IOError as e:
-            if e.errno == errno.ENOENT:
-                return
+            if e.errno != errno.ENOENT:
+                raise
 
     def postprocess_record(self, record, persist):
         # Automatically fill in slugs
@@ -686,7 +700,7 @@ class Database(object):
         if oplog is not None:
             oplog.record_dependency(fs_path)
 
-    def get_datamodel(self, raw_data, pad, record_type='record'):
+    def get_datamodel(self, raw_data, pad, record_type='page'):
         """Returns the datamodel for a given raw record."""
         datamodel_name = (raw_data.get('_model') or '').strip()
 
@@ -702,7 +716,7 @@ class Database(object):
         if parent != raw_data['_path']:
             parent_obj = self.get_page(parent, pad)
             if parent_obj is not None:
-                if record_type == 'record':
+                if record_type == 'page':
                     datamodel_name = parent_obj.datamodel.child_config.model
                 elif record_type == 'attachment':
                     datamodel_name = parent_obj.datamodel.attachment_config.model
@@ -710,7 +724,7 @@ class Database(object):
                     raise TypeError('Invalid record type')
 
         # Pick default datamodel name
-        if datamodel_name is None and record_type == 'record':
+        if datamodel_name is None and record_type == 'page':
             datamodel_name = posixpath.basename(raw_data['_path']
                 ).split('.')[0].replace('-', '_').lower()
 
@@ -725,7 +739,7 @@ class Database(object):
         if rv is not None:
             return self._track_record_dependency(rv)
 
-        raw_data = self.load_raw_data(path, 'record')
+        raw_data = self.load_raw_data(path, 'page')
         if raw_data is None:
             return None
 

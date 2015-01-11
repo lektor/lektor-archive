@@ -93,7 +93,7 @@ class BuildProgram(object):
 class PageBuildProgram(BuildProgram):
 
     def produce_artifacts(self):
-        if self.source.is_exposed:
+        if self.source.is_visible:
             self.declare_artifact(
                 posixpath.join(self.source.url_path, 'index.html'),
                 sources=[self.source.source_filename])
@@ -113,7 +113,7 @@ class PageBuildProgram(BuildProgram):
 class AttachmentBuildProgram(BuildProgram):
 
     def produce_artifacts(self):
-        if self.source.is_exposed:
+        if self.source.is_visible:
             self.declare_artifact(
                 self.source.url_path,
                 sources=[self.source.source_filename,

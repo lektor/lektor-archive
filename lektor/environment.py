@@ -41,6 +41,7 @@ IGNORED_FILES = ['thumbs.db', 'desktop.ini']
 
 # These files are important for artifacts and must not be ignored when
 # they are built even though they start with dots.
+SPECIAL_SOURCES = ['_htaccess', '_htpasswd']
 SPECIAL_ARTIFACTS = ['.htaccess', '.htpasswd']
 
 
@@ -108,16 +109,19 @@ class Environment(object):
         """These files are always ignored when sources are built into
         artifacts.
         """
-        # XXX: add more stuff here?
-        return filename[:1] in '._' or filename.lower() in IGNORED_FILES
+        fn = filename.lower()
+        if fn in SPECIAL_ARTIFACTS or fn in SPECIAL_SOURCES:
+            return False
+        return filename[:1] in '._' or fn in IGNORED_FILES
 
     def is_ignored_artifact(self, asset_name):
         """This is used by the prune tool to figure out which files in the
         artifact folder should be ignored.  This is a bi
         """
-        if asset_name.lower() in SPECIAL_ARTIFACTS:
+        fn = asset_name.lower()
+        if fn in SPECIAL_ARTIFACTS:
             return False
-        return self.is_uninteresting_source_name(asset_name)
+        return fn[:1] in '._' or fn in IGNORED_FILES
 
     def render_template(self, name, pad, this=None, values=None):
         ctx = self.make_default_tmpl_values(pad, this, values)
