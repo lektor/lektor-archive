@@ -15,10 +15,17 @@ from werkzeug.wsgi import wrap_file
 from lektor.db import Database
 from lektor.builder import Builder
 from lektor.watcher import Watcher
+from lektor.reporter import CliReporter
 
 
 _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
                     if sep not in (None, '/'))
+
+
+class ServerReporter(CliReporter):
+
+    def __init__(self, env):
+        CliReporter.__init__(self, env, verbosity=1)
 
 
 def send_file(request, filename):
@@ -98,8 +105,10 @@ class WsgiApp(object):
         # primary
         source = pad.resolve_url_path(request.path, include_assets=True)
         if source is not None:
-            builder = self.get_builder(pad)
-            prog = builder.build(source)
+            with ServerReporter(self.env):
+                builder = self.get_builder(pad)
+                prog = builder.build(source)
+
             artifact = prog.primary_artifact
             if artifact is not None:
                 filename = artifact.dst_filename
@@ -144,10 +153,11 @@ class BackgroundBuilder(threading.Thread):
             self.last_build = time.time()
 
     def run(self):
-        self.build()
-        for ts, _, _ in self.watcher:
-            if self.last_build is None or ts > self.last_build:
-                self.build()
+        with ServerReporter(self.env):
+            self.build()
+            for ts, _, _ in self.watcher:
+                if self.last_build is None or ts > self.last_build:
+                    self.build()
 
 
 def run_server(bindaddr, env, output_path):
