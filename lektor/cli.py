@@ -11,11 +11,11 @@ class Context(object):
 
     def get_tree(self):
         if self.tree is not None:
-            return self.tree
+            return os.path.abspath(self.tree)
         here = os.getcwd()
         while 1:
             if os.path.isfile(os.path.join(here, 'site.ini')):
-                return os.path.abspath(here)
+                return here
             node = os.path.dirname(here)
             if node == here:
                 break
