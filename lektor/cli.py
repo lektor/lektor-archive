@@ -15,7 +15,7 @@ class Context(object):
         here = os.getcwd()
         while 1:
             if os.path.isfile(os.path.join(here, 'site.ini')):
-                return here
+                return os.path.abspath(here)
             node = os.path.dirname(here)
             if node == here:
                 break
