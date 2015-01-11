@@ -4,6 +4,7 @@ import posixpath
 from itertools import chain
 
 from lektor.db import Page, Attachment
+from lektor.assets import Asset
 
 
 build_programs = []
@@ -23,6 +24,17 @@ class BuildProgram(object):
         self.build_state = build_state
         self.artifacts = []
         self._built = False
+
+    @property
+    def primary_artifact(self):
+        """Returns the primary artifact for this build program.  By
+        default this is the first artifact produced.  This needs to be the
+        one that corresponds to the URL of the source if it has one.
+        """
+        try:
+            return self.artifacts[0]
+        except IndexError:
+            return None
 
     def build(self):
         """Invokes the build program."""
@@ -111,3 +123,20 @@ class AttachmentBuildProgram(BuildProgram):
         with artifact.open('wb', ensure_dir=True) as df:
             with open(self.source.attachment_filename) as sf:
                 shutil.copyfileobj(sf, df)
+
+
+@buildprogram(Asset)
+class AssetBuildProgram(BuildProgram):
+
+    def produce_artifacts(self):
+        if not self.source.is_directory:
+            self.declare_artifact(
+                self.source.artifact_name,
+                sources=[self.source.path])
+
+    def build_artifact(self, artifact):
+        with artifact.open('wb', ensure_dir=True) as df:
+            self.source.build_asset(df)
+
+    def iter_child_sources(self):
+        return self.source.children

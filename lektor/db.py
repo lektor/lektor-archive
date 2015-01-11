@@ -18,6 +18,7 @@ from lektor.utils import sort_normalize_string
 from lektor.operationlog import get_oplog
 from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.thumbnail import make_thumbnail
+from lektor.assets import Directory
 
 
 _slashes_re = re.compile(r'/+')
@@ -857,10 +858,14 @@ class Pad(object):
         self.db = db
         self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
 
-    def resolve_url_path(self, url_path, include_unexposed=False):
+    def resolve_url_path(self, url_path, include_unexposed=False,
+                         include_assets=False):
         """Given a URL path this will find the correct record which also
         might be an attachment.  If a record cannot be found or is unexposed
         the return value will be `None`.
+
+        Assets are by default not resolved, this can be changed by setting
+        `include_assets` to `True`.
         """
         node = self.root
 
@@ -872,10 +877,19 @@ class Pad(object):
         if rv is not None and (include_unexposed or rv.is_exposed):
             return rv
 
+        if include_assets:
+            return self.asset_root.resolve_children(pieces)
+
     @property
     def root(self):
         """The root page of the database."""
         return self.db.get_page('/', pad=self, persist=True)
+
+    @property
+    def asset_root(self):
+        """The root of the asset tree."""
+        return Directory(self.db.env, name='',
+                         path=os.path.join(self.db.env.root_path, 'assets'))
 
     def query(self, path=None):
         """Queries the database either at root level or below a certain

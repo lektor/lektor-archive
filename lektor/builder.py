@@ -111,7 +111,7 @@ class BuildState(object):
             filename = filename[len(dst):].lstrip(os.path.sep)
             if os.path.altsep:
                 filename = filename.lstrip(os.path.altsep)
-        return filename
+        return filename.replace(os.path.sep, '/')
 
     def new_artifact(self, artifact_name, sources=None, source_obj=None):
         """Creates a new artifact and returns it."""
@@ -491,7 +491,7 @@ class Builder(object):
         return BuildState(self, os.path.join(
             self.destination_path, '.buildstate'))
 
-    def get_builder(self, source, build_state):
+    def get_build_program(self, source, build_state):
         """Finds the right build function for the given source file."""
         for cls, builder in build_programs:
             if isinstance(source, cls):
@@ -525,14 +525,14 @@ class Builder(object):
         if build_state is None:
             build_state = self.new_build_state()
 
-        builder = self.get_builder(source, build_state)
-        builder.build()
-        return builder
+        prog = self.get_build_program(source, build_state)
+        prog.build()
+        return prog
 
     def build_all(self):
         """Builds the entire tree."""
-        to_build = [self.pad.root]
+        to_build = [self.pad.root, self.pad.asset_root]
         while to_build:
             source = to_build.pop()
-            builder = self.build(source)
-            to_build.extend(builder.iter_child_sources())
+            prog = self.build(source)
+            to_build.extend(prog.iter_child_sources())

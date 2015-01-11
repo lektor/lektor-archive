@@ -8,13 +8,21 @@ from watchdog.events import FileSystemEventHandler, DirModifiedEvent
 
 class EventHandler(FileSystemEventHandler):
 
-    def __init__(self, env):
+    def __init__(self, env, output_path=None):
         self.env = env
+        if output_path is not None:
+            output_path = os.path.join(env.root_path, output_path)
+        self.output_path = output_path
         self.queue = Queue.Queue()
 
     def is_uninteresting(self, event):
         path = event.src_path
-        return self.env.is_uninteresting_filename(os.path.basename(path))
+        if self.env.is_uninteresting_filename(os.path.basename(path)):
+            return True
+        if self.output_path is not None and \
+           os.path.abspath(path).startswith(self.output_path):
+            return True
+        return False
 
     def on_any_event(self, event):
         if self.is_uninteresting(event) or isinstance(event, DirModifiedEvent):
@@ -24,9 +32,9 @@ class EventHandler(FileSystemEventHandler):
 
 class Watcher(object):
 
-    def __init__(self, env):
+    def __init__(self, env, output_path=None):
         self.env = env
-        self.event_handler = EventHandler(env)
+        self.event_handler = EventHandler(env, output_path)
         self.observer = Observer()
         self.observer.schedule(self.event_handler, env.root_path,
                                recursive=True)
