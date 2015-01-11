@@ -2,6 +2,8 @@ import posixpath
 
 from threading import local
 
+from lektor.reporter import reporter
+
 
 _log_local = local()
 
@@ -56,14 +58,15 @@ class OpLog(object):
         artifact needs building.  This function is generally used to record
         this request.
         """
-        self.sub_artifacts.append((self.build_state.new_artifact(
+        aft = self.build_state.new_artifact(
             artifact_name=artifact_name,
             sources=sources,
             source_obj=source_obj,
-        ), build_func))
+        )
+        self.sub_artifacts.append((aft, build_func))
+        reporter.report_sub_artifact(aft)
 
     def record_dependency(self, filename):
-        # XXX: rename
         self.referenced_dependencies.add(filename)
 
 

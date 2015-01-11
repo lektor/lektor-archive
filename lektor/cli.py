@@ -63,34 +63,36 @@ def cli(ctx, tree=None):
 @click.option('--watch', is_flag=True, help='If this is enabled the build '
               'process goes into an automatic loop where it watches the '
               'file system for changes and rebuilds.')
+@click.option('-v', '--verbose', 'verbosity', count=True,
+              help='Increases the verbosity of the logging.')
 @pass_context
-def build_cmd(ctx, output_path, watch):
+def build_cmd(ctx, output_path, watch, verbosity):
     """Builds the entire site out."""
     from lektor.builder import Builder
+    from lektor.reporter import CliReporter
+
     if output_path is None:
         output_path = ctx.get_default_output_path()
 
     env = ctx.get_env()
-    click.secho('Building from %s' % env.root_path, fg='green')
 
     def _build():
         builder = Builder(ctx.new_pad(), output_path)
-        start = time.time()
         builder.build_all()
-        click.echo('Built in %.2f sec' % (time.time() - start))
 
-    _build()
-    if not watch:
-        click.secho('Done!', fg='green')
-        return
+    reporter = CliReporter(env, verbosity=verbosity)
+    with reporter:
+        _build()
+        if not watch:
+            return
 
-    from lektor.watcher import watch
-    click.secho('Watching for file system changes', fg='cyan')
-    last_build = time.time()
-    for ts, _, _ in watch(env):
-        if ts > last_build:
-            _build()
-            last_build = time.time()
+        from lektor.watcher import watch
+        click.secho('Watching for file system changes', fg='cyan')
+        last_build = time.time()
+        for ts, _, _ in watch(env):
+            if ts > last_build:
+                _build()
+                last_build = time.time()
 
 
 @cli.command('devserver', short_help='Launch a local development server.')

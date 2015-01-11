@@ -5,6 +5,7 @@ from markupsafe import Markup
 
 from lektor.types import Type
 from lektor.metaformat import tokenize
+from lektor.operationlog import get_oplog
 
 
 _block_re = re.compile(r'^####\s*(.*?)\s*####\s*$')
@@ -31,6 +32,11 @@ class FlowBlock(object):
         return name in self._data and not is_undefined(self._data[name])
 
     def __getitem__(self, name):
+        # If any data of a flowblock is accessed, we record that we need
+        # this dependency.
+        oplog = get_oplog()
+        if oplog is not None:
+            oplog.record_dependency(self.flowblockmodel.filename)
         return self._data[name]
 
     def __html__(self):

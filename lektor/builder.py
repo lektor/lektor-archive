@@ -5,13 +5,12 @@ import sqlite3
 import hashlib
 import tempfile
 
-import click
-
 from contextlib import contextmanager
 from itertools import chain
 
 from lektor.operationlog import OpLog
 from lektor.build_programs import build_programs
+from lektor.reporter import reporter
 
 
 def create_tables(con):
@@ -178,6 +177,8 @@ class BuildState(object):
         ''', [(x,) for x in sources])
         con.commit()
         con.close()
+
+        reporter.report_dirty_flag(True)
 
 
 class FileInfo(object):
@@ -384,6 +385,8 @@ class Artifact(object):
                          info.size, info.checksum))
             seen.add(source)
 
+        reporter.report_dependencies(rows)
+
         con = self.get_connection()
         cur = con.cursor()
         cur.execute('delete from artifacts where artifact = ?',
@@ -406,6 +409,8 @@ class Artifact(object):
             delete from dirty_sources where source in (%s)
         ''' % ', '.join(['?'] * len(sources)), sources)
         cur.close()
+
+        reporter.report_dirty_flag(False)
 
     def commit(self):
         """Commits the artifact changes."""
@@ -506,33 +511,27 @@ class Builder(object):
         The return value is the oplog that was used to build this thing
         if it was built, or `None` otherwise.
         """
-        if not artifact.is_current:
-            click.echo('%s %s' % (
-                click.style('U', fg='green'),
-                artifact.artifact_name,
-            ))
-            with artifact.update() as oplog:
-                build_func(artifact)
-                return oplog
-        else:
-            click.echo('%s %s' % (
-                click.style('X', fg='cyan'),
-                artifact.artifact_name
-            ))
+        with reporter.build_artifact(artifact):
+            if not artifact.is_current:
+                with artifact.update() as oplog:
+                    build_func(artifact)
+                    return oplog
 
     def build(self, source, build_state=None):
         """Given a source object, builds it."""
         if build_state is None:
             build_state = self.new_build_state()
 
-        prog = self.get_build_program(source, build_state)
-        prog.build()
-        return prog
+        with reporter.process_source(source):
+            prog = self.get_build_program(source, build_state)
+            prog.build()
+            return prog
 
     def build_all(self):
         """Builds the entire tree."""
-        to_build = [self.pad.root, self.pad.asset_root]
-        while to_build:
-            source = to_build.pop()
-            prog = self.build(source)
-            to_build.extend(prog.iter_child_sources())
+        with reporter.build(self):
+            to_build = [self.pad.root, self.pad.asset_root]
+            while to_build:
+                source = to_build.pop()
+                prog = self.build(source)
+                to_build.extend(prog.iter_child_sources())

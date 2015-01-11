@@ -42,7 +42,7 @@ class Asset(object):
     @property
     def artifact_name(self):
         if self.parent is not None:
-            return self.parent.artifact_name + '/' + self.name
+            return self.parent.artifact_name.rstrip('/') + '/' + self.name
         return self.url_path
 
     def build_asset(self, f):
@@ -61,6 +61,12 @@ class Asset(object):
         child = self.get_child(path_pieces[0])
         if child:
             return child.resolve_children(path_pieces[1:])
+
+    def __repr__(self):
+        return '<%s %r>' % (
+            self.__class__.__name__,
+            self.artifact_name,
+        )
 
 
 class Directory(Asset):

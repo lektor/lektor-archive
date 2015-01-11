@@ -2,6 +2,7 @@ import os
 import subprocess
 
 from lektor.operationlog import get_dependent_url
+from lektor.reporter import reporter
 
 
 def get_suffix(width, height):
@@ -30,9 +31,12 @@ def make_thumbnail(oplog, source_image, source_url_path, width, height=None):
         if height is not None:
             resize_key += 'x' + str(height)
         artifact.ensure_dir()
-        subprocess.Popen([im, source_image,
-                          '-resize', resize_key,
-                          artifact.dst_filename]).wait()
+
+        cmdline = [im, source_image, '-resize', resize_key,
+                   artifact.dst_filename]
+
+        reporter.report_debug_info('imagemagick cmd line', cmdline)
+        subprocess.Popen(cmdline).wait()
 
     return Thumbnail(dst_url_path, width, height)
 
