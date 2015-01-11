@@ -538,8 +538,8 @@ class Builder(object):
 
     def __init__(self, pad, destination_path):
         self.pad = pad
-        self.destination_path = os.path.join(
-            pad.db.env.root_path, destination_path)
+        self.destination_path = os.apth.abspath(os.path.join(
+            pad.db.env.root_path, destination_path))
         self.meta_path = os.path.join(self.destination_path, '.lektor')
 
     @property
