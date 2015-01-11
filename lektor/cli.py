@@ -63,10 +63,12 @@ def cli(ctx, tree=None):
 @click.option('--watch', is_flag=True, help='If this is enabled the build '
               'process goes into an automatic loop where it watches the '
               'file system for changes and rebuilds.')
+@click.option('--prune/--no-prune', default=True, help='Controls if old '
+              'artifacts should be pruned.  This is the default.')
 @click.option('-v', '--verbose', 'verbosity', count=True,
               help='Increases the verbosity of the logging.')
 @pass_context
-def build_cmd(ctx, output_path, watch, verbosity):
+def build_cmd(ctx, output_path, watch, prune, verbosity):
     """Builds the entire site out."""
     from lektor.builder import Builder
     from lektor.reporter import CliReporter
@@ -78,7 +80,7 @@ def build_cmd(ctx, output_path, watch, verbosity):
 
     def _build():
         builder = Builder(ctx.new_pad(), output_path)
-        builder.build_all()
+        builder.build_all(prune=prune)
 
     reporter = CliReporter(env, verbosity=verbosity)
     with reporter:

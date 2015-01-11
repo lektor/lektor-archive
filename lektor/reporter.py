@@ -114,6 +114,9 @@ class Reporter(object):
     def report_debug_info(self, key, value):
         pass
 
+    def report_pruned_artifact(self, artifact_name):
+        pass
+
     @contextmanager
     def process_source(self, source):
         now = time.time()
@@ -203,6 +206,9 @@ class CliReporter(Reporter):
     def leave_source(self, start_time):
         if self.show_source_internals:
             self.outdent()
+
+    def report_pruned_artifact(self, artifact_name):
+        self._write_line('%s %s' % (style('D', fg='red'), artifact_name))
 
 
 null_reporter = NullReporter(None)

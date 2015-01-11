@@ -11,6 +11,7 @@ from itertools import chain
 from lektor.operationlog import OpLog
 from lektor.build_programs import build_programs
 from lektor.reporter import reporter
+from lektor.utils import prune_file_and_folder
 
 
 def create_tables(con):
@@ -22,6 +23,7 @@ def create_tables(con):
                 source_mtime integer,
                 source_size integer,
                 source_checksum text,
+                is_primary_source integer,
                 primary key (artifact, source)
             );
         ''')
@@ -140,6 +142,14 @@ class BuildState(object):
         for filename, mtime, size, checksum in rv:
             yield FileInfo(self.env, filename, mtime, size, checksum)
 
+    def remove_artifact(self, artifact_name):
+        con = self.connect_to_database()
+        cur = con.cursor()
+        cur.execute('''
+            delete from artifacts where artifact = ?
+        ''', [artifact_name])
+        con.close()
+
     def any_sources_are_dirty(self, sources):
         """Given a list of sources this checks if any of them are marked
         as dirty.
@@ -180,6 +190,39 @@ class BuildState(object):
 
         reporter.report_dirty_flag(True)
 
+    def iter_unreferenced_artifacts(self):
+        """Finds all unreferenced artifacts in the build folder and yields
+        them.
+        """
+        dst = os.path.join(self.builder.destination_path)
+
+        con = self.connect_to_database()
+        cur = con.cursor()
+
+        try:
+            for dirpath, dirnames, filenames in os.walk(dst):
+                dirnames[:] = [x for x in dirnames
+                               if not self.env.is_uninteresting_filename(x)]
+                for filename in filenames:
+                    if self.env.is_uninteresting_filename(filename):
+                        continue
+                    full_path = os.path.join(dst, dirpath, filename)
+                    artifact_name = self.artifact_name_from_destination_filename(
+                        full_path)
+                    cur.execute('''
+                        select source from artifacts
+                         where artifact = ?
+                           and is_primary_source''', [artifact_name])
+                    sources = set(x[0] for x in cur.fetchall())
+
+                    # It's a bad artifact if there are no primary sources
+                    # or the primary sources do not exist.
+                    if not sources or not any(self.get_file_info(x).exists
+                                              for x in sources):
+                        yield artifact_name
+        finally:
+            con.close()
+
 
 class FileInfo(object):
     """A file info object holds metainformation of a file so that changes
@@ -209,7 +252,7 @@ class FileInfo(object):
                 size = int(st.st_size)
             rv = mtime, size
         except OSError:
-            rv = None, None
+            rv = 0, -1
         self._stat = rv
         return rv
 
@@ -224,6 +267,10 @@ class FileInfo(object):
         dictionary then the size is actually the number of files in it.
         """
         return self._get_stat()[1]
+
+    @property
+    def exists(self):
+        return self.size >= 0
 
     @property
     def checksum(self):
@@ -374,6 +421,9 @@ class Artifact(object):
         """This updates the dependencies recorded for the artifact based
         on the direct sources plus the provided dependencies.
         """
+        primary_sources = set(self.build_state.to_source_filename(x)
+                              for x in self.sources)
+
         seen = set()
         rows = []
         for source in chain(self.sources, dependencies or ()):
@@ -382,7 +432,8 @@ class Artifact(object):
                 continue
             info = self.build_state.get_file_info(source)
             rows.append((self.artifact_name, source, info.mtime,
-                         info.size, info.checksum))
+                         info.size, info.checksum,
+                         source in primary_sources))
             seen.add(source)
 
         reporter.report_dependencies(rows)
@@ -394,8 +445,9 @@ class Artifact(object):
         if rows:
             cur.executemany('''
                 insert into artifacts (artifact, source, source_mtime,
-                                       source_size, source_checksum)
-                values (?, ?, ?, ?, ?)
+                                       source_size, source_checksum,
+                                       is_primary_source)
+                values (?, ?, ?, ?, ?, ?)
             ''', rows)
         cur.close()
 
@@ -481,6 +533,7 @@ class Builder(object):
         self.pad = pad
         self.destination_path = os.path.join(
             pad.db.env.root_path, destination_path)
+        self.meta_path = os.path.join(self.destination_path, '.lektor')
 
     @property
     def env(self):
@@ -490,11 +543,10 @@ class Builder(object):
     def new_build_state(self):
         """Creates a new build state."""
         try:
-            os.makedirs(self.destination_path)
+            os.makedirs(self.meta_path)
         except OSError:
             pass
-        return BuildState(self, os.path.join(
-            self.destination_path, '.buildstate'))
+        return BuildState(self, os.path.join(self.meta_path, 'buildstate'))
 
     def get_build_program(self, source, build_state):
         """Finds the right build function for the given source file."""
@@ -517,6 +569,17 @@ class Builder(object):
                     build_func(artifact)
                     return oplog
 
+    def prune_unreferenced_artifacts(self):
+        """This cleans up data left in the build folder that does not
+        correspond to known artifacts.
+        """
+        build_state = self.new_build_state()
+        for old_artifact in build_state.iter_unreferenced_artifacts():
+            reporter.report_pruned_artifact(old_artifact)
+            filename = build_state.get_destination_filename(old_artifact)
+            prune_file_and_folder(filename, self.destination_path)
+            build_state.remove_artifact(old_artifact)
+
     def build(self, source, build_state=None):
         """Given a source object, builds it."""
         if build_state is None:
@@ -527,7 +590,7 @@ class Builder(object):
             prog.build()
             return prog
 
-    def build_all(self):
+    def build_all(self, prune=False):
         """Builds the entire tree."""
         with reporter.build(self):
             to_build = [self.pad.root, self.pad.asset_root]
@@ -535,3 +598,5 @@ class Builder(object):
                 source = to_build.pop()
                 prog = self.build(source)
                 to_build.extend(prog.iter_child_sources())
+            if prune:
+                self.prune_unreferenced_artifacts()
