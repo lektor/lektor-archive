@@ -105,8 +105,10 @@ def build_cmd(ctx, output_path, watch, verbosity):
 @click.option('-O', '--output-path', type=click.Path(), default=None,
               help='The dev server will build into the same folder as '
               'the build command by default.')
+@click.option('-v', '--verbose', 'verbosity', count=True,
+              help='Increases the verbosity of the logging.')
 @pass_context
-def devserver_cmd(ctx, host, port, output_path):
+def devserver_cmd(ctx, host, port, output_path, verbosity):
     """The devserver command will launch a local server for development.
 
     Lektor's developemnt server will automatically build all files into
@@ -119,7 +121,8 @@ def devserver_cmd(ctx, host, port, output_path):
         output_path = ctx.get_default_output_path()
     print ' * Tree path: %s' % ctx.get_tree()
     print ' * Output path: %s' % output_path
-    run_server((host, port), env=ctx.get_env(), output_path=output_path)
+    run_server((host, port), env=ctx.get_env(), output_path=output_path,
+               verbosity=verbosity)
 
 
 main = cli

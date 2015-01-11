@@ -22,12 +22,6 @@ _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
                     if sep not in (None, '/'))
 
 
-class ServerReporter(CliReporter):
-
-    def __init__(self, env):
-        CliReporter.__init__(self, env, verbosity=1)
-
-
 def send_file(request, filename):
     mimetype = mimetypes.guess_type(filename)[0]
     if mimetype is None:
@@ -54,7 +48,7 @@ def send_file(request, filename):
     rv.cache_control.public = True
 
     try:
-        rv.set_etag('flask-%s-%s-%s' % (
+        rv.set_etag('lektor-%s-%s-%s' % (
             os.path.getmtime(filename),
             os.path.getsize(filename),
             adler32(
@@ -82,9 +76,10 @@ def safe_join(directory, filename):
 
 class WsgiApp(object):
 
-    def __init__(self, env, output_path):
+    def __init__(self, env, output_path, verbosity=0):
         self.env = env
         self.output_path = output_path
+        self.verbosity = verbosity
 
     def get_pad(self):
         db = Database(self.env)
@@ -105,7 +100,7 @@ class WsgiApp(object):
         # primary
         source = pad.resolve_url_path(request.path, include_assets=True)
         if source is not None:
-            with ServerReporter(self.env):
+            with CliReporter(self.env, verbosity=self.verbosity):
                 builder = self.get_builder(pad)
                 prog = builder.build(source)
 
@@ -133,13 +128,14 @@ class WsgiApp(object):
 
 class BackgroundBuilder(threading.Thread):
 
-    def __init__(self, env, output_path):
+    def __init__(self, env, output_path, verbosity=0):
         threading.Thread.__init__(self)
         watcher = Watcher(env, output_path)
         watcher.observer.start()
         self.env = env
         self.watcher = watcher
         self.output_path = output_path
+        self.verbosity = verbosity
         self.last_build = time.time()
 
     def build(self):
@@ -153,19 +149,19 @@ class BackgroundBuilder(threading.Thread):
             self.last_build = time.time()
 
     def run(self):
-        with ServerReporter(self.env):
+        with CliReporter(self.env, verbosity=self.verbosity):
             self.build()
             for ts, _, _ in self.watcher:
                 if self.last_build is None or ts > self.last_build:
                     self.build()
 
 
-def run_server(bindaddr, env, output_path):
+def run_server(bindaddr, env, output_path, verbosity=0):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
-    background_builder = BackgroundBuilder(env, output_path)
+    background_builder = BackgroundBuilder(env, output_path, verbosity)
     background_builder.setDaemon(True)
     background_builder.start()
-    app = WsgiApp(env, output_path)
+    app = WsgiApp(env, output_path, verbosity)
     return run_simple(bindaddr[0], bindaddr[1], app)
