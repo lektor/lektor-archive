@@ -2,7 +2,6 @@ import os
 import sys
 import json
 import uuid
-import tempfile
 import traceback
 import unicodedata
 import multiprocessing
@@ -15,8 +14,6 @@ from urlparse import urlparse
 from werkzeug.http import http_date
 from jinja2 import is_undefined
 from markupsafe import Markup
-
-from contextlib import contextmanager
 
 
 is_windows = sys.platform.startswith('win')
@@ -97,29 +94,6 @@ class WorkerPool(object):
 def slugify(value):
     # XXX: not good enough
     return u'-'.join(value.strip().split()).lower()
-
-
-@contextmanager
-def atomic_open(filename, mode='wb'):
-    # Does not work on windows
-    if is_windows:
-        yield open(filename, mode)
-        return
-
-    fd, tmp_filename = tempfile.mkstemp(
-        dir=os.path.dirname(filename), prefix='.__atomic-write')
-    try:
-        with os.fdopen(fd, 'wb') as f:
-            yield f
-    except:
-        exc_info = sys.exc_info()
-        try:
-            os.remove(tmp_filename)
-        except OSError:
-            pass
-        raise exc_info[0], exc_info[1], exc_info[2]
-
-    os.rename(tmp_filename, filename)
 
 
 class Url(object):

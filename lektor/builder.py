@@ -13,6 +13,8 @@ from lektor.build_programs import build_programs
 from lektor.reporter import reporter
 from lektor.utils import prune_file_and_folder
 
+from werkzeug.posixemulation import rename
+
 
 def create_tables(con):
     try:
@@ -467,7 +469,7 @@ class Artifact(object):
     def commit(self):
         """Commits the artifact changes."""
         if self._new_artifact_file is not None:
-            os.rename(self._new_artifact_file, self.dst_filename)
+            rename(self._new_artifact_file, self.dst_filename)
             self._new_artifact_file = None
         if self._update_con is not None:
             self._update_con.commit()
