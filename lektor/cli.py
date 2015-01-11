@@ -97,6 +97,28 @@ def build_cmd(ctx, output_path, watch, prune, verbosity):
                 last_build = time.time()
 
 
+@cli.command('clean')
+@click.option('-O', '--output-path', type=click.Path(), default=None,
+              help='The output path.')
+@click.option('-v', '--verbose', 'verbosity', count=True,
+              help='Increases the verbosity of the logging.')
+@pass_context
+def clean_cmd(ctx, output_path, verbosity):
+    """Cleans the entire build folder."""
+    from lektor.builder import Builder
+    from lektor.reporter import CliReporter
+
+    if output_path is None:
+        output_path = ctx.get_default_output_path()
+
+    env = ctx.get_env()
+
+    reporter = CliReporter(env, verbosity=verbosity)
+    with reporter:
+        builder = Builder(ctx.new_pad(), output_path)
+        builder.clean_all()
+
+
 @cli.command('devserver', short_help='Launch a local development server.')
 @click.option('-h', '--host', default='127.0.0.1',
               help='The network interface to bind to.  The default is the '
