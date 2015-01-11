@@ -746,7 +746,7 @@ class Database(object):
         except OSError:
             return
         for filename in files:
-            if self.env.is_uninteresting_filename(filename) or \
+            if self.env.is_uninteresting_source_name(filename) or \
                not os.path.isdir(os.path.join(fs_path, filename)):
                 continue
 
@@ -796,7 +796,7 @@ class Database(object):
         except OSError:
             return
         for filename in files:
-            if self.env.is_uninteresting_filename(filename) or \
+            if self.env.is_uninteresting_source_name(filename) or \
                filename[-3:] == '.lr' or \
                not os.path.isfile(os.path.join(fs_path, filename)):
                 continue

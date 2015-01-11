@@ -212,9 +212,9 @@ class BuildState(object):
         try:
             for dirpath, dirnames, filenames in os.walk(dst):
                 dirnames[:] = [x for x in dirnames
-                               if not self.env.is_uninteresting_filename(x)]
+                               if not self.env.is_ignored_artifact(x)]
                 for filename in filenames:
-                    if self.env.is_uninteresting_filename(filename):
+                    if self.env.is_ignored_artifact(filename):
                         continue
                     full_path = os.path.join(dst, dirpath, filename)
                     artifact_name = self.artifact_name_from_destination_filename(
@@ -299,7 +299,7 @@ class FileInfo(object):
             if os.path.isdir(self.filename):
                 h.update('DIR\x00')
                 for filename in sorted(os.listdir(self.filename)):
-                    if self.env.is_uninteresting_filename(filename):
+                    if self.env.is_uninteresting_source_name(filename):
                         continue
                     if isinstance(filename, unicode):
                         filename = filename.encode('utf-8')

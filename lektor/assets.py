@@ -8,7 +8,7 @@ import posixpath
 
 
 def get_asset(env, filename, parent=None):
-    if env.is_uninteresting_filename(filename):
+    if env.is_uninteresting_source_name(filename):
         return None
 
     try:

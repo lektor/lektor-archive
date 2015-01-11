@@ -33,8 +33,15 @@ DEFAULT_CONFIG = {
         '.docx': 'document',
 
         '.txt': 'text',
-    }
+    },
 }
+
+# Special files that should always be ignored.
+IGNORED_FILES = ['thumbs.db', 'desktop.ini']
+
+# These files are important for artifacts and must not be ignored when
+# they are built even though they start with dots.
+SPECIAL_ARTIFACTS = ['.htaccess', '.htpasswd']
 
 
 class Expression(object):
@@ -97,10 +104,20 @@ class Environment(object):
     def asset_path(self):
         return os.path.join(self.root_path, 'assets')
 
-    def is_uninteresting_filename(self, filename):
+    def is_uninteresting_source_name(self, filename):
+        """These files are always ignored when sources are built into
+        artifacts.
+        """
         # XXX: add more stuff here?
-        return filename[:1] in '._' or (
-            filename.lower() in ('thumbs.db', 'desktop.ini'))
+        return filename[:1] in '._' or filename.lower() in IGNORED_FILES
+
+    def is_ignored_artifact(self, asset_name):
+        """This is used by the prune tool to figure out which files in the
+        artifact folder should be ignored.  This is a bi
+        """
+        if asset_name.lower() in SPECIAL_ARTIFACTS:
+            return False
+        return self.is_uninteresting_source_name(asset_name)
 
     def render_template(self, name, pad, this=None, values=None):
         ctx = self.make_default_tmpl_values(pad, this, values)

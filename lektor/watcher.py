@@ -17,7 +17,7 @@ class EventHandler(FileSystemEventHandler):
 
     def is_uninteresting(self, event):
         path = event.src_path
-        if self.env.is_uninteresting_filename(os.path.basename(path)):
+        if self.env.is_uninteresting_source_name(os.path.basename(path)):
             return True
         if self.output_path is not None and \
            os.path.abspath(path).startswith(self.output_path):
