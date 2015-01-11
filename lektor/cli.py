@@ -116,7 +116,7 @@ def clean_cmd(ctx, output_path, verbosity):
     reporter = CliReporter(env, verbosity=verbosity)
     with reporter:
         builder = Builder(ctx.new_pad(), output_path)
-        builder.clean_all()
+        builder.prune(all=True)
 
 
 @cli.command('devserver', short_help='Launch a local development server.')

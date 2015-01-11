@@ -192,7 +192,7 @@ class BuildState(object):
 
         reporter.report_dirty_flag(True)
 
-    def iter_unreferenced_artifacts(self, force_all=False):
+    def iter_unreferenced_artifacts(self, all=False):
         """Finds all unreferenced artifacts in the build folder and yields
         them.
         """
@@ -212,7 +212,7 @@ class BuildState(object):
                     artifact_name = self.artifact_name_from_destination_filename(
                         full_path)
 
-                    if force_all:
+                    if all:
                         yield artifact_name
                         continue
 
@@ -576,23 +576,12 @@ class Builder(object):
                     build_func(artifact)
                     return oplog
 
-    def prune_unreferenced_artifacts(self):
+    def prune(self, all=False):
         """This cleans up data left in the build folder that does not
         correspond to known artifacts.
         """
         build_state = self.new_build_state()
-        for old_artifact in build_state.iter_unreferenced_artifacts():
-            reporter.report_pruned_artifact(old_artifact)
-            filename = build_state.get_destination_filename(old_artifact)
-            prune_file_and_folder(filename, self.destination_path)
-            build_state.remove_artifact(old_artifact)
-
-    def clean_all(self):
-        """This cleans up data left in the build folder that does not
-        correspond to known artifacts.
-        """
-        build_state = self.new_build_state()
-        for old_artifact in build_state.iter_unreferenced_artifacts(force_all=True):
+        for old_artifact in build_state.iter_unreferenced_artifacts(all=all):
             reporter.report_pruned_artifact(old_artifact)
             filename = build_state.get_destination_filename(old_artifact)
             prune_file_and_folder(filename, self.destination_path)
@@ -617,4 +606,4 @@ class Builder(object):
                 prog = self.build(source)
                 to_build.extend(prog.iter_child_sources())
             if prune:
-                self.prune_unreferenced_artifacts()
+                self.prune()
