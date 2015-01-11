@@ -68,20 +68,20 @@ class Reporter(object):
         return self.verbosity >= 4
 
     @contextmanager
-    def build(self, builder):
+    def build(self, activity, builder):
         now = time.time()
         self.builder_stack.append(builder)
-        self.start_build()
+        self.start_build(activity)
         try:
             yield
         finally:
             self.builder_stack.pop()
-            self.finish_build(now)
+            self.finish_build(activity, now)
 
-    def start_build(self):
+    def start_build(self, activity):
         pass
 
-    def finish_build(self, start_time):
+    def finish_build(self, activity, start_time):
         pass
 
     @contextmanager
@@ -157,17 +157,17 @@ class CliReporter(Reporter):
     def _write_kv_info(self, key, value):
         self._write_line('%s: %s' % (key, style(unicode(value), fg='yellow')))
 
-    def start_build(self):
-        self._write_line(style('Build started', fg='blue'))
+    def start_build(self, activity):
+        self._write_line(style('Started %s' % activity, fg='cyan'))
         if not self.show_build_info:
             return
-        self._write_line(style('  Tree: %s' % self.env.root_path, fg='blue'))
+        self._write_line(style('  Tree: %s' % self.env.root_path, fg='cyan'))
         self._write_line(style('  Output path: %s' %
-                               self.builder.destination_path, fg='blue'))
+                               self.builder.destination_path, fg='cyan'))
 
-    def finish_build(self, start_time):
-        self._write_line(style('Build finished in %.2f sec' % (
-            time.time() - start_time), fg='blue'))
+    def finish_build(self, activity, start_time):
+        self._write_line(style('Finished %s in %.2f sec' % (
+            activity, time.time() - start_time), fg='cyan'))
 
     def start_artifact_build(self):
         artifact = self.current_artifact

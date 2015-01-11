@@ -132,25 +132,29 @@ class BuildState(object):
         of it as file info objects.
         """
         con = self.connect_to_database()
-        cur = con.cursor()
-        cur.execute('''
-            select source, source_mtime, source_size, source_checksum
-            from artifacts
-            where artifact = ?
-        ''', [artifact_name])
-        rv = cur.fetchall()
-        con.close()
+        try:
+            cur = con.cursor()
+            cur.execute('''
+                select source, source_mtime, source_size, source_checksum
+                from artifacts
+                where artifact = ?
+            ''', [artifact_name])
+            rv = cur.fetchall()
+        finally:
+            con.close()
 
         for filename, mtime, size, checksum in rv:
             yield FileInfo(self.env, filename, mtime, size, checksum)
 
     def remove_artifact(self, artifact_name):
         con = self.connect_to_database()
-        cur = con.cursor()
-        cur.execute('''
-            delete from artifacts where artifact = ?
-        ''', [artifact_name])
-        con.close()
+        try:
+            cur = con.cursor()
+            cur.execute('''
+                delete from artifacts where artifact = ?
+            ''', [artifact_name])
+        finally:
+            con.close()
 
     def any_sources_are_dirty(self, sources):
         """Given a list of sources this checks if any of them are marked
@@ -161,12 +165,14 @@ class BuildState(object):
             return False
 
         con = self.connect_to_database()
-        cur = con.cursor()
-        cur.execute('''
-            select source from dirty_sources where source in (%s)
-        ''' % ', '.join(['?'] * len(sources)), sources)
-        rv = cur.fetchall()
-        con.close()
+        try:
+            cur = con.cursor()
+            cur.execute('''
+                select source from dirty_sources where source in (%s)
+            ''' % ', '.join(['?'] * len(sources)), sources)
+            rv = cur.fetchall()
+        finally:
+            con.close()
 
         return len(rv) > 0
 
@@ -183,12 +189,14 @@ class BuildState(object):
             return
 
         con = self.connect_to_database()
-        cur = con.cursor()
-        cur.executemany('''
-            insert or replace into dirty_sources (source) values (?)
-        ''', [(x,) for x in sources])
-        con.commit()
-        con.close()
+        try:
+            cur = con.cursor()
+            cur.executemany('''
+                insert or replace into dirty_sources (source) values (?)
+            ''', [(x,) for x in sources])
+            con.commit()
+        finally:
+            con.close()
 
         reporter.report_dirty_flag(True)
 
@@ -580,12 +588,13 @@ class Builder(object):
         """This cleans up data left in the build folder that does not
         correspond to known artifacts.
         """
-        build_state = self.new_build_state()
-        for old_artifact in build_state.iter_unreferenced_artifacts(all=all):
-            reporter.report_pruned_artifact(old_artifact)
-            filename = build_state.get_destination_filename(old_artifact)
-            prune_file_and_folder(filename, self.destination_path)
-            build_state.remove_artifact(old_artifact)
+        with reporter.build(all and 'clean' or 'prune', self):
+            build_state = self.new_build_state()
+            for old_artifact in build_state.iter_unreferenced_artifacts(all=all):
+                reporter.report_pruned_artifact(old_artifact)
+                filename = build_state.get_destination_filename(old_artifact)
+                prune_file_and_folder(filename, self.destination_path)
+                build_state.remove_artifact(old_artifact)
 
     def build(self, source, build_state=None):
         """Given a source object, builds it."""
@@ -597,13 +606,11 @@ class Builder(object):
             prog.build()
             return prog
 
-    def build_all(self, prune=False):
+    def build_all(self):
         """Builds the entire tree."""
-        with reporter.build(self):
+        with reporter.build('build', self):
             to_build = [self.pad.root, self.pad.asset_root]
             while to_build:
                 source = to_build.pop()
                 prog = self.build(source)
                 to_build.extend(prog.iter_child_sources())
-            if prune:
-                self.prune()

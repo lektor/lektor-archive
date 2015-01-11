@@ -80,7 +80,9 @@ def build_cmd(ctx, output_path, watch, prune, verbosity):
 
     def _build():
         builder = Builder(ctx.new_pad(), output_path)
-        builder.build_all(prune=prune)
+        builder.build_all()
+        if prune:
+            builder.prune()
 
     reporter = CliReporter(env, verbosity=verbosity)
     with reporter:
@@ -102,6 +104,7 @@ def build_cmd(ctx, output_path, watch, prune, verbosity):
               help='The output path.')
 @click.option('-v', '--verbose', 'verbosity', count=True,
               help='Increases the verbosity of the logging.')
+@click.confirmation_option(help='Confirms the cleaning.')
 @pass_context
 def clean_cmd(ctx, output_path, verbosity):
     """Cleans the entire build folder."""
