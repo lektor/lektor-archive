@@ -211,7 +211,7 @@ class BuildState(object):
             cur.execute('''
                 delete from artifacts where artifact = ?
             ''', [artifact_name])
-            cur.commit()
+            con.commit()
         finally:
             con.close()
 
