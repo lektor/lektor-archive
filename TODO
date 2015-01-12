@@ -1,7 +1,0 @@
-Template Unification:
-
-- templates should generally always at least get two variables:
-  `site`: the current "pad"
-  `this`: the current page or whatever record.
-- we should unify the many different ways in which templates are
-  currently being executed.
