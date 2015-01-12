@@ -150,18 +150,3 @@ def get_dependent_url(url_path, suffix):
     url_directory, url_filename = posixpath.split(url_path)
     url_base, url_ext = posixpath.splitext(url_filename)
     return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
-
-
-class UrlGenerator(object):
-
-    def __init__(self, pad, record):
-        self._pad = pad
-        self._record = record
-        self._depth = ('/' + record.url_path.strip('/')).count('/')
-
-    def __call__(self, _path):
-        _path = posixpath.join(self._record.url_path, _path)
-        record = self._pad.get(_path)
-        if record is None:
-            raise LookupError('Could not find record %r' % _path)
-        return ('../' * self._depth).rstrip('/') + record.url_path

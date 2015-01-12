@@ -1,3 +1,5 @@
+import posixpath
+
 from weakref import ref as weakref
 
 
@@ -30,3 +32,30 @@ class SourceObject(object):
         direct child and returns the list of remaining items.  If no
         match can be found, the result is `None`.
         """
+
+    def url_to(self, path):
+        """Calculates the URL from the current source object to the given
+        other source object.  Alternatively a path can also be provided
+        instead of a source object.  If the path starts with a leading
+        bang (``!``) then no resolving is performed.
+        """
+        resolve = True
+        if hasattr(path, 'url_path'):
+            path = path.url_path
+        elif path[:1] == '!':
+            resolve = False
+
+        this = self.url_path
+        if this == '/':
+            depth = 0
+        else:
+            depth = ('/' + this.strip('/')).count('/')
+
+        path = posixpath.join(this, path)
+
+        if resolve:
+            source = self.pad.get(path, all_sources=True)
+            if source is not None:
+                path = source.url_path
+
+        return ('../' * depth).rstrip('/') + path

@@ -1,4 +1,5 @@
 import os
+import posixpath
 import subprocess
 
 from lektor.utils import get_dependent_url
@@ -49,4 +50,4 @@ class Thumbnail(object):
         self.url_path = url_path
 
     def __unicode__(self):
-        return self.url_path
+        return posixpath.basename(self.url_path)

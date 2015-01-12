@@ -2,8 +2,8 @@ import os
 
 import jinja2
 
-from lektor.context import get_ctx
-from lektor.utils import tojson_filter, UrlGenerator
+from lektor.utils import tojson_filter
+from lektor.context import url_to, site_proxy, get_ctx
 
 
 DEFAULT_CONFIG = {
@@ -98,8 +98,18 @@ class Environment(object):
         )
 
         from lektor.db import F
-        self.jinja_env.filters['tojson'] = tojson_filter
-        self.jinja_env.globals['F'] = F
+        self.jinja_env.filters.update(
+            tojson=tojson_filter,
+            # By default filters need to be side-effect free.  This is not
+            # the case for this one, so we need to make it as a dummy
+            # context filter so that jinja2 will not inline it.
+            url=jinja2.contextfilter(lambda ctx, *a, **kw: url_to(*a, **kw)),
+        )
+        self.jinja_env.globals.update(
+            F=F,
+            url_to=url_to,
+            site=site_proxy,
+        )
 
     @property
     def asset_path(self):
@@ -123,22 +133,23 @@ class Environment(object):
             return False
         return fn[:1] in '._' or fn in IGNORED_FILES
 
-    def render_template(self, name, pad, this=None, values=None):
+    def render_template(self, name, pad=None, this=None, values=None):
         ctx = self.make_default_tmpl_values(pad, this, values)
         return self.jinja_env.get_or_select_template(name).render(ctx)
 
-    def make_default_tmpl_values(self, pad, this=None, values=None):
-        # XXX: would be nice if those were also global proxies like in
-        # flask so that they can be used in macros.
+    def make_default_tmpl_values(self, pad=None, this=None, values=None):
         values = dict(values or ())
-        values['site'] = pad
+
+        # This is already a global variable but we can inject it as a
+        # local override if available.
+        if pad is None:
+            ctx = get_ctx()
+            if ctx is not None:
+                pad = ctx.pad
+        if pad is not None:
+            values['site'] = pad
         if this is not None:
             values['this'] = this
-
-            # XXX: hack.  use oplog for this and rename it.
-            from lektor.db import Record
-            if isinstance(this, Record):
-                values['url_for'] = UrlGenerator(pad, this)
         return values
 
     def select_jinja_autoescape(self, filename):

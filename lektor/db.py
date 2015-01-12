@@ -850,13 +850,13 @@ class Pad(object):
         self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
 
     def resolve_url_path(self, url_path, include_unexposed=False,
-                         include_assets=False):
+                         all_sources=False):
         """Given a URL path this will find the correct record which also
         might be an attachment.  If a record cannot be found or is unexposed
         the return value will be `None`.
 
-        Assets are by default not resolved, this can be changed by setting
-        `include_assets` to `True`.
+        Non record sources are by default not resolved, this can be
+        changed by setting `all_sources` to `True`.
         """
         node = self.root
 
@@ -868,7 +868,7 @@ class Pad(object):
         if rv is not None and (include_unexposed or rv.is_exposed):
             return rv
 
-        if include_assets:
+        if all_sources:
             return self.asset_root.resolve_url_path(pieces)
 
     @property
@@ -889,7 +889,12 @@ class Pad(object):
         """
         return Query(path='/' + (path or '').strip('/'), pad=self)
 
-    def get(self, path):
-        """Loads an element by path."""
-        return self.db.get_page('/' + path.strip('/'), pad=self,
-                                persist=True)
+    def get(self, path, all_sources=False):
+        """Loads an element by path.  By default only record resources are
+        resolved.
+        """
+        rv = self.db.get_page('/' + path.strip('/'), pad=self,
+                              persist=True)
+        if rv is None and all_sources:
+            rv = self.asset_root.resolve_url_path(path.strip('/').split('/'))
+        return rv

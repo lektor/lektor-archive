@@ -1,9 +1,28 @@
-from werkzeug.local import LocalStack
+from jinja2 import Undefined
+
+from werkzeug.local import LocalStack, LocalProxy
 
 from lektor.reporter import reporter
 
 
 _ctx_stack = LocalStack()
+
+
+def url_to(*args, **kwargs):
+    """Calculates a URL to another record."""
+    ctx = get_ctx()
+    if ctx is None:
+        raise RuntimeError('No context found')
+    return ctx.source.url_to(*args, **kwargs)
+
+
+@LocalProxy
+def site_proxy():
+    """Returns the current pad."""
+    ctx = get_ctx()
+    if ctx is None:
+        return Undefined(hint='Cannot access the site from here', name='site')
+    return ctx.pad
 
 
 def get_ctx():
@@ -36,6 +55,13 @@ class Context(object):
     def env(self):
         """The environment of the context."""
         return self.pad.db.env
+
+    @property
+    def record(self):
+        """If the source is a record it will be available here."""
+        rv = self.source
+        if rv is not None and rv.source_classification == 'record':
+            return rv
 
     def push(self):
         _ctx_stack.push(self)
