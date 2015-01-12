@@ -6,6 +6,7 @@ from lektor.sourceobj import SourceObject
 
 
 special_file_assets = {}
+file_component_suffixes = set()
 
 
 def get_asset(pad, filename, parent=None):
@@ -29,6 +30,8 @@ def get_asset(pad, filename, parent=None):
 def special_file_asset(extension):
     def decorator(cls):
         special_file_assets[extension] = cls
+        if cls.artifact_suffix:
+            file_component_suffixes.add(cls.artifact_suffix)
         return cls
     return decorator
 
@@ -82,14 +85,14 @@ class Asset(SourceObject):
     def children(self):
         return iter(())
 
-    def get_child(self, name):
+    def get_child(self, name, from_url=False):
         return None
 
     def resolve_url_path(self, url_path):
         if not url_path:
             return self
-        child = self.get_child(url_path[0])
-        if child:
+        child = self.get_child(url_path[0], from_url=True)
+        if child is not None:
             return child.resolve_url_path(url_path[1:])
 
     def __repr__(self):
@@ -114,8 +117,19 @@ class Directory(Asset):
             if asset is not None:
                 yield asset
 
-    def get_child(self, name):
-        return get_asset(self.pad, name, parent=self)
+    def get_child(self, name, from_url=False):
+        rv = get_asset(self.pad, name, parent=self)
+        if rv is not None or not from_url:
+            return rv
+
+        # This this point it means we did not find a child yet, but we
+        # came from an URL.  We can try to chop of suffixes to find the
+        # original source asset.
+        for suffix in file_component_suffixes:
+            if name.endswith(suffix):
+                rv = get_asset(self.pad, name[:-len(suffix)], parent=self)
+                if rv is not None:
+                    return rv
 
 
 class File(Asset):
