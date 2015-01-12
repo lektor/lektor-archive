@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from itertools import chain
 
 from lektor.context import Context
-from lektor.build_programs import build_programs
+from lektor.build_programs import get_build_program
 from lektor.reporter import reporter
 from lektor.utils import prune_file_and_folder, atomic_open
 
@@ -104,6 +104,7 @@ class BuildState(object):
         self.database_filename = database_filename
 
         self.file_info_cache = {}
+        self.named_temporaries = set()
 
         create_tables(self.connect_to_database())
 
@@ -116,6 +117,34 @@ class BuildState(object):
     def env(self):
         """The environment backing this buildstate."""
         return self.builder.env
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.close()
+
+    def close(self):
+        for fn in self.named_temporaries:
+            try:
+                os.remove(fn)
+            except OSError:
+                pass
+
+    def make_named_temporary(self, identifier=None):
+        """Creates a named temporary file and returns the filename for it.
+        This can be usedful in some scenarious when building with external
+        tools.
+        """
+        dir = os.path.join(self.builder.meta_path, 'tmp')
+        try:
+            os.makedirs(dir)
+        except OSError:
+            pass
+        fn = os.path.join(dir, 'nt-%s-%s.tmp' % (identifier or 'generic',
+                                                 os.urandom(20).encode('hex')))
+        self.named_temporaries.add(fn)
+        return fn
 
     def get_file_info(self, filename):
         """Returns the file info for a given file.  This will be cached
@@ -143,7 +172,7 @@ class BuildState(object):
         path, this identifier is also platform independent.
         """
         folder = os.path.abspath(self.env.root_path)
-        filename = os.path.join(folder, filename)
+        filename = os.path.normpath(os.path.join(folder, filename))
         if filename.startswith(folder):
             filename = filename[len(folder):].lstrip(os.path.sep)
             if os.path.altsep:
@@ -498,11 +527,13 @@ class Artifact(object):
         except OSError:
             pass
 
-    def open(self, mode='rb', ensure_dir=False):
+    def open(self, mode='rb', ensure_dir=None):
         """Opens the artifact for reading or writing.  This is transaction
         safe by writing into a temporary file and by moving it over the
         actual source in commit.
         """
+        if ensure_dir is None:
+            ensure_dir = 'r' not in mode
         if ensure_dir:
             self.ensure_dir()
         if 'r' in mode:
@@ -514,6 +545,15 @@ class Artifact(object):
             self._new_artifact_file = tmp_filename
             return os.fdopen(fd, mode)
         return open(self._new_artifact_file, mode)
+
+    def replace_with_file(self, filename, ensure_dir=True):
+        """This is similar to open but it will move over a given named
+        file.  The file will be deleted by a rollback or renamed by a
+        commit.
+        """
+        if ensure_dir:
+            self.ensure_dir()
+        self._new_artifact_file = filename
 
     def memorize_dependencies(self, dependencies=None):
         """This updates the dependencies recorded for the artifact based
@@ -648,9 +688,9 @@ class Builder(object):
 
     def get_build_program(self, source, build_state):
         """Finds the right build function for the given source file."""
-        for cls, builder in build_programs:
-            if isinstance(source, cls):
-                return builder(source, build_state)
+        rv = get_build_program(source, build_state)
+        if rv is not None:
+            return rv
         raise RuntimeError('I do not know how to build %r', source)
 
     def build_artifact(self, artifact, build_func):
@@ -672,25 +712,23 @@ class Builder(object):
         correspond to known artifacts.
         """
         with reporter.build(all and 'clean' or 'prune', self):
-            build_state = self.new_build_state()
-            for old_artifact in build_state.iter_unreferenced_artifacts(all=all):
-                reporter.report_pruned_artifact(old_artifact)
-                filename = build_state.get_destination_filename(old_artifact)
-                prune_file_and_folder(filename, self.destination_path)
-                build_state.remove_artifact(old_artifact)
+            with self.new_build_state() as build_state:
+                for aft in build_state.iter_unreferenced_artifacts(all=all):
+                    reporter.report_pruned_artifact(aft)
+                    filename = build_state.get_destination_filename(aft)
+                    prune_file_and_folder(filename, self.destination_path)
+                    build_state.remove_artifact(aft)
 
             if all:
                 build_state.vacuum()
 
-    def build(self, source, build_state=None):
+    def build(self, source):
         """Given a source object, builds it."""
-        if build_state is None:
-            build_state = self.new_build_state()
-
-        with reporter.process_source(source):
-            prog = self.get_build_program(source, build_state)
-            prog.build()
-            return prog
+        with self.new_build_state() as build_state:
+            with reporter.process_source(source):
+                prog = self.get_build_program(source, build_state)
+                prog.build()
+                return prog
 
     def build_all(self):
         """Builds the entire tree."""
@@ -705,9 +743,9 @@ class Builder(object):
         """This updates the artifact listing file in the build meta folder.
         This can be used for synchronization tools.
         """
-        build_state = self.new_build_state()
-        filename = os.path.join(self.meta_path, 'artifacts.gz')
+        with self.new_build_state() as build_state:
+            filename = os.path.join(self.meta_path, 'artifacts.gz')
 
-        listing = ArtifactListing(build_state, filename)
-        if listing.update(build_state.iter_artifacts()):
-            listing.save()
+            listing = ArtifactListing(build_state, filename)
+            if listing.update(build_state.iter_artifacts()):
+                listing.save()

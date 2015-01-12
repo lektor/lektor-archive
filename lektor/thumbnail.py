@@ -20,13 +20,13 @@ def find_imagemagick(env):
     return os.path.join(im, 'convert')
 
 
-def make_thumbnail(oplog, source_image, source_url_path, width, height=None):
+def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
     suffix = get_suffix(width, height)
     dst_url_path = get_dependent_url(source_url_path, suffix)
 
-    im = find_imagemagick(oplog.env)
+    im = find_imagemagick(ctx.env)
 
-    @oplog.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
+    @ctx.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
     def build_func(artifact):
         resize_key = str(width)
         if height is not None:

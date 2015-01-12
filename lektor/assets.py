@@ -2,6 +2,7 @@ import os
 import stat
 import shutil
 import posixpath
+import subprocess
 
 from lektor.sourceobj import SourceObject
 
@@ -21,6 +22,10 @@ def get_asset(pad, filename, parent=None):
         return None
     if stat.S_ISDIR(st.st_mode):
         return Directory(pad, filename, parent=parent)
+
+    # XXX: make this configurable
+    if filename.endswith('.less'):
+        return LessFile(pad, filename, parent=parent)
     return File(pad, filename, parent=parent)
 
 
@@ -32,6 +37,8 @@ class Asset(SourceObject):
 
     is_directory = False
 
+    artifact_suffix = ''
+
     def __init__(self, pad, name, path=None, parent=None):
         SourceObject.__init__(self, pad)
         if parent is not None:
@@ -40,25 +47,30 @@ class Asset(SourceObject):
             path = os.path.join(parent.source_filename, path)
         self.source_filename = path
 
+        self.name = name
+        self.parent = parent
+
+    @property
+    def url_name(self):
         # If the name starts with an underscore it's corrected into a
         # dash.  This can only ever happen for files like _htaccess and
         # friends which are explicitly whitelisted in the environment as
         # all other files with leading underscores are ignored.
+        name = self.name
         if name[:1] == '_':
             name = '.' + name[1:]
-        self.name = name
-        self.parent = parent
+        return name + self.artifact_suffix
 
     @property
     def url_path(self):
         if self.parent is None:
             return '/' + self.name
-        return posixpath.join(self.parent.url_path, self.name)
+        return posixpath.join(self.parent.url_path, self.url_name)
 
     @property
     def artifact_name(self):
         if self.parent is not None:
-            return self.parent.artifact_name.rstrip('/') + '/' + self.name
+            return self.parent.artifact_name.rstrip('/') + '/' + self.url_name
         return self.url_path
 
     def build_asset(self, f):
@@ -109,3 +121,21 @@ class File(Asset):
     def build_asset(self, f):
         with open(self.source_filename, 'rb') as sf:
             shutil.copyfileobj(sf, f)
+
+
+class LessFile(Asset):
+    artifact_suffix = '.css'
+
+    def build_asset(self, f):
+        # TODO: configure this
+        include_paths = [self.pad.asset_root.source_filename,
+                         os.path.dirname(self.source_filename)]
+
+        cmdline = ['lessc', '--no-js', '--include-path=%s'
+                   % os.pathsep.join(include_paths), '-']
+
+        proc = subprocess.Popen(cmdline,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
+        with open(self.source_filename, 'rb') as sf:
+            f.write(proc.communicate(sf.read())[0])

@@ -1,10 +1,15 @@
+import os
+import json
 import shutil
 import posixpath
+import subprocess
 
 from itertools import chain
 
 from lektor.db import Page, Attachment
-from lektor.assets import Asset
+from lektor.assets import Asset, LessFile
+from lektor.reporter import reporter
+from lektor.context import get_ctx
 
 
 build_programs = []
@@ -15,6 +20,12 @@ def buildprogram(source_cls):
         build_programs.append((source_cls, builder_cls))
         return builder_cls
     return decorator
+
+
+def get_build_program(source, build_state):
+    for cls, builder in reversed(build_programs):
+        if isinstance(source, cls):
+            return builder(source, build_state)
 
 
 class BuildProgram(object):
@@ -48,16 +59,16 @@ class BuildProgram(object):
 
         gen = self.build_state.builder
         def _build(artifact, build_func):
-            oplog = gen.build_artifact(artifact, build_func)
-            if oplog is not None:
-                sub_artifacts.extend(oplog.sub_artifacts)
+            ctx = gen.build_artifact(artifact, build_func)
+            if ctx is not None:
+                sub_artifacts.extend(ctx.sub_artifacts)
 
         # Step one is building the artifacts that this build program
         # knows about.
         for artifact in self.artifacts:
             _build(artifact, self.build_artifact)
 
-        # For as long as our oplog keeps producing sub artifacts, we
+        # For as long as our ctx keeps producing sub artifacts, we
         # want to process them as well.
         try:
             while sub_artifacts:
@@ -99,7 +110,7 @@ class PageBuildProgram(BuildProgram):
                 sources=[self.source.source_filename])
 
     def build_artifact(self, artifact):
-        with artifact.open('wb', ensure_dir=True) as f:
+        with artifact.open('wb') as f:
             rv = self.build_state.env.render_template(
                 self.source['_template'], self.build_state.pad,
                 this=self.source)
@@ -120,7 +131,7 @@ class AttachmentBuildProgram(BuildProgram):
                          self.source.attachment_filename])
 
     def build_artifact(self, artifact):
-        with artifact.open('wb', ensure_dir=True) as df:
+        with artifact.open('wb') as df:
             with open(self.source.attachment_filename) as sf:
                 shutil.copyfileobj(sf, df)
 
@@ -135,8 +146,46 @@ class AssetBuildProgram(BuildProgram):
                 sources=[self.source.source_filename])
 
     def build_artifact(self, artifact):
-        with artifact.open('wb', ensure_dir=True) as df:
+        with artifact.open('wb') as df:
             self.source.build_asset(df)
 
     def iter_child_sources(self):
         return self.source.children
+
+
+@buildprogram(LessFile)
+class LessFileAssetBuildProgram(BuildProgram):
+    """This build program produces css files out of less files."""
+
+    def produce_artifacts(self):
+        self.declare_artifact(
+            self.source.artifact_name,
+            sources=[self.source.source_filename])
+
+    def build_artifact(self, artifact):
+        ctx = get_ctx()
+        source_out = self.build_state.make_named_temporary('less')
+        map_out = self.build_state.make_named_temporary('less-sourcemap')
+        here = os.path.dirname(self.source.source_filename)
+
+        cmdline = ['lessc', '--no-js', '--include-path=%s' % here,
+                   '--source-map=%s' % map_out,
+                   self.source.source_filename,
+                   source_out]
+
+        reporter.report_debug_info('lessc cmd line', cmdline)
+
+        proc = subprocess.Popen(cmdline)
+        if proc.wait() != 0:
+            raise RuntimeError('lessc failed')
+
+        with open(map_out) as f:
+            for dep in json.load(f).get('sources') or ():
+                ctx.record_dependency(os.path.join(here, dep))
+
+        artifact.replace_with_file(source_out)
+
+        @ctx.sub_artifact(artifact_name=artifact.artifact_name + '.map',
+                          sources=[self.source.source_filename])
+        def build_func(artifact):
+            artifact.replace_with_file(map_out)
