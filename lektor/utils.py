@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import uuid
+import tempfile
 import posixpath
 import traceback
 import unicodedata
@@ -9,10 +10,12 @@ import multiprocessing
 from Queue import Queue
 from threading import Thread
 from datetime import datetime
+from contextlib import contextmanager
 
 from urlparse import urlparse
 
 from werkzeug.http import http_date
+from werkzeug.posixemulation import rename
 from jinja2 import is_undefined
 from markupsafe import Markup
 
@@ -150,3 +153,29 @@ def get_dependent_url(url_path, suffix):
     url_directory, url_filename = posixpath.split(url_path)
     url_base, url_ext = posixpath.splitext(url_filename)
     return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
+
+
+@contextmanager
+def atomic_open(filename, mode='r'):
+    if 'r' not in mode:
+        fd, tmp_filename = tempfile.mkstemp(
+            dir=os.path.dirname(filename), prefix='.__atomic-write')
+        f = os.fdopen(fd, mode)
+    else:
+        f = open(filename, mode)
+        tmp_filename = None
+    try:
+        yield f
+    except:
+        exc_type, exc_value, tb = sys.exc_info()
+        if tmp_filename is not None:
+            try:
+                os.remove(tmp_filename)
+            except OSError:
+                pass
+        f.close()
+        raise exc_type, exc_value, tb
+    else:
+        if tmp_filename is not None:
+            rename(tmp_filename, filename)
+        f.close()

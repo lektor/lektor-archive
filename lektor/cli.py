@@ -152,4 +152,18 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
                verbosity=verbosity)
 
 
+@cli.command('sync', short_help='Synchronizes stuff to a host.')
+@click.option('-O', '--output-path', type=click.Path(), default=None,
+              help='The dev server will build into the same folder as '
+              'the build command by default.')
+@pass_context
+def sync_cmd(ctx, output_path):
+    """This commands syncs to a server."""
+    from lektor.builder import Builder
+    if output_path is None:
+        output_path = ctx.get_default_output_path()
+    builder = Builder(ctx.new_pad(), output_path)
+    builder.update_listing_file()
+
+
 main = cli
