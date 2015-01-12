@@ -6,7 +6,7 @@ from lektor.sourceobj import SourceObject
 
 
 special_file_assets = {}
-file_component_suffixes = set()
+special_file_suffixes = {}
 
 
 def get_asset(pad, filename, parent=None):
@@ -31,7 +31,7 @@ def special_file_asset(extension):
     def decorator(cls):
         special_file_assets[extension] = cls
         if cls.artifact_suffix:
-            file_component_suffixes.add(cls.artifact_suffix)
+            special_file_suffixes[extension + cls.artifact_suffix] = extension
         return cls
     return decorator
 
@@ -123,13 +123,13 @@ class Directory(Asset):
             return rv
 
         # This this point it means we did not find a child yet, but we
-        # came from an URL.  We can try to chop of suffixes to find the
-        # original source asset.
-        for suffix in file_component_suffixes:
-            if name.endswith(suffix):
-                rv = get_asset(self.pad, name[:-len(suffix)], parent=self)
-                if rv is not None:
-                    return rv
+        # came from an URL.  We can try to chop of product suffixes to
+        # find the original source asset.  For instance a file called
+        # foo.less.css will be reduced to foo.less.
+        prod_suffix = '.' + '.'.join(name.rsplit('.', 2)[1:])
+        ext = special_file_suffixes.get(prod_suffix)
+        if ext is not None:
+            return get_asset(self.pad, name[:-len(prod_suffix)] + ext, parent=self)
 
 
 class File(Asset):
