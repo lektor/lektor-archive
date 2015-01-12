@@ -48,8 +48,10 @@ class SourceObject(object):
         this = self.url_path
         if this == '/':
             depth = 0
+            prefix = './'
         else:
             depth = ('/' + this.strip('/')).count('/')
+            prefix = ''
 
         path = posixpath.join(this, path)
 
@@ -58,4 +60,4 @@ class SourceObject(object):
             if source is not None:
                 path = source.url_path
 
-        return ('../' * depth).rstrip('/') + path
+        return (prefix + '../' * depth).rstrip('/') + path
