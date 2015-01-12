@@ -1,13 +1,11 @@
 import os
 import stat
-import shutil
 import posixpath
-import subprocess
 
 from lektor.sourceobj import SourceObject
 
 
-# TODO: add less support and stuff like that.
+special_file_assets = {}
 
 
 def get_asset(pad, filename, parent=None):
@@ -23,10 +21,16 @@ def get_asset(pad, filename, parent=None):
     if stat.S_ISDIR(st.st_mode):
         return Directory(pad, filename, parent=parent)
 
-    # XXX: make this configurable
-    if filename.endswith('.less'):
-        return LessFile(pad, filename, parent=parent)
-    return File(pad, filename, parent=parent)
+    ext = os.path.splitext(filename)[1]
+    cls = special_file_assets.get(ext, File)
+    return cls(pad, filename, parent=parent)
+
+
+def special_file_asset(extension):
+    def decorator(cls):
+        special_file_assets[extension] = cls
+        return cls
+    return decorator
 
 
 class Asset(SourceObject):
@@ -34,8 +38,6 @@ class Asset(SourceObject):
     # the inherited descriptor.
     source_classification = 'asset'
     source_filename = None
-
-    is_directory = False
 
     artifact_suffix = ''
 
@@ -98,7 +100,7 @@ class Asset(SourceObject):
 
 
 class Directory(Asset):
-    is_directory = True
+    """Represents an asset directory."""
 
     @property
     def children(self):
@@ -117,25 +119,10 @@ class Directory(Asset):
 
 
 class File(Asset):
-
-    def build_asset(self, f):
-        with open(self.source_filename, 'rb') as sf:
-            shutil.copyfileobj(sf, f)
+    """Represents a static asset file."""
 
 
+@special_file_asset('.less')
 class LessFile(Asset):
+    """Represents a less asset that needs converting into css."""
     artifact_suffix = '.css'
-
-    def build_asset(self, f):
-        # TODO: configure this
-        include_paths = [self.pad.asset_root.source_filename,
-                         os.path.dirname(self.source_filename)]
-
-        cmdline = ['lessc', '--no-js', '--include-path=%s'
-                   % os.pathsep.join(include_paths), '-']
-
-        proc = subprocess.Popen(cmdline,
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE)
-        with open(self.source_filename, 'rb') as sf:
-            f.write(proc.communicate(sf.read())[0])

@@ -7,7 +7,7 @@ import subprocess
 from itertools import chain
 
 from lektor.db import Page, Attachment
-from lektor.assets import Asset, LessFile
+from lektor.assets import File, Directory, LessFile
 from lektor.reporter import reporter
 from lektor.context import get_ctx
 
@@ -81,6 +81,11 @@ class BuildProgram(object):
             self.build_state.mark_artifact_sources_dirty(self.artifacts)
             raise
 
+    def produce_artifacts(self):
+        """This produces the artifacts for building.  Usually this only
+        produces a single artifact.
+        """
+
     def declare_artifact(self, artifact_name, sources=None, extra=None):
         """This declares an artifact to be built in this program."""
         self.artifacts.append(self.build_state.new_artifact(
@@ -136,18 +141,22 @@ class AttachmentBuildProgram(BuildProgram):
                 shutil.copyfileobj(sf, df)
 
 
-@buildprogram(Asset)
-class AssetBuildProgram(BuildProgram):
+@buildprogram(File)
+class FileAssetBuildProgram(BuildProgram):
 
     def produce_artifacts(self):
-        if not self.source.is_directory:
-            self.declare_artifact(
-                self.source.artifact_name,
-                sources=[self.source.source_filename])
+        self.declare_artifact(
+            self.source.artifact_name,
+            sources=[self.source.source_filename])
 
     def build_artifact(self, artifact):
         with artifact.open('wb') as df:
-            self.source.build_asset(df)
+            with open(self.source.source_filename, 'rb') as sf:
+                shutil.copyfileobj(sf, df)
+
+
+@buildprogram(Directory)
+class DirectoryAssetBuildProgram(BuildProgram):
 
     def iter_child_sources(self):
         return self.source.children
