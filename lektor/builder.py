@@ -211,6 +211,7 @@ class BuildState(object):
             cur.execute('''
                 delete from artifacts where artifact = ?
             ''', [artifact_name])
+            cur.commit()
         finally:
             con.close()
 
@@ -309,6 +310,14 @@ class BuildState(object):
                 info = FileInfo(self.builder.env, path)
                 if info.exists:
                     yield artifact_name, info
+        finally:
+            con.close()
+
+    def vacuum(self):
+        """Vacuums the build db."""
+        con = self.connect_to_database()
+        try:
+            con.execute('vacuum')
         finally:
             con.close()
 
@@ -669,6 +678,9 @@ class Builder(object):
                 filename = build_state.get_destination_filename(old_artifact)
                 prune_file_and_folder(filename, self.destination_path)
                 build_state.remove_artifact(old_artifact)
+
+            if all:
+                build_state.vacuum()
 
     def build(self, source, build_state=None):
         """Given a source object, builds it."""
