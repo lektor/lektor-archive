@@ -3,33 +3,42 @@ import stat
 import shutil
 import posixpath
 
+from lektor.sourceobj import SourceObject
+
 
 # TODO: add less support and stuff like that.
 
 
-def get_asset(env, filename, parent=None):
+def get_asset(pad, filename, parent=None):
+    env = pad.db.env
+
     if env.is_uninteresting_source_name(filename):
         return None
 
     try:
-        st = os.stat(os.path.join(parent.path, filename))
+        st = os.stat(os.path.join(parent.source_filename, filename))
     except OSError:
         return None
     if stat.S_ISDIR(st.st_mode):
-        return Directory(env, filename, parent=parent)
-    return File(env, filename, parent=parent)
+        return Directory(pad, filename, parent=parent)
+    return File(pad, filename, parent=parent)
 
 
-class Asset(object):
+class Asset(SourceObject):
+    # source specific overrides.  the source_filename to none removes
+    # the inherited descriptor.
+    source_classification = 'asset'
+    source_filename = None
+
     is_directory = False
 
-    def __init__(self, env, name, path=None, parent=None):
-        self.env = env
+    def __init__(self, pad, name, path=None, parent=None):
+        SourceObject.__init__(self, pad)
         if parent is not None:
             if path is None:
                 path = name
-            path = os.path.join(parent.path, path)
-        self.path = path
+            path = os.path.join(parent.source_filename, path)
+        self.source_filename = path
 
         # If the name starts with an underscore it's corrected into a
         # dash.  This can only ever happen for files like _htaccess and
@@ -62,12 +71,12 @@ class Asset(object):
     def get_child(self, name):
         return None
 
-    def resolve_children(self, path_pieces):
-        if not path_pieces:
+    def resolve_url_path(self, url_path):
+        if not url_path:
             return self
-        child = self.get_child(path_pieces[0])
+        child = self.get_child(url_path[0])
         if child:
-            return child.resolve_children(path_pieces[1:])
+            return child.resolve_url_path(url_path[1:])
 
     def __repr__(self):
         return '<%s %r>' % (
@@ -82,7 +91,7 @@ class Directory(Asset):
     @property
     def children(self):
         try:
-            files = os.listdir(self.path)
+            files = os.listdir(self.source_filename)
         except OSError:
             return
 
@@ -92,11 +101,11 @@ class Directory(Asset):
                 yield asset
 
     def get_child(self, name):
-        return get_asset(self.env, name, parent=self)
+        return get_asset(self.pad, name, parent=self)
 
 
 class File(Asset):
 
     def build_asset(self, f):
-        with open(self.path, 'rb') as sf:
+        with open(self.source_filename, 'rb') as sf:
             shutil.copyfileobj(sf, f)

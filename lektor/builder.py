@@ -8,7 +8,7 @@ import tempfile
 from contextlib import contextmanager
 from itertools import chain
 
-from lektor.operationlog import OpLog
+from lektor.context import Context
 from lektor.build_programs import build_programs
 from lektor.reporter import reporter
 from lektor.utils import prune_file_and_folder
@@ -509,12 +509,12 @@ class Artifact(object):
         Unlike the manual begin and update, this also performs a commit and
         rollback based on the success of the block.
         """
-        oplog = self.begin_update()
+        ctx = self.begin_update()
         try:
             try:
-                yield oplog
+                yield ctx
             finally:
-                self.finish_update(oplog)
+                self.finish_update(ctx)
         except:
             exc_type, exc_value, tb = sys.exc_info()
             self.rollback()
@@ -526,17 +526,17 @@ class Artifact(object):
         if self.in_update_block:
             raise RuntimeError('Artifact is already open for updates.')
         self.updated = False
-        oplog = OpLog(self)
-        oplog.push()
+        ctx = Context(self)
+        ctx.push()
         self.in_update_block = True
-        return oplog
+        return ctx
 
-    def finish_update(self, oplog):
+    def finish_update(self, ctx):
         """Finalizes an update block."""
         if not self.in_update_block:
             raise RuntimeError('Artifact is not open for updates.')
-        oplog.pop()
-        self.memorize_dependencies(oplog.referenced_dependencies)
+        ctx.pop()
+        self.memorize_dependencies(ctx.referenced_dependencies)
         self.clear_dirty_flag()
         self.in_update_block = False
         self.updated = True
@@ -575,14 +575,14 @@ class Builder(object):
         function to build it, will invoke this function.  This ultimately
         is what builds.
 
-        The return value is the oplog that was used to build this thing
+        The return value is the ctx that was used to build this thing
         if it was built, or `None` otherwise.
         """
         with reporter.build_artifact(artifact):
             if not artifact.is_current:
-                with artifact.update() as oplog:
+                with artifact.update() as ctx:
                     build_func(artifact)
-                    return oplog
+                    return ctx
 
     def prune(self, all=False):
         """This cleans up data left in the build folder that does not

@@ -2,8 +2,8 @@ import os
 
 import jinja2
 
-from lektor.operationlog import get_oplog
-from lektor.utils import tojson_filter
+from lektor.context import get_ctx
+from lektor.utils import tojson_filter, UrlGenerator
 
 
 DEFAULT_CONFIG = {
@@ -77,9 +77,9 @@ class CustomJinjaEnvironment(jinja2.Environment):
 
     def _load_template(self, name, globals):
         rv = jinja2.Environment._load_template(self, name, globals)
-        oplog = get_oplog()
-        if oplog is not None:
-            oplog.record_dependency(rv.filename)
+        ctx = get_ctx()
+        if ctx is not None:
+            ctx.record_dependency(rv.filename)
         return rv
 
 
@@ -128,10 +128,17 @@ class Environment(object):
         return self.jinja_env.get_or_select_template(name).render(ctx)
 
     def make_default_tmpl_values(self, pad, this=None, values=None):
+        # XXX: would be nice if those were also global proxies like in
+        # flask so that they can be used in macros.
         values = dict(values or ())
         values['site'] = pad
         if this is not None:
             values['this'] = this
+
+            # XXX: hack.  use oplog for this and rename it.
+            from lektor.db import Record
+            if isinstance(this, Record):
+                values['url_for'] = UrlGenerator(pad, this)
         return values
 
     def select_jinja_autoescape(self, filename):

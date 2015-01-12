@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from lektor.operationlog import get_dependent_url
+from lektor.utils import get_dependent_url
 from lektor.reporter import reporter
 
 

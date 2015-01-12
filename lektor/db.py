@@ -7,15 +7,15 @@ import operator
 import functools
 import posixpath
 
-from weakref import ref as weakref
-from itertools import islice, chain
+from itertools import islice
 
 from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
 
 from lektor import metaformat
 from lektor.utils import sort_normalize_string
-from lektor.operationlog import get_oplog
+from lektor.sourceobj import SourceObject
+from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.thumbnail import make_thumbnail
 from lektor.assets import Directory
@@ -32,15 +32,15 @@ def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep)
 
 
-def _require_oplog(record):
-    oplog = get_oplog()
-    if oplog is None:
-        raise RuntimeError('This operation requires an oplog but none was '
+def _require_ctx(record):
+    ctx = get_ctx()
+    if ctx is None:
+        raise RuntimeError('This operation requires a context but none was '
                            'on the stack.')
-    if oplog.pad is not record.pad:
-        raise RuntimeError('The oplog on the stack does not match the '
+    if ctx.pad is not record.pad:
+        raise RuntimeError('The context on the stack does not match the '
                            'pad of the record.')
-    return oplog
+    return ctx
 
 
 @functools.total_ordering
@@ -200,18 +200,15 @@ class _RecordQueryProxy(object):
 F = _RecordQueryProxy()
 
 
-class Record(object):
+class Record(SourceObject):
+    source_classification = 'record'
 
     def __init__(self, pad, data):
-        self._pad = weakref(pad)
+        SourceObject.__init__(self, pad)
         self._data = data
         self._fast_source_hash = None
 
     cache_classification = 'record'
-
-    @property
-    def source_filename(self):
-        raise NotImplementedError()
 
     def get_dependent_name(self, suffix):
         directory, filename = posixpath.split(self['_path'])
@@ -221,13 +218,6 @@ class Record(object):
             suffix,
             ext,
         ))
-
-    @property
-    def pad(self):
-        rv = self._pad()
-        if rv is not None:
-            return rv
-        raise AttributeError('The pad went away')
 
     @property
     def datamodel(self):
@@ -279,12 +269,6 @@ class Record(object):
         bits.reverse()
         return '/' + '/'.join(bits).strip('/')
 
-    def resolve_url_path(self, url_path):
-        """Given a URL path as list this resolves the most appropriate
-        direct child and returns the list of remaining items.  If no
-        match can be found, the result is `None`.
-        """
-
     def get_sort_key(self, fields):
         """Returns a sort key for the given field specifications specific
         for the data in the record.
@@ -303,9 +287,6 @@ class Record(object):
     def to_dict(self):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
-
-    def iter_child_records(self):
-        return iter(())
 
     def __contains__(self, name):
         return name in self._data and not is_undefined(self._data[name])
@@ -338,7 +319,7 @@ class Page(Record):
     def source_filename(self):
         return self.pad.db.get_fs_path(self['_path'], record_type='page')
 
-    def iter_dependent_filenames(self):
+    def _iter_dependent_filenames(self):
         yield self.source_filename
 
     @property
@@ -408,10 +389,6 @@ class Page(Record):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad)
 
-    # TODO: remove me
-    def iter_child_records(self):
-        return chain(self.children, self.attachments)
-
 
 class Attachment(Record):
     """This represents a loaded attachment."""
@@ -433,7 +410,7 @@ class Attachment(Record):
             self._data['_attachment_for'], self.pad,
             persist=self.pad.cache.is_persistent(self))
 
-    def iter_dependent_filenames(self):
+    def _iter_dependent_filenames(self):
         # We only want to yield the source filename if it actually exists.
         # For attachments it's very likely that this is not the case in
         # case no metadata was defined.
@@ -446,7 +423,7 @@ class Image(Attachment):
     """Specific class for image attachments."""
 
     def thumbnail(self, width, height=None):
-        return make_thumbnail(_require_oplog(self),
+        return make_thumbnail(_require_ctx(self),
             self.attachment_filename, self.url_path,
             width=width, height=height)
 
@@ -687,18 +664,18 @@ class Database(object):
             record.pad.cache.remember(record)
 
     def _track_record_dependency(self, record):
-        oplog = get_oplog()
-        if oplog is not None:
-            for filename in record.iter_dependent_filenames():
-                oplog.record_dependency(filename)
+        ctx = get_ctx()
+        if ctx is not None:
+            for filename in record._iter_dependent_filenames():
+                ctx.record_dependency(filename)
             if record.datamodel.filename:
-                oplog.record_dependency(record.datamodel.filename)
+                ctx.record_dependency(record.datamodel.filename)
         return record
 
     def _track_fs_dependency(self, fs_path):
-        oplog = get_oplog()
-        if oplog is not None:
-            oplog.record_dependency(fs_path)
+        ctx = get_ctx()
+        if ctx is not None:
+            ctx.record_dependency(fs_path)
 
     def get_datamodel(self, raw_data, pad, record_type='page'):
         """Returns the datamodel for a given raw record."""
@@ -892,7 +869,7 @@ class Pad(object):
             return rv
 
         if include_assets:
-            return self.asset_root.resolve_children(pieces)
+            return self.asset_root.resolve_url_path(pieces)
 
     @property
     def root(self):
@@ -902,7 +879,7 @@ class Pad(object):
     @property
     def asset_root(self):
         """The root of the asset tree."""
-        return Directory(self.db.env, name='',
+        return Directory(self, name='',
                          path=os.path.join(self.db.env.root_path, 'assets'))
 
     def query(self, path=None):

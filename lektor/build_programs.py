@@ -132,7 +132,7 @@ class AssetBuildProgram(BuildProgram):
         if not self.source.is_directory:
             self.declare_artifact(
                 self.source.artifact_name,
-                sources=[self.source.path])
+                sources=[self.source.source_filename])
 
     def build_artifact(self, artifact):
         with artifact.open('wb', ensure_dir=True) as df:

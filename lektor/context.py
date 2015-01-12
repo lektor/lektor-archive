@@ -1,22 +1,25 @@
-import posixpath
-
-from threading import local
+from werkzeug.local import LocalStack
 
 from lektor.reporter import reporter
 
 
-_log_local = local()
+_ctx_stack = LocalStack()
 
 
-def get_oplog():
-    """Returns the current operation log."""
-    try:
-        return _log_local.stack[-1]
-    except (AttributeError, IndexError):
-        return None
+def get_ctx():
+    """Returns the current context."""
+    return _ctx_stack.top
 
 
-class OpLog(object):
+class Context(object):
+    """The context is a thread local object that provides the system with
+    general information about in which state it is.  The context is created
+    whenever a source is processed and can be accessed by template engine and
+    other things.
+
+    It's considered read and write and also accumulates changes that happen
+    during processing of the object.
+    """
 
     def __init__(self, artifact):
         self.artifact = artifact
@@ -25,18 +28,20 @@ class OpLog(object):
         self.build_state = self.artifact.build_state
         self.pad = self.build_state.pad
 
+        # Processing information
         self.referenced_dependencies = set()
         self.sub_artifacts = []
 
     @property
     def env(self):
+        """The environment of the context."""
         return self.pad.db.env
 
     def push(self):
-        _log_local.__dict__.setdefault('stack', []).append(self)
+        _ctx_stack.push(self)
 
     def pop(self):
-        _log_local.stack.pop()
+        _ctx_stack.pop()
 
     def __enter__(self):
         self.push()
@@ -67,10 +72,5 @@ class OpLog(object):
         reporter.report_sub_artifact(aft)
 
     def record_dependency(self, filename):
+        """Records a dependency from processing."""
         self.referenced_dependencies.add(filename)
-
-
-def get_dependent_url(url_path, suffix):
-    url_directory, url_filename = posixpath.split(url_path)
-    url_base, url_ext = posixpath.splitext(url_filename)
-    return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
