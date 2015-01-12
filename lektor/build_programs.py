@@ -177,7 +177,11 @@ class LessFileAssetBuildProgram(BuildProgram):
         map_out = self.build_state.make_named_temporary('less-sourcemap')
         here = os.path.dirname(self.source.source_filename)
 
-        cmdline = ['lessc', '--no-js', '--include-path=%s' % here,
+        exe = self.build_state.env.config['LESSC_EXECUTABLE']
+        if exe is None:
+            exe = 'lessc'
+
+        cmdline = [exe, '--no-js', '--include-path=%s' % here,
                    '--source-map=%s' % map_out,
                    self.source.source_filename,
                    source_out]
@@ -196,5 +200,5 @@ class LessFileAssetBuildProgram(BuildProgram):
 
         @ctx.sub_artifact(artifact_name=artifact.artifact_name + '.map',
                           sources=[self.source.source_filename])
-        def build_func(artifact):
+        def build_less_sourcemap_artifact(artifact):
             artifact.replace_with_file(map_out)

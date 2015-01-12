@@ -1,4 +1,3 @@
-import os
 import posixpath
 import subprocess
 
@@ -14,10 +13,10 @@ def get_suffix(width, height):
 
 
 def find_imagemagick(env):
-    im = env.config['IMAGEMAGICK_PATH']
+    im = env.config['IMAGEMAGICK_EXECUTABLE']
     if im is None:
         return 'convert'
-    return os.path.join(im, 'convert')
+    return im
 
 
 def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
@@ -27,7 +26,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
     im = find_imagemagick(ctx.env)
 
     @ctx.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
-    def build_func(artifact):
+    def build_thumbnail_artifact(artifact):
         resize_key = str(width)
         if height is not None:
             resize_key += 'x' + str(height)

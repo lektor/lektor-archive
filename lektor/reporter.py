@@ -10,6 +10,14 @@ from contextlib import contextmanager
 _reporter_stack = LocalStack()
 
 
+def describe_build_func(func):
+    self = getattr(func, '__self__', None)
+    if self is not None and any(x.__name__ == 'BuildProgram'
+                                for x in self.__class__.__mro__):
+        return self.__class__.__module__ + '.' + self.__class__.__name__
+    return func.__module__ + '.' + func.__name__
+
+
 class Reporter(object):
 
     def __init__(self, env, verbosity=0):
@@ -85,10 +93,11 @@ class Reporter(object):
         pass
 
     @contextmanager
-    def build_artifact(self, artifact):
+    def build_artifact(self, artifact, build_func):
         now = time.time()
         self.artifact_stack.append(artifact)
         self.start_artifact_build()
+        self.report_build_func(build_func)
         try:
             yield
         finally:
@@ -109,6 +118,9 @@ class Reporter(object):
         pass
 
     def report_sub_artifact(self, artifact):
+        pass
+
+    def report_build_func(self, build_func):
         pass
 
     def report_debug_info(self, key, value):
@@ -187,6 +199,11 @@ class CliReporter(Reporter):
     def report_dirty_flag(self, value):
         if self.show_artifact_internals and (value or self.show_debug_info):
             self._write_kv_info('forcing sources dirty', value)
+
+    def report_build_func(self, build_func):
+        if self.show_artifact_internals:
+            self._write_kv_info('build program',
+                                describe_build_func(build_func))
 
     def report_sub_artifact(self, artifact):
         if self.show_artifact_internals:

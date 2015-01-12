@@ -7,7 +7,8 @@ from lektor.context import url_to, site_proxy, get_ctx
 
 
 DEFAULT_CONFIG = {
-    'IMAGEMAGICK_PATH': None,
+    'IMAGEMAGICK_EXECUTABLE': None,
+    'LESSC_EXECUTABLE': None,
     'EPHEMERAL_RECORD_CACHE_SIZE': 500,
     'ATTACHMENT_TYPES': {
         '.jpg': 'image',

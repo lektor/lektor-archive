@@ -701,7 +701,7 @@ class Builder(object):
         The return value is the ctx that was used to build this thing
         if it was built, or `None` otherwise.
         """
-        with reporter.build_artifact(artifact):
+        with reporter.build_artifact(artifact, build_func):
             if not artifact.is_current:
                 with artifact.update() as ctx:
                     build_func(artifact)
