@@ -288,6 +288,10 @@ class Record(SourceObject):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
 
+    def iter_fields(self):
+        """Iterates over all fields and values."""
+        return self._data.iteritems()
+
     def iter_record_path(self):
         """Iterates over all records that lead up to the current record."""
         rv = []

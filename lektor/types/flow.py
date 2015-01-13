@@ -1,6 +1,6 @@
 import re
 
-from jinja2 import is_undefined, TemplateNotFound
+from jinja2 import is_undefined, Undefined, TemplateNotFound
 from markupsafe import Markup
 
 from lektor.types import Type
@@ -9,6 +9,30 @@ from lektor.context import get_ctx
 
 
 _block_re = re.compile(r'^####\s*(.*?)\s*####\s*$')
+
+
+def find_record_for_flowblock(blck):
+    """The record that contains this flow block.  This might be unavailable
+    in certain situations, it is however very useful when using the generic
+    block template rendering.
+    """
+    ctx = get_ctx()
+    if ctx is None:
+        raise RuntimeError('Context unavailable')
+    record = ctx.record
+    if record is None:
+        raise RuntimeError('Context does not point to a record')
+
+    # It's only the correct record, if we are contained as a field in it.
+    # This could be improved by making a better mapping for this on the
+    # datamodel probably but it's good enough for the moment.
+    for key, value in record.iter_fields():
+        if isinstance(value, Flow):
+            for other_blck in value.blocks:
+                if other_blck is blck:
+                    return record
+
+    return Undefined('Associated record unavailable.', name='record')
 
 
 class BadFlowBlock(Exception):
@@ -26,6 +50,7 @@ class FlowBlock(object):
 
     @property
     def flowblockmodel(self):
+        """The flowblock model that created this flow block."""
         return self.pad.db.flowblocks[self._data['_flowblock']]
 
     def __contains__(self, name):
@@ -45,7 +70,8 @@ class FlowBlock(object):
                 ['blocks/%s.html' % self._data['_flowblock'],
                  'blocks/default.html'],
                 pad=self.pad,
-                this=self
+                this=self,
+                values={'record': find_record_for_flowblock(self)},
             )
         except TemplateNotFound:
             return Markup('[could not find snippet template]')
