@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import shutil
 import posixpath
@@ -179,7 +180,10 @@ class LessFileAssetBuildProgram(BuildProgram):
 
         exe = self.build_state.env.config['LESSC_EXECUTABLE']
         if exe is None:
-            exe = 'lessc'
+            if sys.platform.startswith('win'):
+                exe = 'lessc.cmd'
+            else:
+                exe = 'lessc'
 
         cmdline = [exe, '--no-js', '--include-path=%s' % here,
                    '--source-map=%s' % map_out,
