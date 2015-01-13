@@ -17,6 +17,7 @@ setup(
         'click>=2.0',
         'watchdog',
         'Markdown',
+        'Flask',
         # XXX: python-inifile
     ],
     classifiers=[

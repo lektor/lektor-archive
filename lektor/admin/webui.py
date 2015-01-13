@@ -1,9 +1,15 @@
-from flask import Flask, url_for
+from flask import Flask, g, abort
 
 from werkzeug.exceptions import NotFound
 
 from lektor.admin.modules import register_modules
-from lektor.admin.utils import get_frontend_source, get_record_title
+from lektor.admin.utils import get_frontend_source, action_url
+
+
+def on_before_request():
+    g.source = get_frontend_source()
+    if g.source is None:
+        abort(404)
 
 
 def setup_app(env):
@@ -11,28 +17,13 @@ def setup_app(env):
     app.lektor_env = env
     app.config['PROPAGATE_EXCEPTIONS'] = True
 
+    app.before_request(on_before_request)
+
+    app.jinja_env.globals['action_url'] = action_url
+
     register_modules(app)
 
-    app.jinja_env.globals['get_frontend_source'] = get_frontend_source
-    app.jinja_env.filters['recordtitle'] = get_record_title
-
-    app.url_build_error_handlers.append(on_bad_url)
-
     return app
-
-
-def on_bad_url(error, endpoint, values):
-    """Adds support for source injections to the URL building."""
-    if endpoint[:1] != '!':
-        return
-    source = values.pop('source', None)
-    if source is None:
-        source = get_frontend_source()
-        if source is None:
-            return
-    if hasattr(source, 'url_path'):
-        source = source.url_path
-    return '/' + source.lstrip('/') + url_for(endpoint[1:], **values).lstrip('/')
 
 
 class WebAdmin(object):

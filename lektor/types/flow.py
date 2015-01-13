@@ -53,6 +53,9 @@ class FlowBlock(object):
         """The flowblock model that created this flow block."""
         return self.pad.db.flowblocks[self._data['_flowblock']]
 
+    def to_json(self):
+        return self.flowblockmodel.to_json(self._data, pad=self.pad)
+
     def __contains__(self, name):
         return name in self._data and not is_undefined(self._data[name])
 
@@ -87,6 +90,9 @@ class Flow(object):
 
     def __init__(self, blocks):
         self.blocks = blocks
+
+    def to_json(self):
+        return [x.to_json() for x in self.blocks]
 
     def __html__(self):
         return Markup(u'\n\n'.join(x.__html__() for x in self.blocks))
@@ -162,3 +168,7 @@ class FlowType(Type):
             return raw.bad_value(e.message)
 
         return Flow(rv)
+
+    def value_to_json(self, value, pad):
+        if not is_undefined(value):
+            return value.to_json()

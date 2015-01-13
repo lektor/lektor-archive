@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
 {% block body %}
   <div class=preview>
-    {% if source.is_visible %}
-      <iframe src="{{ source.url_path }}"></iframe>
+    {% if g.source.is_visible %}
+      <iframe src="{{ g.source.url_path }}"></iframe>
     {% else %}
-      <div class="invisible-page-preview">
+      <div class="message-box">
         <h3>Invisible Page</h3>
         <p>
           This page is invisible.  This means that if a user navigates to it,

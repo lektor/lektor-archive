@@ -1,4 +1,4 @@
-from jinja2 import Undefined
+from jinja2 import Undefined, is_undefined
 
 
 def get_undefined_info(undefined):
@@ -43,6 +43,10 @@ class Type(object):
 
     def value_from_raw(self, raw):
         return raw
+
+    def value_to_json(self, value, pad):
+        if not is_undefined(value):
+            return value
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__

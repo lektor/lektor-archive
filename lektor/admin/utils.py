@@ -1,4 +1,4 @@
-from flask import request, current_app, g
+from flask import request, current_app, g, url_for
 
 from lektor.db import Database
 
@@ -21,9 +21,16 @@ def get_frontend_source(all_sources=False):
                                       include_unexposed=True)
 
 
-def get_record_title(record):
-    """Returns the title of the record."""
-    name = record['_id'].replace('-', ' ').replace('_', ' ').title().strip()
-    if not name:
-        return '(Index)'
-    return name
+def action_url(endpoint=None, source=None, **values):
+    """Special version of :meth:`url_for` that generates URL for actions
+    of the current or different source.
+    """
+    if endpoint is None:
+        endpoint = request.endpoint
+    if source is None:
+        source = get_frontend_source()
+    if source is None:
+        raise RuntimeError('No source found')
+    if hasattr(source, 'url_path'):
+        source = source.url_path
+    return '/' + source.lstrip('/') + url_for(endpoint, **values).lstrip('/')

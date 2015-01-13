@@ -208,16 +208,7 @@ class Record(SourceObject):
         self._data = data
         self._fast_source_hash = None
 
-    cache_classification = 'record'
-
-    def get_dependent_name(self, suffix):
-        directory, filename = posixpath.split(self['_path'])
-        basename, ext = posixpath.splitext(filename)
-        return posixpath.join(directory, '%s@%s%s' % (
-            basename,
-            suffix,
-            ext,
-        ))
+    record_classification = 'record'
 
     @property
     def datamodel(self):
@@ -259,6 +250,16 @@ class Record(SourceObject):
         return self.is_exposed and not self.is_hidden
 
     @property
+    def record_label(self):
+        """The generic record label."""
+        rv = self.datamodel.format_record_label(self)
+        if rv is not None:
+            return rv
+        if not self['_id']:
+            return '(Index)'
+        return self['_id'].replace('-', ' ').replace('_', ' ').title()
+
+    @property
     def url_path(self):
         """The target path where the record should end up."""
         bits = []
@@ -287,6 +288,12 @@ class Record(SourceObject):
     def to_dict(self):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
+
+    def to_json(self):
+        """Similar to :meth:`to_dict` but the return value will be valid
+        JSON.
+        """
+        return self.datamodel.to_json(self._data, pad=self.pad)
 
     def iter_fields(self):
         """Iterates over all fields and values."""
@@ -326,7 +333,7 @@ class Record(SourceObject):
 class Page(Record):
     """This represents a loaded record."""
 
-    cache_classification = 'page'
+    record_classification = 'page'
 
     @property
     def source_filename(self):
@@ -406,7 +413,7 @@ class Page(Record):
 class Attachment(Record):
     """This represents a loaded attachment."""
 
-    cache_classification = 'attachment'
+    record_classification = 'attachment'
 
     @property
     def source_filename(self):
@@ -422,6 +429,14 @@ class Attachment(Record):
         return self.pad.db.get_page(
             self._data['_attachment_for'], self.pad,
             persist=self.pad.cache.is_persistent(self))
+
+    @property
+    def record_label(self):
+        """The generic record label."""
+        rv = self.datamodel.format_record_label(self)
+        if rv is not None:
+            return rv
+        return self['_id']
 
     def _iter_dependent_filenames(self):
         # We only want to yield the source filename if it actually exists.
@@ -628,7 +643,9 @@ class Database(object):
         raise TypeError('Unknown record type %r' % record_type)
 
     def load_raw_data(self, path, record_type):
-        """Internal helper that loads the raw record data."""
+        """Internal helper that loads the raw record data.  This performs
+        very little data processing on the data.
+        """
         path = cleanup_path(path)
         rv = {}
         fn = self.get_fs_path(path, record_type=record_type)
@@ -646,21 +663,25 @@ class Database(object):
             if e.errno != errno.ENOENT:
                 raise
 
+    def get_default_record_slug(self, record):
+        parent = record.parent
+        if parent:
+            return parent.datamodel.get_default_child_slug(record)
+        return ''
+
+    def get_default_record_template(self, record):
+        return record.datamodel.id + '.html'
+
     def postprocess_record(self, record, persist):
         # Automatically fill in slugs
         if is_undefined(record['_slug']):
-            parent = record.parent
-            if parent:
-                slug = parent.datamodel.get_default_child_slug(record)
-            else:
-                slug = ''
-            record['_slug'] = slug
+            record['_slug'] = self.get_default_record_slug(record)
         else:
             record['_slug'] = record['_slug'].strip('/')
 
         # Automatically fill in templates
         if is_undefined(record['_template']):
-            record['_template'] = record.datamodel.id + '.html'
+            record['_template'] = self.get_default_record_template(record)
 
         # Fill in the global ID
         gid_hash = hashlib.md5()
@@ -822,17 +843,17 @@ class RecordCache(object):
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
     def is_persistent(self, record):
-        cache_key = record.cache_classification, record['_path']
+        cache_key = record.record_classification, record['_path']
         return cache_key in self.persistent
 
     def remember(self, record):
-        cache_key = record.cache_classification, record['_path']
+        cache_key = record.record_classification, record['_path']
         if cache_key in self.persistent or cache_key in self.ephemeral:
             return
         self.ephemeral[cache_key] = record
 
     def persist(self, record):
-        cache_key = record.cache_classification, record['_path']
+        cache_key = record.record_classification, record['_path']
         self.persistent[cache_key] = record
         try:
             del self.ephemeral[cache_key]
@@ -840,7 +861,7 @@ class RecordCache(object):
             pass
 
     def persist_if_cached(self, record):
-        cache_key = record.cache_classification, record['_path']
+        cache_key = record.record_classification, record['_path']
         if cache_key in self.ephemeral:
             self.persist(record)
 

@@ -71,13 +71,15 @@ class Field(object):
 
 class DataModel(object):
 
-    def __init__(self, env, id, name, filename=None, contained=None,
+    def __init__(self, env, id, name, label=None,
+                 filename=None, contained=None,
                  expose=None, child_config=None, attachment_config=None,
                  pagination_config=None, fields=None, parent=None):
         self.env = env
         self.filename = filename
         self.id = id
         self.name = name
+        self.label = label
         if contained is None:
             contained = False
         self.contained = contained
@@ -107,6 +109,22 @@ class DataModel(object):
 
         self._child_slug_tmpl = None
         self._child_replacements = None
+        self._label_tmpl = None
+
+    def format_record_label(self, record):
+        """Returns the label for a given record."""
+        label = self.label
+        if label is None:
+            return None
+
+        if self._label_tmpl is None or \
+           self._label_tmpl[0] != label:
+            self._label_tmpl = (
+                label,
+                FormatExpression(self.env, label)
+            )
+
+        return self._label_tmpl[1].evaluate(record.pad, this=record)
 
     def get_default_child_slug(self, record):
         """Formats out the child slug."""
@@ -158,6 +176,13 @@ class DataModel(object):
         rv['_model'] = self.id
         return rv
 
+    def to_json(self, d, pad):
+        rv = {}
+        for field in self._field_map.itervalues():
+            value = d.get(field.name)
+            rv[field.name] = field.type.value_to_json(value, pad=pad)
+        return rv
+
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,
@@ -188,6 +213,13 @@ class FlowBlockModel(object):
         rv['_flowblock'] = self.id
         return rv
 
+    def to_json(self, d, pad):
+        rv = {}
+        for field in self._field_map.itervalues():
+            value = d.get(field.name)
+            rv[field.name] = field.type.value_to_json(value, pad=pad)
+        return rv
+
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,
@@ -214,6 +246,7 @@ def datamodel_data_from_ini(id, inifile):
         id=id,
         parent=inifile.get('model.inherits'),
         name=inifile.get('model.name', id.title().replace('_', ' ')),
+        label=inifile.get('model.label'),
         contained=inifile.get_bool('model.contained', default=None),
         expose=inifile.get_bool('model.expose', default=None),
         child_config=dict(
@@ -294,6 +327,7 @@ def datamodel_from_data(env, model_data, parent=None):
         name=model_data['name'],
 
         # direct data that can inherit
+        label=get_value('label'),
         contained=get_value('contained'),
         expose=get_value('expose'),
         child_config=ChildConfig(
