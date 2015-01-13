@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang=de>
+<head>
+<title>Lektor Admin</title>
+<meta charset=utf-8>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <div class=container>
+      <div class=navbar-header>
+        <a class="navbar-brand" href="/">Lektor</a>
+      </div>
+      <nav class="navbar">
+        <ul class="nav navbar-nav">
+        {% with source = get_frontend_source() %}
+          {% for page in source.iter_record_path() %}
+            <li><a href="{{ url_for('!panel.view', source=page) }}">{{ page|recordtitle }}</a>
+          {% endfor %}
+        {% endwith %}
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class=context-nav>
+    <ul>
+      <li><a href="{{ url_for('!panel.view') }}">View</a>
+      <li><a href="{{ url_for('!panel.edit') }}">Edit</a>
+      <li><a href="{{ url_for('!panel.delete') }}">Delete</a>
+    </ul>
+    <hr>
+    <h3>Pages</h3>
+    <ul>
+    {% for child in source.children %}
+      <li><a href="{{ url_for('!panel.view', source=child) }}">{{ child|recordtitle }}</a>
+    {% endfor %}
+    </ul>
+    <h3>Attachments</h3>
+    <ul>
+    {% for attachment in source.attachments %}
+      <li><a href="{{ url_for('!panel.view', source=attachment) }}">{{ attachment._id }}</a>
+    {% endfor %}
+    </ul>
+  </div>
+
+  <div class=content>
+    <div class=content-wrapper>
+      {% block body %}{% endblock %}
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/jquery.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block body %}
+  <div class=preview>
+    {% if source.is_visible %}
+      <iframe src="{{ source.url_path }}"></iframe>
+    {% else %}
+      <div class="invisible-page-preview">
+        <h3>Invisible Page</h3>
+        <p>
+          This page is invisible.  This means that if a user navigates to it,
+          it does not appear.  This usually is the case for pages that are
+          only internally.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
