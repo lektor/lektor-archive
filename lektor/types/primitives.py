@@ -6,6 +6,7 @@ from jinja2 import is_undefined
 from werkzeug.http import http_date
 
 from lektor.types import Type
+from lektor import widgets
 
 
 class StringType(Type):
@@ -35,6 +36,7 @@ class UuidType(Type):
 
 
 class TextType(Type):
+    widget_class = widgets.TextAreaWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -43,6 +45,7 @@ class TextType(Type):
 
 
 class HtmlType(Type):
+    widget_class = widgets.TextAreaWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:

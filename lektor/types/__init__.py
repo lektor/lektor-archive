@@ -1,5 +1,7 @@
 from jinja2 import Undefined, is_undefined
 
+from lektor import widgets
+
 
 def get_undefined_info(undefined):
     if isinstance(undefined, Undefined):
@@ -34,6 +36,8 @@ class RawValue(object):
 
 
 class Type(object):
+
+    widget_class = widgets.TextInputWidget
 
     def __init__(self, env, options):
         self.env = env

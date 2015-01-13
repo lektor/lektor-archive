@@ -22,4 +22,6 @@ $(function() {
   frm.on('load', function() {
     lektor.syncNavigation(this);
   });
+
+  $('div.pane textarea').autosize();
 });

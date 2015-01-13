@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, redirect, g
+from flask import Blueprint, render_template, redirect, g, request
 
 from lektor.admin.utils import action_url, get_pad
+from lektor.editor import Editor
 
 
 bp = Blueprint('panel', __name__)
@@ -19,13 +20,17 @@ def view():
     return render_template('view.html')
 
 
-@bp.route('/edit')
+@bp.route('/edit', methods=['GET', 'POST'])
 def edit():
     pad = get_pad()
-    raw_record = pad.db.load_raw_data(
-        g.source['_path'], g.source.record_classification)
+    editor = Editor(pad)
+
+    if request.method == 'POST':
+        editor.update_raw_record(g.source, request.form)
+        return redirect(action_url('panel.view'))
+
     return render_template('edit.html',
-        raw_record=raw_record,
+        raw_record=editor.load_raw_record(g.source),
         default_slug=pad.db.get_default_record_slug(g.source),
         default_template=pad.db.get_default_record_template(g.source),
     )

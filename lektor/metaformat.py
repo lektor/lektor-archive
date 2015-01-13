@@ -74,3 +74,31 @@ def tokenize(iterable, interesting_keys=None, encoding=None):
 
     if key:
         yield _flush_item()
+
+
+def serialize(iterable, encoding=None):
+    """Serializes an iterable of key value pairs into a stream of
+    string chunks.  If an encoding is provided, it will be encoded into that.
+
+    This is primarily used by the editor to write back data to a source file.
+    """
+    def _produce(item, escape=False):
+        if escape:
+            if _line_is_dashes(item):
+                item = u'-' + item
+        if encoding is not None:
+            item = item.encode(encoding)
+        return item
+
+    for idx, (key, value) in enumerate(iterable):
+        if idx > 0:
+            yield '---\n'
+        if '\n' in value or '\r' in value or value.strip() != value:
+            yield _produce(key + ':\n')
+            yield _produce('\n')
+            for line in value.splitlines(True):
+                yield _produce(line, escape=True)
+            if value[-1:] in '\r\n':
+                yield _produce('\n')
+        else:
+            yield _produce('%s: %s\n' % (key, value))
