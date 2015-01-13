@@ -26,8 +26,11 @@ def edit():
     editor = Editor(pad)
 
     if request.method == 'POST':
+        # Because our url path might change, we need to update this here
+        # properly.
         editor.update_raw_record(g.source, request.form)
-        return redirect(action_url('panel.view'))
+        new_source = get_pad(refresh=True).get(g.source['_path'])
+        return redirect(action_url('panel.view', source=new_source.url_path))
 
     return render_template('edit.html',
         raw_record=editor.load_raw_record(g.source),

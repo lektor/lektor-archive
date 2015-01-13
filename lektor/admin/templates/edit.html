@@ -36,7 +36,7 @@
             <div class="field row">
               <div class="form-group col-md-12">
                 <label for="input-{{ field.name }}">{{ field.label }}</label>
-                {{ field.widget.render(raw_record[field.name], class='form-control',
+                {{ field.widget.render(raw_record[field.name]|default(''), class='form-control',
                   id='input-' ~ field.name) }}
               </div>
             </div>

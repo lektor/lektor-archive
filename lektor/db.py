@@ -642,12 +642,14 @@ class Database(object):
             return fn_base + '.lr'
         raise TypeError('Unknown record type %r' % record_type)
 
-    def load_raw_data(self, path, record_type):
+    def load_raw_data(self, path, record_type, cls=None):
         """Internal helper that loads the raw record data.  This performs
         very little data processing on the data.
         """
         path = cleanup_path(path)
-        rv = {}
+        if cls is None:
+            cls = dict
+        rv = cls()
         fn = self.get_fs_path(path, record_type=record_type)
 
         try:

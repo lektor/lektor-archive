@@ -3,10 +3,10 @@ from flask import request, current_app, g, url_for
 from lektor.db import Database
 
 
-def get_pad():
+def get_pad(refresh=False):
     """Returns the pad for the current request."""
     pad = getattr(g, 'lektor_pad', None)
-    if pad is None:
+    if pad is None or refresh:
         db = Database(current_app.lektor_env)
         pad = db.new_pad()
         g.lektor_pad = pad

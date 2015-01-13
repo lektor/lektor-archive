@@ -93,12 +93,11 @@ def serialize(iterable, encoding=None):
     for idx, (key, value) in enumerate(iterable):
         if idx > 0:
             yield '---\n'
-        if '\n' in value or '\r' in value or value.strip() != value:
+        if '\n' in value or '\r' in value or value.strip('\t ') != value:
             yield _produce(key + ':\n')
             yield _produce('\n')
             for line in value.splitlines(True):
                 yield _produce(line, escape=True)
-            if value[-1:] in '\r\n':
-                yield _produce('\n')
+            yield _produce('\n')
         else:
             yield _produce('%s: %s\n' % (key, value))
