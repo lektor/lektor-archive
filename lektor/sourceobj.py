@@ -32,6 +32,8 @@ class SourceObject(object):
         direct child and returns the list of remaining items.  If no
         match can be found, the result is `None`.
         """
+        if not url_path:
+            return self
 
     def url_to(self, path):
         """Calculates the URL from the current source object to the given

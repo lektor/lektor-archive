@@ -288,6 +288,15 @@ class Record(SourceObject):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
 
+    def iter_record_path(self):
+        """Iterates over all records that lead up to the current record."""
+        rv = []
+        node = self
+        while node is not None:
+            rv.append(node)
+            node = node.parent
+        return reversed(rv)
+
     def __contains__(self, name):
         return name in self._data and not is_undefined(self._data[name])
 
