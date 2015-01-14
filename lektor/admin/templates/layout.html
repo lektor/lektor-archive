@@ -37,10 +37,11 @@
       <h3>Children</h3>
       <ul>
       {% if g.source.datamodel.has_own_children %}
-        <li class="add"><a href="#">Add New Child</a>
+        <li class="add"><a href="{{ action_url('panel.add_child') }}">Add New Child</a>
       {% endif %}
-      {% for child in g.source.children.order_by('_id') %}
-        <li{% if child.parent != g.source %} class="replacement"{% endif %}><a href="{{
+      {% for child in g.source.all_children.order_by('_id') %}
+        <li class="{% if child.parent != g.source %}replacement {% endif
+            %}{% if not child.is_visible %}unexposed {% endif %}"><a href="{{
           action_url(source=child) }}">{{ child.record_label }}</a>
       {% endfor %}
       </ul>

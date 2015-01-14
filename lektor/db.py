@@ -238,7 +238,8 @@ class Record(SourceObject):
     @property
     def is_hidden(self):
         """Hidden is similar to exposed but it does not inherit down to
-        children.
+        children.  Hidden children generally completely disappear from all
+        handling.
         """
         return self._data['_hidden'] or False
 
@@ -253,7 +254,7 @@ class Record(SourceObject):
     def record_label(self):
         """The generic record label."""
         rv = self.datamodel.format_record_label(self)
-        if rv is not None:
+        if rv:
             return rv
         if not self['_id']:
             return '(Index)'
@@ -384,21 +385,29 @@ class Page(Record):
                 persist=self.pad.cache.is_persistent(self))
 
     @property
-    def children(self):
-        """Returns a query for all the children of this record.  Optionally
-        a child path can be specified in which case the children of a sub
-        path are queried.
-        """
+    def all_children(self):
+        """A query over all children that are not hidden."""
         repl_query = self.datamodel.get_child_replacements(self)
         if repl_query is not None:
             return repl_query
         return Query(path=self['_path'], pad=self.pad)
 
     @property
+    def children(self):
+        """Returns a query for all the children of this record.  Optionally
+        a child path can be specified in which case the children of a sub
+        path are queried.
+        """
+        return self.all_children.visible_only
+
+    @property
     def real_children(self):
+        """A query over all real children of this page.  This includes
+        hidden.
+        """
         if self.datamodel.child_config.replaced_with is not None:
             return iter(())
-        return self.children
+        return self.all_children
 
     def find_page(self, path):
         """Finds a child page."""
@@ -471,6 +480,7 @@ class Query(object):
         self._pristine = True
         self._limit = None
         self._offset = None
+        self._visible_only = False
 
     def _clone(self, mark_dirty=False):
         """Makes a flat copy but keeps the other data on it shared."""
@@ -488,6 +498,8 @@ class Query(object):
     def _iterate(self):
         """Low level record iteration."""
         for record in self.pad.db.iter_pages(self.path, self.pad):
+            if self._visible_only and not record.is_visible:
+                continue
             for filter in self._filters or ():
                 if not filter.__eval__(record):
                     break
@@ -508,6 +520,13 @@ class Query(object):
         base_record = self.pad.db.get_page(self.path, self.pad)
         if base_record is not None:
             return base_record.datamodel.child_config.order_by
+
+    @property
+    def visible_only(self):
+        """Returns all visible pages."""
+        rv = self._clone(mark_dirty=True)
+        rv._visible_only = True
+        return rv
 
     def __iter__(self):
         """Iterates over all records matched."""
@@ -665,25 +684,24 @@ class Database(object):
             if e.errno != errno.ENOENT:
                 raise
 
-    def get_default_record_slug(self, record):
-        parent = record.parent
-        if parent:
-            return parent.datamodel.get_default_child_slug(record)
-        return ''
-
     def get_default_record_template(self, record):
         return record.datamodel.id + '.html'
 
     def postprocess_record(self, record, persist):
         # Automatically fill in slugs
         if is_undefined(record['_slug']):
-            record['_slug'] = self.get_default_record_slug(record)
+            parent = record.parent
+            if parent:
+                slug = parent.datamodel.get_default_child_slug(record)
+            else:
+                slug = ''
+            record['_slug'] = slug
         else:
             record['_slug'] = record['_slug'].strip('/')
 
         # Automatically fill in templates
         if is_undefined(record['_template']):
-            record['_template'] = self.get_default_record_template(record)
+            record['_template'] = record.datamodel.get_default_template_name()
 
         # Fill in the global ID
         gid_hash = hashlib.md5()
@@ -885,7 +903,7 @@ class Pad(object):
         self.db = db
         self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
 
-    def resolve_url_path(self, url_path, include_unexposed=False,
+    def resolve_url_path(self, url_path, include_invisible=False,
                          all_sources=False):
         """Given a URL path this will find the correct record which also
         might be an attachment.  If a record cannot be found or is unexposed
@@ -901,7 +919,7 @@ class Pad(object):
             pieces = []
 
         rv = node.resolve_url_path(pieces)
-        if rv is not None and (include_unexposed or rv.is_exposed):
+        if rv is not None and (include_invisible or rv.is_exposed):
             return rv
 
         if all_sources:

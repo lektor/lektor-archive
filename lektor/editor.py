@@ -1,3 +1,6 @@
+import os
+import shutil
+
 from collections import OrderedDict
 
 from lektor.metaformat import serialize
@@ -30,9 +33,36 @@ class Editor(object):
         return self.pad.db.load_raw_data(
             source['_path'], source.record_classification, cls=None)
 
+    def add_page_record(self, parent_source, new_data):
+        """Creates a new page below a parent.  The data is trusted.
+        At the moment this only supports system fields.
+        """
+        def _iter_fields():
+            # When we create a new record we currently only allow system
+            # fields.
+            for key in sorted(valid_system_fields):
+                value = new_data.get(key)
+                if value:
+                    yield key, value
+
+        path = parent_source['_path'] + '/' + new_data['_id']
+        fs_path = self.pad.db.get_fs_path(path, 'page')
+
+        try:
+            os.makedirs(os.path.dirname(fs_path))
+        except OSError:
+            pass
+
+        with atomic_open(fs_path, 'wb') as f:
+            for chunk in serialize(_iter_fields(), encoding='utf-8'):
+                f.write(chunk)
+
     def update_raw_record(self, source, new_data):
         """Updates a record on the file system based on new data.  After
         this the pad needs reloading or the change will not be visible.
+
+        The new data is string values only.  For boolean values the absence
+        of a value is assumed to mean no.
         """
         old_raw_record = self.load_raw_record(source, cls=OrderedDict)
 
@@ -45,7 +75,7 @@ class Editor(object):
 
                 # If we do not know anything about it, we just leave it
                 # unchanged.
-                if key not in new_data:
+                if key not in source.datamodel.field_map:
                     yield key, value
                     continue
 
@@ -77,3 +107,18 @@ class Editor(object):
         with atomic_open(path, 'wb') as f:
             for chunk in serialize(_iter_fields(), encoding='utf-8'):
                 f.write(chunk)
+
+    def delete_record(self, record):
+        """This deletes a record."""
+        if record.record_classification == 'page':
+            fs_path = self.pad.db.get_fs_path(record['_path'], 'base')
+            try:
+                shutil.rmtree(fs_path)
+            except (OSError, IOError):
+                pass
+        else:
+            for fn in record._iter_dependent_filenames():
+                try:
+                    os.remove(fn)
+                except OSError:
+                    pass

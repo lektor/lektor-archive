@@ -4,6 +4,7 @@
     <div class="container">
       <h3>Edit “{{ g.source.record_label }}”</h3>
 
+      {% set dm = g.source.datamodel %}
       <form action="" method=post>
         <div class=meta>
           <dl>
@@ -19,24 +20,25 @@
             <dd>
             {% if g.source.parent %}
               <code>{{ g.source.parent.url_path.rstrip('/') }}/</code>
-              <input type=text name="_slug" value="{{ raw_record['_slug']
-                }}" placeholder="{{ default_slug }}">
+              {{ dm.field_map['_slug'].widget.render(raw_record['_slug'], placeholder=default_slug) }}
             {% else %}
               <em>Forced to </em><code>/</code>
             {% endif %}
             </dd>
             <dt>Template:
-            <dd><input type=text name="_template" value="{{ raw_record['_template']
-              }}" placeholder="{{ default_template }}">
+            <dd>{{ dm.field_map['_template'].widget.render(raw_record['_template'],
+              placeholder=default_template) }}
+            <dt>Hidden:
+            <dd>{{ dm.field_map['_hidden'].widget.render(raw_record['_hidden']) }}
           </dl>
         </div>
 
         <div class="edit-area">
-          {% for field in g.source.datamodel.fields %}
+          {% for field in dm.fields %}
             <div class="field row">
               <div class="form-group col-md-12">
                 <label for="input-{{ field.name }}">{{ field.label }}</label>
-                {{ field.widget.render(raw_record[field.name]|default(''), class='form-control',
+                {{ field.widget.render(raw_record[field.name], class='form-control',
                   id='input-' ~ field.name) }}
               </div>
             </div>

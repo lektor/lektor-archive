@@ -52,7 +52,7 @@ class Expression(object):
         self.env = env
         self.tmpl = env.jinja_env.from_string('{{ __result__(%s) }}' % expr)
 
-    def evaluate(self, pad, this=None, values=None):
+    def evaluate(self, pad=None, this=None, values=None):
         result = []
         def result_func(value):
             result.append(value)
@@ -69,7 +69,7 @@ class FormatExpression(object):
         self.env = env
         self.tmpl = env.jinja_env.from_string(expr)
 
-    def evaluate(self, pad, this=None, values=None):
+    def evaluate(self, pad=None, this=None, values=None):
         values = self.env.make_default_tmpl_values(pad, this, values)
         return self.tmpl.render(values)
 

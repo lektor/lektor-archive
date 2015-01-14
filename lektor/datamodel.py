@@ -101,12 +101,12 @@ class DataModel(object):
         self.fields = fields
         self.parent = parent
 
-        # This is an internal mapping of the key names to the actual field
-        # which also includes the system fields.  This is primarily used
-        # for fast internal operations.
-        self._field_map = dict((x.name, x) for x in fields)
-        for key, field_type in system_fields.iteritems():
-            self._field_map[key] = Field(env, name=key, type=field_type)
+        # This is a mapping of the key names to the actual field which
+        # also includes the system fields.  This is primarily used for
+        # fast internal operations but also the admin.
+        self.field_map = dict((x.name, x) for x in fields)
+        for key, (ty, opts) in system_fields.iteritems():
+            self.field_map[key] = Field(env, name=key, type=ty, options=opts)
 
         self._child_slug_tmpl = None
         self._child_replacements = None
@@ -143,6 +143,9 @@ class DataModel(object):
         return '_'.join(self._child_slug_tmpl[1].evaluate(
             record.pad, this=record).strip().split()).strip('/')
 
+    def get_default_template_name(self):
+        return self.id + '.html'
+
     @property
     def has_own_children(self):
         return self.child_config.replaced_with is None and \
@@ -171,7 +174,7 @@ class DataModel(object):
 
     def process_raw_data(self, raw_data, pad=None):
         rv = {}
-        for field in self._field_map.itervalues():
+        for field in self.field_map.itervalues():
             value = raw_data.get(field.name)
             rv[field.name] = field.deserialize_value(value, pad=pad)
         rv['_model'] = self.id
@@ -179,7 +182,7 @@ class DataModel(object):
 
     def to_json(self, d, pad):
         rv = {}
-        for field in self._field_map.itervalues():
+        for field in self.field_map.itervalues():
             value = d.get(field.name)
             rv[field.name] = field.type.value_to_json(value, pad=pad)
         return rv
@@ -202,13 +205,13 @@ class FlowBlockModel(object):
             fields = []
         self.fields = fields
 
-        self._field_map = dict((x.name, x) for x in fields)
-        self._field_map['_flowblock'] = Field(
+        self.field_map = dict((x.name, x) for x in fields)
+        self.field_map['_flowblock'] = Field(
             env, name='_flowblock', type=types.builtin_types['string'])
 
     def process_raw_data(self, raw_data, pad=None):
         rv = {}
-        for field in self._field_map.itervalues():
+        for field in self.field_map.itervalues():
             value = raw_data.get(field.name)
             rv[field.name] = field.deserialize_value(value, pad=pad)
         rv['_flowblock'] = self.id
@@ -216,7 +219,7 @@ class FlowBlockModel(object):
 
     def to_json(self, d, pad):
         rv = {}
-        for field in self._field_map.itervalues():
+        for field in self.field_map.itervalues():
             value = d.get(field.name)
             rv[field.name] = field.type.value_to_json(value, pad=pad)
         return rv
@@ -430,8 +433,9 @@ def load_flowblocks(env):
 system_fields = {}
 
 
-def add_system_field(name, type):
-    system_fields[name] = types.builtin_types[type]
+def add_system_field(name, **opts):
+    ty = types.builtin_types[opts.pop('type')]
+    system_fields[name] = (ty, opts)
 
 
 # The full path of the record
@@ -455,12 +459,14 @@ add_system_field('_slug', type='slug')
 
 # by default all records are exposed.  If a record is set to unexposed
 # then it is not rendered and neither are any of its children.
-add_system_field('_expose', type='boolean')
+add_system_field('_expose', type='boolean',
+                 checkbox_label='Should this page and its children be exposed?')
 
 # this is similar to expose but only affects the record itself.  This can
 # be used to create a "folder" that is actually empty but the children
 # itself are exposed.  Useful for error pages and similar things.
-add_system_field('_hidden', type='boolean')
+add_system_field('_hidden', type='boolean',
+                 checkbox_label='Should this page itself be hidden?')
 
 # Useful fields for attachments.
 add_system_field('_attachment_for', type='string')

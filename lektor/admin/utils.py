@@ -18,7 +18,7 @@ def get_frontend_source(all_sources=False):
     """
     path = request.environ['lektor.frontend_path']
     return get_pad().resolve_url_path(path, all_sources=all_sources,
-                                      include_unexposed=True)
+                                      include_invisible=True)
 
 
 def action_url(endpoint=None, source=None, **values):

@@ -96,6 +96,10 @@ div.content div.content-wrapper {
     font-style: italic;
 }
 
+.context-nav li.unexposed {
+    opacity: 0.5;
+}
+
 .context-nav li.add {
     font-weight: bold;
     margin-bottom: 8px;
@@ -146,5 +150,5 @@ div.message-box p + p {
 
 /* pane */
 div.pane {
-    padding: 15px 30px;
+    padding: 15px 30px 30px 30px;
 }

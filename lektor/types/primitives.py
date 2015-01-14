@@ -83,6 +83,7 @@ class FloatType(Type):
 
 
 class BooleanType(Type):
+    widget_class = widgets.CheckboxWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:
