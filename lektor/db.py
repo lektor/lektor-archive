@@ -30,7 +30,9 @@ def cleanup_path(path):
 
 def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep)
-
+    
+def to_posix_path(path):
+    return path.replace('\\', '/')
 
 def _require_ctx(record):
     ctx = get_ctx()

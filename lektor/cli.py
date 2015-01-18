@@ -156,14 +156,19 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
 @click.option('-O', '--output-path', type=click.Path(), default=None,
               help='The dev server will build into the same folder as '
               'the build command by default.')
+@click.option('-s', '--server', default='server', 
+              help='The host to connect to.')            
 @pass_context
-def sync_cmd(ctx, output_path):
+def sync_cmd(ctx, output_path, server):
     """This commands syncs to a server."""
     from lektor.builder import Builder
+    from lektor.publisher import Publisher
     if output_path is None:
         output_path = ctx.get_default_output_path()
     builder = Builder(ctx.new_pad(), output_path)
     builder.update_listing_file()
+    publisher = Publisher(output_path, 'websites/siteA', server)
+    publisher.publish()
 
 
 main = cli
