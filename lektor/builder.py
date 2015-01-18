@@ -63,6 +63,7 @@ class ArtifactListing(object):
                         size=int(line[2]),
                         checksum=line[3],
                     )
+            
         except IOError as e:
             if e.errno != errno.ENOENT:
                 raise
@@ -86,7 +87,8 @@ class ArtifactListing(object):
         return changed
 
     def save(self):
-        with atomic_open(self.filename, 'wb') as f:
+        #with atomic_open(self.filename, 'wb') as f:
+        with open(self.filename, 'wb') as f:
             with gzip.GzipFile(fileobj=f) as f:
                 for artifact_name, info in sorted(self.artifacts.items()):
                     f.write('\t'.join((

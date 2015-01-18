@@ -1,17 +1,28 @@
 class LektorException(RuntimeError):
     pass
     
+
+class FTPException(LektorException):
+    pass
+
+
+class RootNotFound(FTPException):
+    pass
     
-class FileNotFound(LektorException):
+    
+class FileNotFound(FTPException):
     pass
 
     
-class ConnectionFailed(LektorException):
+class ConnectionFailed(FTPException):
     pass
     
 
-class IncorrectLogin(LektorException):
+class IncorrectLogin(FTPException):
     pass
     
-class TVFSNotSupported(LektorException):
+    
+class TVFSNotSupported(FTPException):
     pass
+    
+    

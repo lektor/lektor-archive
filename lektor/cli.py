@@ -167,7 +167,7 @@ def sync_cmd(ctx, output_path, server):
         output_path = ctx.get_default_output_path()
     builder = Builder(ctx.new_pad(), output_path)
     builder.update_listing_file()
-    publisher = Publisher(output_path, 'websites/siteA', server)
+    publisher = Publisher(output_path, server)
     publisher.publish()
 
 

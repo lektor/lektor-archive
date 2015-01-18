@@ -1,9 +1,11 @@
 import ftplib
 import posixpath
 from inifile import IniFile
+from lektor.builder import FileInfo
 from lektor.db import to_posix_path
-from lektor.exceptions import FileNotFound, ConnectionFailed, \
-                              IncorrectLogin, TVFSNotSupported
+from lektor.exceptions import FTPException, FileNotFound, \
+                              ConnectionFailed, IncorrectLogin, \
+                              TVFSNotSupported, RootNotFound
 
 import time
 import os
@@ -24,31 +26,33 @@ class FTPConnection(object):
                 pass
     
     def _connect(self):
+        #TODO if not default port, TLS, etc
         try:
             host = ftplib.FTP(self._server['host'])
-        except ftplib.all_errors as e:
+        except ftplib.all_errors:
             # Mostly socket.gaierror(Errno 11004) and socket.error (10060)
-            #print "Connection to host failed!"
-            raise ConnectionFailed("Connection to host failed!")
-            #exit()
+            raise ConnectionFailed('Connection to host failed!')
         try:
             host.login(self._server['user'], self._server['pw'])
-        except ftplib.error_perm as e:
-            #print "Login or password incorrect!"
-            # XXX: raise other error instead of exit?
+        except ftplib.error_perm:
             raise IncorrectLogin('Login or password incorrect!')
-            #exit()
         try:
+            #TODO set _tvfs
             if 'tvfs' not in host.sendcmd('FEAT').lower():
                 raise TVFSNotSupported('Host does not support TVFS!')
-        except ftplib.all_errors as e:
-            # XXX: raise other error instead of exit?
-            print e
-            exit()
+        except ftplib.all_errors:
+            raise FTPException
+        try:
+            host.cwd(self._server['root'])
+        except ftplib.error_perm as e:
+            if e.message.startswith('550 Can\'t change directory'):
+                raise RootNotFound('Root directory \"' \
+                                    + self._server['root'] + '\" not found!')
+            raise FTPException(e.message)
         return host
     
     def _connection(self):
-    #TODO if not default port, TLS, etc
+    
         if self._ftp is None:
             self._ftp = self._connect()
         else:
@@ -59,13 +63,15 @@ class FTPConnection(object):
                 print 'Host timeout, reconnecting...'
                 self._ftp = self._connect()
         return self._ftp
-        
+    
     def retrbinary(self, filename):
         file = None
         try:
-            file = self._connection.retrbinary(filename)
-        except ftplib.all_errors as e:
-            print e
+            file = self._connection().retrbinary('RETR ' + filename, None)
+        except ftplib.error_perm as e:
+            if e.message.startswith('550 Can\'t open'):
+                raise FileNotFound('File \"' + filename + '\" not found!')
+            raise FTPException(e.message)
         return file
             
 class FTPHost(object):
@@ -77,28 +83,103 @@ class FTPHost(object):
     def __del__(self):
         del self._con
         
-    def get_file(filename):
+    def get_file(self, filename):
         file = self._con.retrbinary(filename)
         
-    def put_file(src, dst):
+    def put_file(self, src, dst):
         return dst
 
 
 class Publisher(object):
     
-    def __init__(self, src, dst, srv_name, force=False):
+    def __init__(self, src, srv_name, force=False):
         self._src = src
-        self._dst = to_posix_path(dst)
         self._force = force
         self._server = {}
-        i = IniFile(os.path.join(os.path.dirname(source), 'publish.ini')).to_dict()
+        i = IniFile(os.path.join(os.path.dirname(src), 'publish.ini')).to_dict()
         self._server['host'] = i[srv_name+'.host']
         self._server['port'] = i[srv_name+'.port']
         self._server['user'] = i[srv_name+'.user']
         self._server['pw']   = i[srv_name+'.pw']
         self._server['root']   = i[srv_name+'.root']
-          
-    def get_ftp_root(self, root):
+        self._artifacts = {}
+    
+    '''def _decode_artifacts_file(self, file):
+        f = gzip.GzipFile(fileobj=file)
+            for line in f:
+                line = line.decode('utf-8').strip().split('\t')
+                self._artifacts[line[0]] = FileInfo(
+                    build_state.env,
+                    filename=line[0],
+                    mtime=int(line[1]),
+                    size=int(line[2]),
+                    checksum=line[3],
+                )'''
+    '''def update(self, iterable):
+        changed = False
+        old_artifacts = set(self.artifacts)
+
+        for artifact_name, info in iterable:
+            old_info = self.artifacts.get(artifact_name)
+            if old_info != info:
+                self.artifacts[artifact_name] = info
+                changed = True
+            old_artifacts.discard(artifact_name)
+
+        if old_artifacts:
+            changed = True
+            for artifact_name in old_artifacts:
+                self.artifacts.pop(artifact_name, None)
+
+        return changed'''
+    
+    def _get_remote_artifacts_file(self):
+        '''Returns the artifacts file or None if not found.'''
+        ftp = FTPHost(self._server)
+        try:
+            return ftp.get_file('.lektor/artifacts.gz')
+        except FileNotFound:
+            return None
+        
+    def calculate_change_list(self):
+        #TODO handling if artifacts.gz was not found 
+        #-> Root dir manipulated?
+        #-> Fresh directory / Initial sync?
+        f = self._get_remote_artifacts_file()
+        if f:
+            f = gzip.GzipFile(fileobj=f)
+            for line in f:
+                line = line.decode('utf-8').strip().split('\t')
+                self._artifacts[line[0]] = FileInfo(
+                    build_state.env,
+                    filename=build_state.get_destination_filename(line[0]),
+                    mtime=int(line[1]),
+                    size=int(line[2]),
+                    checksum=line[3],
+                )
+
+    def publish(self):
+        try:
+            change_list = self.calculate_change_list()
+        except FTPException as e:
+            print e
+            exit()
+        
+        
+        #print con.ftp.pwd()
+        #time.sleep(5)
+        #print con.ftp.pwd()
+        #time.sleep(12)
+        #print con.ftp.pwd()
+        #self.ftp.connect()
+        #self.ftp.chdir(self.destination)
+        #TODO if destination is empty:
+        #self.initial_upload()
+        print "Publish finished without errors."
+            
+
+
+'''def get_ftp_root(self, root):
         ftp_root = os.path.join(*root.split(self.source)[1::])
         #remove preceding slash
         ftp_root = ftp_root.replace(os.path.sep, '', 1)
@@ -128,37 +209,7 @@ class Publisher(object):
         except FTPError as e:
             print e.strerror
             # XXX: raise error
-            exit()
-    
-    def _get_artifact_listing(self):
-        ftp = FTPHost(server)
-        listing = ftp.get_file(posixpath.join(dst, 'artifacts.gz'))
-        return listing
-        
-    def calculate_change_list(self):
-        artifacts = self._get_artifact_listing()
-        
-    
-    def publish(self):
-
-        change_list = self.calculate_change_list()
-        
-        
-        
-        #print con.ftp.pwd()
-        #time.sleep(5)
-        #print con.ftp.pwd()
-        #time.sleep(12)
-        #print con.ftp.pwd()
-        #self.ftp.connect()
-        #self.ftp.chdir(self.destination)
-        #TODO if destination is empty:
-        #self.initial_upload()
-        print "Publish finished without errors."
-            
-
-
-
+            exit()'''
 
 
 
