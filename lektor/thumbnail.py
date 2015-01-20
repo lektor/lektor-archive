@@ -1,3 +1,5 @@
+import os
+import sys
 import posixpath
 import subprocess
 
@@ -12,10 +14,28 @@ def get_suffix(width, height):
     return suffix
 
 
+def find_default_imagemagick():
+    if not sys.platform.startswith('win'):
+        return 'convert'
+
+    for key in 'ProgramFiles', 'ProgramFiles(x86)':
+        value = os.environ.get(key)
+        if not value:
+            continue
+        try:
+            for filename in os.listdir(value):
+                if filename.lower().startswith('imagemagick-'):
+                    return os.path.join(value, filename)
+        except OSError:
+            continue
+
+    return 'convert.exe'
+
+
 def find_imagemagick(env):
     im = env.config['IMAGEMAGICK_EXECUTABLE']
     if im is None:
-        return 'convert'
+        return find_default_imagemagick()
     return im
 
 
@@ -36,7 +56,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                    artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
-        subprocess.Popen(cmdline).wait()
+        subprocess.Popen(cmdline, shell=True).wait()
 
     return Thumbnail(dst_url_path, width, height)
 
