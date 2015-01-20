@@ -18,7 +18,7 @@ def find_default_imagemagick():
     if not sys.platform.startswith('win'):
         return 'convert'
 
-    for key in 'ProgramFiles', 'ProgramFiles(x86)':
+    for key in 'ProgramFiles', 'ProgramW6432', 'ProgramFiles(x86)':
         value = os.environ.get(key)
         if not value:
             continue
