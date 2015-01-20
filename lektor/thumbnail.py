@@ -25,7 +25,7 @@ def find_default_imagemagick():
         try:
             for filename in os.listdir(value):
                 if filename.lower().startswith('imagemagick-'):
-                    return os.path.join(value, filename)
+                    return os.path.join(value, filename, 'convert.exe')
         except OSError:
             continue
 
