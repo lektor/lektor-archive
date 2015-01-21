@@ -167,15 +167,15 @@ def atomic_open(filename, mode='r'):
     try:
         yield f
     except:
+        f.close()
         exc_type, exc_value, tb = sys.exc_info()
         if tmp_filename is not None:
             try:
                 os.remove(tmp_filename)
             except OSError:
                 pass
-        f.close()
         raise exc_type, exc_value, tb
     else:
+        f.close()
         if tmp_filename is not None:
             rename(tmp_filename, filename)
-        f.close()
