@@ -1,14 +1,65 @@
 import ftplib
-import posixpath
+import gzip
 from inifile import IniFile
-from lektor.builder import FileInfo
-from lektor.db import to_posix_path
+from lektor.db import to_posix_path, to_os_path
 from lektor.exceptions import FTPException, FileNotFound, \
                               ConnectionFailed, IncorrectLogin, \
                               TVFSNotSupported, RootNotFound
 
 import time
 import os
+
+class FileInfo(object):
+    """A file info object holds metainformation of a file so that changes
+    can be detected easily.
+    """
+    #TODO cleanup and make simpler since we know everything at this point
+    def __init__(self, filename, mtime=None, size=None, checksum=None):
+        self.filename = filename
+        if mtime is not None and size is not None:
+            self._stat = (mtime, size)
+        else:
+            self._stat = None
+        self._checksum = checksum
+
+    def _get_stat(self):
+        return self._stat
+
+    @property
+    def mtime(self):
+        """The timestamp of the last modification."""
+        return self._get_stat()[0]
+
+    @property
+    def size(self):
+        """The size of the file in bytes.  If the file is actually a
+        dictionary then the size is actually the number of files in it.
+        """
+        return self._get_stat()[1]
+
+    @property
+    def exists(self):
+        return self.size >= 0
+
+    @property
+    def checksum(self):
+        """The checksum of the file or directory."""
+        return self._checksum
+
+    def __eq__(self, other):
+        if type(other) is not FileInfo:
+            return False
+
+        # If mtime and size match, we skip the checksum comparison which
+        # might require a file read which we do not want in those cases.
+        if self.mtime == other.mtime and self.size == other.size:
+            return True
+
+        return self.checksum == other.checksum
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class FTPConnection(object):
     '''Currently assumes that the server has TVFS'''
@@ -64,10 +115,14 @@ class FTPConnection(object):
                 self._ftp = self._connect()
         return self._ftp
     
-    def retrbinary(self, filename):
+    def retrbinary(self, filename, dst):
         file = None
         try:
-            file = self._connection().retrbinary('RETR ' + filename, None)
+            local_filename = os.path.split(to_os_path(filename))[1]
+            f = open(os.path.join(dst, local_filename), 'wb')
+            self._connection().retrbinary('RETR ' + filename, f.write)
+            f.close()
+            file = open(os.path.join(dst, local_filename), 'rb')
         except ftplib.error_perm as e:
             if e.message.startswith('550 Can\'t open'):
                 raise FileNotFound('File \"' + filename + '\" not found!')
@@ -76,15 +131,16 @@ class FTPConnection(object):
             
 class FTPHost(object):
 
-    def __init__(self, server):
+    def __init__(self, server, dst):
         self._server = server
+        self._dst = dst
         self._con = FTPConnection(server)
         
     def __del__(self):
         del self._con
         
     def get_file(self, filename):
-        file = self._con.retrbinary(filename)
+        return self._con.retrbinary(filename, self._dst)
         
     def put_file(self, src, dst):
         return dst
@@ -94,9 +150,11 @@ class Publisher(object):
     
     def __init__(self, src, srv_name, force=False):
         self._src = src
+        self._tmp = os.path.join(self._src, '.lektor', 'tmp')
         self._force = force
         self._server = {}
-        i = IniFile(os.path.join(os.path.dirname(src), 'publish.ini')).to_dict()
+        i = IniFile(os.path.join(os.path.dirname(src), 
+                                 'publish.ini')).to_dict()
         self._server['host'] = i[srv_name+'.host']
         self._server['port'] = i[srv_name+'.port']
         self._server['user'] = i[srv_name+'.user']
@@ -104,17 +162,17 @@ class Publisher(object):
         self._server['root']   = i[srv_name+'.root']
         self._artifacts = {}
     
-    '''def _decode_artifacts_file(self, file):
+    def _decode_artifacts_file(self, file, dict):
         f = gzip.GzipFile(fileobj=file)
-            for line in f:
-                line = line.decode('utf-8').strip().split('\t')
-                self._artifacts[line[0]] = FileInfo(
-                    build_state.env,
-                    filename=line[0],
-                    mtime=int(line[1]),
-                    size=int(line[2]),
-                    checksum=line[3],
-                )'''
+        for line in f:
+            line = line.decode('utf-8').strip().split('\t')
+            dict[line[0]] = FileInfo(
+                filename=line[0],
+                mtime=int(line[1]),
+                size=int(line[2]),
+                checksum=line[3],
+            )
+               
     '''def update(self, iterable):
         changed = False
         old_artifacts = set(self.artifacts)
@@ -135,7 +193,8 @@ class Publisher(object):
     
     def _get_remote_artifacts_file(self):
         '''Returns the artifacts file or None if not found.'''
-        ftp = FTPHost(self._server)
+        #TODO some preemptive checks that artifacts.gz is what we except?
+        ftp = FTPHost(self._server, self._tmp)
         try:
             return ftp.get_file('.lektor/artifacts.gz')
         except FileNotFound:
@@ -147,16 +206,11 @@ class Publisher(object):
         #-> Fresh directory / Initial sync?
         f = self._get_remote_artifacts_file()
         if f:
-            f = gzip.GzipFile(fileobj=f)
-            for line in f:
-                line = line.decode('utf-8').strip().split('\t')
-                self._artifacts[line[0]] = FileInfo(
-                    build_state.env,
-                    filename=build_state.get_destination_filename(line[0]),
-                    mtime=int(line[1]),
-                    size=int(line[2]),
-                    checksum=line[3],
-                )
+            self._decode_artifacts_file(f, self._artifacts)
+            for item in self._artifacts.items():
+                print item
+        else:
+            print "No file found"
 
     def publish(self):
         try:
@@ -165,16 +219,6 @@ class Publisher(object):
             print e
             exit()
         
-        
-        #print con.ftp.pwd()
-        #time.sleep(5)
-        #print con.ftp.pwd()
-        #time.sleep(12)
-        #print con.ftp.pwd()
-        #self.ftp.connect()
-        #self.ftp.chdir(self.destination)
-        #TODO if destination is empty:
-        #self.initial_upload()
         print "Publish finished without errors."
             
 
