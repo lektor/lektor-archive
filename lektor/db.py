@@ -380,9 +380,8 @@ class Page(Record):
         this_path = self._data['_path']
         parent_path = posixpath.dirname(this_path)
         if parent_path != this_path:
-            return self.pad.db.get_page(
-                parent_path, self.pad,
-                persist=self.pad.cache.is_persistent(self))
+            return self.pad.get(parent_path,
+                                persist=self.pad.cache.is_persistent(self))
 
     @property
     def all_children(self):
@@ -435,9 +434,8 @@ class Attachment(Record):
     @property
     def parent(self):
         """The associated record for this attachment."""
-        return self.pad.db.get_page(
-            self._data['_attachment_for'], self.pad,
-            persist=self.pad.cache.is_persistent(self))
+        return self.pad.get(self._data['_attachment_for'],
+                            persist=self.pad.cache.is_persistent(self))
 
     @property
     def record_label(self):
@@ -475,6 +473,8 @@ class Query(object):
     def __init__(self, path, pad):
         self.path = path
         self.pad = pad
+        self._include_pages = True
+        self._include_attachments = False
         self._order_by = None
         self._filters = None
         self._pristine = True
@@ -490,14 +490,18 @@ class Query(object):
             rv._pristine = False
         return rv
 
-    def _get(self, id):
+    def _get(self, id, persist=True):
         """Low level record access."""
-        return self.pad.db.get_page('%s/%s' % (self.path, id),
-                                    self.pad, persist=True)
+        return self.pad.get('%s/%s' % (self.path, id), persist=persist)
 
     def _iterate(self):
         """Low level record iteration."""
-        for record in self.pad.db.iter_pages(self.path, self.pad):
+        for name, is_attachment in self.pad.db.iter_items(self.path):
+            if not ((is_attachment == self._include_attachments) or
+                    (not is_attachment == self._include_pages)):
+                continue
+
+            record = self._get(name, persist=False)
             if self._visible_only and not record.is_visible:
                 continue
             for filter in self._filters or ():
@@ -517,7 +521,7 @@ class Query(object):
         """Returns the order that should be used."""
         if self._order_by is not None:
             return self._order_by
-        base_record = self.pad.db.get_page(self.path, self.pad)
+        base_record = self.pad.get(self.path)
         if base_record is not None:
             return base_record.datamodel.child_config.order_by
 
@@ -596,6 +600,11 @@ class Query(object):
 
 class AttachmentsQuery(Query):
 
+    def __init__(self, path, pad):
+        Query.__init__(self, path, pad)
+        self._include_pages = False
+        self._include_attachments = True
+
     @property
     def images(self):
         """Filters to images."""
@@ -611,81 +620,145 @@ class AttachmentsQuery(Query):
         """Filters to audio."""
         return self.filter(F._attachment_type == 'audio')
 
-    def _get(self, id):
-        """Low level record access."""
-        return self.pad.db.get_attachment(
-            '%s/%s' % (self.path, id), self.pad, persist=True)
 
-    def _iterate(self):
-        for attachment in self.pad.db.iter_attachments(self.path, self.pad):
-            for filter in self._filters or ():
-                if not filter.__eval__(attachment):
-                    break
-            else:
-                yield attachment
+def _iter_filename_choices(fn_base):
+    # the order here is important as attachments can exist without a .lr
+    # file and as such need to come second or the loading of raw data will
+    # implicitly say the record exists.
+    yield os.path.join(fn_base, 'contents.lr'), False
+    yield fn_base + '.lr', True
+
+
+def _iter_datamodel_choices(datamodel_name, raw_data):
+    yield datamodel_name
+    if not raw_data.get('_attachment_for'):
+        yield posixpath.basename(raw_data['_path']) \
+            .split('.')[0].replace('-', '_').lower()
+    yield 'page'
+    yield 'none'
 
 
 class Database(object):
-    """This provides higher-level access to the flat file database which is
-    usde by Lektor.  However for most intents and purposes the actual data
-    access happens through the :class:`Pad`.
-    """
 
     def __init__(self, env):
         self.env = env
         self.datamodels = load_datamodels(env)
         self.flowblocks = load_flowblocks(env)
 
-    @property
-    def default_model(self):
-        """The empty datamodel."""
-        if 'page' in self.datamodels:
-            return self.datamodels['page']
-        return self.datamodels['none']
+    def to_fs_path(self, path):
+        """Convenience function to convert a path into an file system path."""
+        return os.path.join(self.env.root_path, 'content', to_os_path(path))
 
-    def get_fs_path(self, path, record_type):
-        """Returns the file system path for a given database path with a
-        specific record type.  The following record types are available:
-
-        - ``'base'``: the folder containing the record is targeted.
-        - ``'page'``: the content file of a page is targeted.
-        - ``'attachment'``: the content file of a specific attachment is
-          targeted.
-        """
-        fn_base = os.path.join(self.env.root_path, 'content', to_os_path(path))
-        if record_type == 'base':
-            return fn_base
-        elif record_type == 'page':
-            return os.path.join(fn_base, 'contents.lr')
-        elif record_type == 'attachment':
-            return fn_base + '.lr'
-        raise TypeError('Unknown record type %r' % record_type)
-
-    def load_raw_data(self, path, record_type, cls=None):
+    def load_raw_data(self, path, cls=None):
         """Internal helper that loads the raw record data.  This performs
         very little data processing on the data.
         """
         path = cleanup_path(path)
         if cls is None:
             cls = dict
+
+        fn_base = self.to_fs_path(path)
+
         rv = cls()
-        fn = self.get_fs_path(path, record_type=record_type)
-
-        try:
-            with open(fn, 'rb') as f:
-                for key, lines in metaformat.tokenize(f, encoding='utf-8'):
-                    rv[key] = u''.join(lines)
-
+        for fs_path, is_attachment in _iter_filename_choices(fn_base):
+            try:
+                with open(fs_path, 'rb') as f:
+                    for key, lines in metaformat.tokenize(f, encoding='utf-8'):
+                        rv[key] = u''.join(lines)
+            except IOError as e:
+                if e.errno not in (errno.ENOTDIR, errno.ENOENT):
+                    raise
+                if not is_attachment or not os.path.isfile(fs_path[:-3]):
+                    continue
+                rv = {}
             rv['_path'] = path
             rv['_id'] = posixpath.basename(path)
-
+            if is_attachment:
+                rv['_attachment_for'] = posixpath.dirname(path)
             return rv
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise
 
-    def get_default_record_template(self, record):
-        return record.datamodel.id + '.html'
+    def iter_items(self, path):
+        """Iterates over all items below a path and yields them as
+        tuples in the form ``(id, is_attachment)``.
+        """
+        fn_base = self.to_fs_path(path)
+
+        for fs_path, is_attachment in _iter_filename_choices(fn_base):
+            if not os.path.isfile(fs_path):
+                continue
+            # This path is actually for an attachment, which means that we
+            # cannot have any items below it and will just abort with an
+            # empty iterator.
+            if is_attachment:
+                return
+
+            try:
+                dir_path = os.path.dirname(fs_path)
+                for filename in os.listdir(dir_path):
+                    if self.env.is_uninteresting_source_name(filename) or \
+                       filename == 'contents.lr':
+                        continue
+                    if os.path.isfile(os.path.join(dir_path, filename,
+                                                   'contents.lr')):
+                        yield filename, False
+                    elif filename[-3:] != '.lr' and os.path.isfile(
+                            os.path.join(dir_path, filename)):
+                        yield filename, True
+            except IOError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+
+    def list_items(self, path):
+        """Like :meth:`iter_items` but returns a list."""
+        return list(self.iter_items(path))
+
+    def get_datamodel_for_raw_data(self, raw_data, pad=None):
+        """Returns the datamodel that should be used for a specific raw
+        data.  This might require the discovery of a parent object through
+        the pad.
+        """
+        is_attachment = bool(raw_data.get('_attachment_for'))
+        dm_name = (raw_data.get('_model') or '').strip() or None
+
+        # Only look for a datamodel if there was not defined.
+        if dm_name is None:
+            parent = posixpath.dirname(raw_data['_path'])
+            dm_name = None
+
+            # If we hit the root, and there is no model defined we need
+            # to make sure we do not recurse onto ourselves.
+            if parent != raw_data['_path']:
+                if pad is None:
+                    pad = self.new_pad()
+                parent_obj = pad.get(parent)
+                if parent_obj is not None:
+                    if is_attachment:
+                        dm_name = parent_obj.datamodel.attachment_config.model
+                    else:
+                        dm_name = parent_obj.datamodel.child_config.model
+
+        for dm_name in _iter_datamodel_choices(dm_name, raw_data):
+            # If that datamodel exists, let's roll with it.
+            datamodel = self.datamodels.get(dm_name)
+            if datamodel is not None:
+                return datamodel
+
+        raise AssertionError("Did not find an appropriate datamodel.  "
+                             "That should never happen.")
+
+    def get_attachment_type(self, path):
+        """Gets the attachment type for a path."""
+        return self.env.config['ATTACHMENT_TYPES'].get(
+            posixpath.splitext(path)[1])
+
+    def track_record_dependency(self, record):
+        ctx = get_ctx()
+        if ctx is not None:
+            for filename in record._iter_dependent_filenames():
+                ctx.record_dependency(filename)
+            if record.datamodel.filename:
+                ctx.record_dependency(record.datamodel.filename)
+        return record
 
     def postprocess_record(self, record, persist):
         # Automatically fill in slugs
@@ -717,143 +790,79 @@ class Database(object):
         else:
             record.pad.cache.remember(record)
 
-    def _track_record_dependency(self, record):
-        ctx = get_ctx()
-        if ctx is not None:
-            for filename in record._iter_dependent_filenames():
-                ctx.record_dependency(filename)
-            if record.datamodel.filename:
-                ctx.record_dependency(record.datamodel.filename)
-        return record
+    def get_record_class(self, datamodel, raw_data):
+        """Returns the appropriate record class for a datamodel and raw data."""
+        is_attachment = bool(raw_data.get('_attachment_for'))
 
-    def _track_fs_dependency(self, fs_path):
-        ctx = get_ctx()
-        if ctx is not None:
-            ctx.record_dependency(fs_path)
+        if not is_attachment:
+            return Page
 
-    def get_datamodel(self, raw_data, pad, record_type='page'):
-        """Returns the datamodel for a given raw record."""
-        datamodel_name = (raw_data.get('_model') or '').strip()
-
-        # If a datamodel is defined, we use it.
-        if datamodel_name:
-            return self.datamodels.get(datamodel_name, self.default_model)
-
-        parent = posixpath.dirname(raw_data['_path'])
-        datamodel_name = None
-
-        # If we hit the root, and there is no model defined we need
-        # to make sure we do not recurse onto ourselves.
-        if parent != raw_data['_path']:
-            parent_obj = self.get_page(parent, pad)
-            if parent_obj is not None:
-                if record_type == 'page':
-                    datamodel_name = parent_obj.datamodel.child_config.model
-                elif record_type == 'attachment':
-                    datamodel_name = parent_obj.datamodel.attachment_config.model
-                else:
-                    raise TypeError('Invalid record type')
-
-        # Pick default datamodel name
-        if datamodel_name is None and record_type == 'page':
-            datamodel_name = posixpath.basename(raw_data['_path']
-                ).split('.')[0].replace('-', '_').lower()
-
-        if datamodel_name is None:
-            return self.default_model
-        return self.datamodels.get(datamodel_name, self.default_model)
-
-    def get_page(self, path, pad, persist=False):
-        """Low-level interface for fetching a single record."""
-        path = cleanup_path(path)
-        rv = pad.cache['page', path]
-        if rv is not None:
-            return self._track_record_dependency(rv)
-
-        raw_data = self.load_raw_data(path, 'page')
-        if raw_data is None:
-            return None
-
-        datamodel = self.get_datamodel(raw_data, pad)
-        rv = Page(pad, datamodel.process_raw_data(raw_data, pad))
-        self.postprocess_record(rv, persist)
-        return self._track_record_dependency(rv)
-
-    def iter_pages(self, path, pad):
-        """Low-level interface for iterating over records."""
-        path = cleanup_path(path)
-        fs_path = self.get_fs_path(path, 'base')
-        self._track_fs_dependency(fs_path)
-
-        try:
-            files = os.listdir(fs_path)
-            files.sort(key=lambda x: x.lower())
-        except OSError:
-            return
-        for filename in files:
-            if self.env.is_uninteresting_source_name(filename) or \
-               not os.path.isdir(os.path.join(fs_path, filename)):
-                continue
-
-            this_path = posixpath.join(path, filename)
-            record = self.get_page(this_path, pad)
-            if record is not None:
-                yield record
-
-    def get_attachment_type(self, path):
-        """Gets the attachment type for a path."""
-        return self.env.config['ATTACHMENT_TYPES'].get(
-            posixpath.splitext(path)[1])
-
-    def get_attachment_class(self, attachment_type):
-        """Returns the class for the given attachment type."""
+        attachment_type = self.get_attachment_type(raw_data['_path'])
         return attachment_classes.get(attachment_type, Attachment)
 
-    def get_attachment(self, path, pad, persist=False):
-        """Low-level interface for fetching a single attachment."""
-        path = cleanup_path(path)
-        rv = pad.cache['attachment', path]
-        if rv is not None:
-            return self._track_record_dependency(rv)
-
-        raw_data = self.load_raw_data(path, 'attachment')
-        if raw_data is None:
-            raw_data = {'_model': None, '_path': path,
-                        '_id': posixpath.basename(path)}
-        raw_data['_attachment_for'] = posixpath.dirname(path)
-        if '_attachment_type' not in raw_data:
-            raw_data['_attachment_type'] = self.get_attachment_type(path)
-        cls = self.get_attachment_class(raw_data['_attachment_type'])
-
-        datamodel = self.get_datamodel(raw_data, pad, 'attachment')
-        rv = cls(pad, datamodel.process_raw_data(raw_data, pad))
-        self.postprocess_record(rv, persist)
-        return self._track_record_dependency(rv)
-
-    def iter_attachments(self, path, pad):
-        """Low-level interface for iterating over attachments."""
-        path = cleanup_path(path)
-        fs_path = self.get_fs_path(path, 'base')
-        self._track_fs_dependency(fs_path)
-        try:
-            files = os.listdir(fs_path)
-            files.sort(key=lambda x: x.lower())
-        except OSError:
-            return
-        for filename in files:
-            if self.env.is_uninteresting_source_name(filename) or \
-               filename[-3:] == '.lr' or \
-               not os.path.isfile(os.path.join(fs_path, filename)):
-                continue
-
-            this_path = posixpath.join(path, filename)
-            attachment = self.get_attachment(this_path, pad)
-            if attachment is not None:
-                yield attachment
-
     def new_pad(self):
-        """Creates a new pad for this database."""
         return Pad(self)
+
+
+class Pad(object):
+
+    def __init__(self, db):
+        self.db = db
+        self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
+
+    def resolve_url_path(self, url_path, include_invisible=False):
+        """Given a URL path this will find the correct record which also
+        might be an attachment.  If a record cannot be found or is unexposed
+        the return value will be `None`.
+
+        Non record sources are by default not resolved, this can be
+        changed by setting `all_sources` to `True`.
+        """
+        node = self.root
+
+        pieces = cleanup_path(url_path).strip('/').split('/')
+        if pieces == ['']:
+            pieces = []
+
+        rv = node.resolve_url_path(pieces)
+        if rv is not None and (include_invisible or rv.is_exposed):
+            return rv
+
+        return self.asset_root.resolve_url_path(pieces)
+
+    @property
+    def root(self):
+        """The root page of the database."""
+        return self.get('/', persist=True)
+
+    @property
+    def asset_root(self):
+        """The root of the asset tree."""
+        return Directory(self, name='',
+                         path=os.path.join(self.db.env.root_path, 'assets'))
+
+    def get(self, path, persist=True):
+        """Loads a record by path."""
+        rv = self.cache['record', path]
+        if rv is not None:
+            return rv
+
+        raw_data = self.db.load_raw_data(path)
+        if raw_data is None:
+            return
+
+        datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
+        cls = self.db.get_record_class(datamodel, raw_data)
+        rv = cls(self, datamodel.process_raw_data(raw_data, self))
+        self.db.postprocess_record(rv, persist)
+        return self.db.track_record_dependency(rv)
+
+    def query(self, path=None):
+        """Queries the database either at root level or below a certain
+        path.  This is the recommended way to interact with toplevel data.
+        The alternative is to work with the :attr:`root` document.
+        """
+        return Query(path='/' + (path or '').strip('/'), pad=self)
 
 
 class RecordCache(object):
@@ -892,63 +901,3 @@ class RecordCache(object):
         rv = self.ephemeral.get(key)
         if rv is not None:
             return rv
-
-
-class Pad(object):
-    """A pad keeps cached information for the database on a local level
-    so that concurrent access can see different values if needed.
-    """
-
-    def __init__(self, db):
-        self.db = db
-        self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
-
-    def resolve_url_path(self, url_path, include_invisible=False,
-                         all_sources=False):
-        """Given a URL path this will find the correct record which also
-        might be an attachment.  If a record cannot be found or is unexposed
-        the return value will be `None`.
-
-        Non record sources are by default not resolved, this can be
-        changed by setting `all_sources` to `True`.
-        """
-        node = self.root
-
-        pieces = cleanup_path(url_path).strip('/').split('/')
-        if pieces == ['']:
-            pieces = []
-
-        rv = node.resolve_url_path(pieces)
-        if rv is not None and (include_invisible or rv.is_exposed):
-            return rv
-
-        if all_sources:
-            return self.asset_root.resolve_url_path(pieces)
-
-    @property
-    def root(self):
-        """The root page of the database."""
-        return self.db.get_page('/', pad=self, persist=True)
-
-    @property
-    def asset_root(self):
-        """The root of the asset tree."""
-        return Directory(self, name='',
-                         path=os.path.join(self.db.env.root_path, 'assets'))
-
-    def query(self, path=None):
-        """Queries the database either at root level or below a certain
-        path.  This is the recommended way to interact with toplevel data.
-        The alternative is to work with the :attr:`root` document.
-        """
-        return Query(path='/' + (path or '').strip('/'), pad=self)
-
-    def get(self, path, all_sources=False):
-        """Loads an element by path.  By default only record resources are
-        resolved.
-        """
-        rv = self.db.get_page('/' + path.strip('/'), pad=self,
-                              persist=True)
-        if rv is None and all_sources:
-            rv = self.asset_root.resolve_url_path(path.strip('/').split('/'))
-        return rv
