@@ -56,7 +56,9 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                    artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
-        subprocess.Popen(cmdline, shell=True).wait()
+        # XXX: this is super annoying but it looks like windows wants
+        # shell invocation :(
+        subprocess.Popen(cmdline, shell=sys.platform.startswith('win')).wait()
 
     return Thumbnail(dst_url_path, width, height)
 

@@ -338,7 +338,8 @@ class Page(Record):
 
     @property
     def source_filename(self):
-        return self.pad.db.get_fs_path(self['_path'], record_type='page')
+        return posixpath.join(self.pad.db.to_fs_path(self['_path']),
+                              'contents.lr')
 
     def _iter_dependent_filenames(self):
         yield self.source_filename
@@ -425,11 +426,11 @@ class Attachment(Record):
 
     @property
     def source_filename(self):
-        return self.pad.db.get_fs_path(self['_path'], record_type='attachment')
+        return self.pad.db.to_fs_path(self['_path']) + '.lr'
 
     @property
     def attachment_filename(self):
-        return self.pad.db.get_fs_path(self['_path'], record_type='base')
+        return self.pad.db.to_fs_path(self['_path'])
 
     @property
     def parent(self):
@@ -535,6 +536,13 @@ class Query(object):
         """Returns all visible pages."""
         rv = self._clone(mark_dirty=True)
         rv._visible_only = True
+        return rv
+
+    @property
+    def with_attachments(self):
+        """Includes attachments as well."""
+        rv = self._clone(mark_dirty=True)
+        rv._include_attachments = True
         return rv
 
     def first(self):
@@ -789,6 +797,11 @@ class Database(object):
             node = node.parent
         record['_gid'] = uuid.UUID(bytes=gid_hash.digest(), version=3)
 
+        # Fill in attachment type
+        if is_undefined(record['_attachment_type']):
+            record['_attachment_type'] = self.get_attachment_type(
+                record['_path'])
+
         # Automatically cache
         if persist:
             record.pad.cache.persist(record)
@@ -802,7 +815,11 @@ class Database(object):
         if not is_attachment:
             return Page
 
-        attachment_type = self.get_attachment_type(raw_data['_path'])
+        # We need to replicate the logic from postprocess_record here so
+        # that we can find the right attachment class.  Not ideal
+        attachment_type = raw_data.get('_attachment_type')
+        if not attachment_type:
+            attachment_type = self.get_attachment_type(raw_data['_path'])
         return attachment_classes.get(attachment_type, Attachment)
 
     def new_pad(self):
@@ -819,9 +836,6 @@ class Pad(object):
         """Given a URL path this will find the correct record which also
         might be an attachment.  If a record cannot be found or is unexposed
         the return value will be `None`.
-
-        Non record sources are by default not resolved, this can be
-        changed by setting `all_sources` to `True`.
         """
         node = self.root
 
