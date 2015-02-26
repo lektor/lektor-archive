@@ -20,7 +20,7 @@ setup(
         'Flask',
         'EXIFRead',
         'Pillow',
-        # XXX: python-inifile
+        'inifile',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
