@@ -149,10 +149,12 @@ def sort_normalize_string(s):
     return unicodedata.normalize('NFD', unicode(s).lower().strip())
 
 
-def get_dependent_url(url_path, suffix):
+def get_dependent_url(url_path, suffix, ext=None):
     url_directory, url_filename = posixpath.split(url_path)
     url_base, url_ext = posixpath.splitext(url_filename)
-    return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
+    if ext is None:
+        ext = url_ext
+    return posixpath.join(url_directory, url_base + u'@' + suffix + ext)
 
 
 @contextmanager

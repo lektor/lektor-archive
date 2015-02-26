@@ -133,9 +133,20 @@ def find_imagemagick(env):
     return im
 
 
+def get_thumbnail_ext(source_filename):
+    ext = source_filename.rsplit('.', 1)[-1].lower()
+    # if the extension is already of a format that a browser understands
+    # we will roll with it.
+    if ext.lower() in ('png', 'jpg', 'jpeg', 'gif'):
+        return None
+    # Otherwise we roll with JPEG as default.
+    return '.jpeg'
+
+
 def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
     suffix = get_suffix(width, height)
-    dst_url_path = get_dependent_url(source_url_path, suffix)
+    dst_url_path = get_dependent_url(source_url_path, suffix,
+                                     ext=get_thumbnail_ext(source_image))
 
     im = find_imagemagick(ctx.env)
 
@@ -158,10 +169,14 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
 
 
 class Thumbnail(object):
+    """Holds information about a thumbnail."""
 
     def __init__(self, url_path, width, height=None):
+        #: the `width` of the thumbnail in pixels.
         self.width = width
+        #: the `height` of the thumbnail in pixels.
         self.height = height
+        #: the URL path of the image.
         self.url_path = url_path
 
     def __unicode__(self):
