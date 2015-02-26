@@ -940,7 +940,7 @@ class Pad(object):
 
     def get(self, path, persist=True):
         """Loads a record by path."""
-        rv = self.cache['record', path]
+        rv = self.cache[path]
         if rv is not None:
             return rv
 
@@ -969,17 +969,16 @@ class RecordCache(object):
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
     def is_persistent(self, record):
-        cache_key = record.record_classification, record['_path']
-        return cache_key in self.persistent
+        return record['_path'] in self.persistent
 
     def remember(self, record):
-        cache_key = record.record_classification, record['_path']
+        cache_key = record['_path']
         if cache_key in self.persistent or cache_key in self.ephemeral:
             return
         self.ephemeral[cache_key] = record
 
     def persist(self, record):
-        cache_key = record.record_classification, record['_path']
+        cache_key = record['_path']
         self.persistent[cache_key] = record
         try:
             del self.ephemeral[cache_key]
@@ -987,7 +986,7 @@ class RecordCache(object):
             pass
 
     def persist_if_cached(self, record):
-        cache_key = record.record_classification, record['_path']
+        cache_key = record['_path']
         if cache_key in self.ephemeral:
             self.persist(record)
 
