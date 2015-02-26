@@ -171,4 +171,4 @@ def run_server(bindaddr, env, output_path, verbosity=0):
     background_builder.start()
     app = WsgiApp(env, output_path, verbosity)
     return run_simple(bindaddr[0], bindaddr[1], app,
-                      use_debugger=True)
+                      use_debugger=True, threaded=True)

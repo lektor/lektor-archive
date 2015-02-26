@@ -18,6 +18,8 @@ setup(
         'watchdog',
         'Markdown',
         'Flask',
+        'EXIFRead',
+        'Pillow',
         # XXX: python-inifile
     ],
     classifiers=[

@@ -17,7 +17,7 @@ from lektor.utils import sort_normalize_string
 from lektor.sourceobj import SourceObject
 from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
-from lektor.thumbnail import make_thumbnail
+from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
 
 
@@ -323,6 +323,16 @@ class Record(SourceObject):
         self.pad.cache.persist_if_cached(self)
         del self._data[name]
 
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if self.__class__ != other.__class__:
+            return False
+        return self['_path'] == other['_path']
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __repr__(self):
         return '<%s model=%r path=%r>' % (
             self.__class__.__name__,
@@ -458,7 +468,65 @@ class Attachment(Record):
 class Image(Attachment):
     """Specific class for image attachments."""
 
+    def _get_image_info(self):
+        rv = getattr(self, '_image_info', None)
+        if rv is None:
+            with open(self.attachment_filename, 'rb') as f:
+                rv = self._image_info = get_image_info(f)
+        return rv
+
+    @property
+    def exif(self):
+        """Provides access to the exif data."""
+        rv = getattr(self, '_exif_cache', None)
+        if rv is None:
+            with open(self.attachment_filename, 'rb') as f:
+                rv = self._exif_cache = read_exif(f)
+        return rv
+
+    @property
+    def width(self):
+        """The width of the image if possible to determine."""
+        rv = self._get_image_info()['size'][0]
+        if rv is not None:
+            return rv
+        return Undefined('Width of image could not be determined.')
+
+    @property
+    def height(self):
+        """The height of the image if possible to determine."""
+        rv = self._get_image_info()['size'][1]
+        if rv is not None:
+            return rv
+        return Undefined('Height of image could not be determined.')
+
+    @property
+    def mode(self):
+        """Returns the mode of the image."""
+        rv = self._get_image_info()['mode']
+        if rv is not None:
+            return rv
+        return Undefined('The mode of the image could not be determined.')
+
+    @property
+    def format(self):
+        """Returns the format of the image."""
+        rv = self._get_image_info()['format']
+        if rv is not None:
+            return rv
+        return Undefined('The format of the image could not be determined.')
+
+    @property
+    def format_description(self):
+        """Returns the format of the image."""
+        rv = self._get_image_info()['format_description']
+        if rv is not None:
+            return rv
+        return Undefined('The format description of the image '
+                         'could not be determined.')
+
     def thumbnail(self, width, height=None):
+        """Utility to create thumbnails."""
         return make_thumbnail(_require_ctx(self),
             self.attachment_filename, self.url_path,
             width=width, height=height)
@@ -470,6 +538,9 @@ attachment_classes = {
 
 
 class Query(object):
+    """Object that helps finding records.  The default configuration
+    only finds pages.
+    """
 
     def __init__(self, path, pad):
         self.path = path
@@ -612,6 +683,7 @@ class Query(object):
 
 
 class AttachmentsQuery(Query):
+    """Specialized query class that only finds attachments."""
 
     def __init__(self, path, pad):
         Query.__init__(self, path, pad)
@@ -632,6 +704,16 @@ class AttachmentsQuery(Query):
     def audio(self):
         """Filters to audio."""
         return self.filter(F._attachment_type == 'audio')
+
+    @property
+    def documents(self):
+        """Filters to documents."""
+        return self.filter(F._attachment_type == 'document')
+
+    @property
+    def text(self):
+        """Filters to plain text data."""
+        return self.filter(F._attachment_type == 'text')
 
 
 def _iter_filename_choices(fn_base):
@@ -688,6 +770,8 @@ class Database(object):
             rv['_id'] = posixpath.basename(path)
             if is_attachment:
                 rv['_attachment_for'] = posixpath.dirname(path)
+                if '_attachment_type' not in rv:
+                    rv['_attachment_type'] = self.get_attachment_type(path)
             return rv
 
     def iter_items(self, path):
@@ -797,11 +881,6 @@ class Database(object):
             node = node.parent
         record['_gid'] = uuid.UUID(bytes=gid_hash.digest(), version=3)
 
-        # Fill in attachment type
-        if is_undefined(record['_attachment_type']):
-            record['_attachment_type'] = self.get_attachment_type(
-                record['_path'])
-
         # Automatically cache
         if persist:
             record.pad.cache.persist(record)
@@ -817,12 +896,11 @@ class Database(object):
 
         # We need to replicate the logic from postprocess_record here so
         # that we can find the right attachment class.  Not ideal
-        attachment_type = raw_data.get('_attachment_type')
-        if not attachment_type:
-            attachment_type = self.get_attachment_type(raw_data['_path'])
+        attachment_type = raw_data['_attachment_type']
         return attachment_classes.get(attachment_type, Attachment)
 
     def new_pad(self):
+        """Creates a new pad object for this database."""
         return Pad(self)
 
 
