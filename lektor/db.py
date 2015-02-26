@@ -482,6 +482,11 @@ class Query(object):
         self._offset = None
         self._visible_only = False
 
+    @property
+    def self(self):
+        """Returns the object this query starts out from."""
+        return self.pad.get(self.path)
+
     def _clone(self, mark_dirty=False):
         """Makes a flat copy but keeps the other data on it shared."""
         rv = object.__new__(self.__class__)
@@ -532,21 +537,6 @@ class Query(object):
         rv._visible_only = True
         return rv
 
-    def __iter__(self):
-        """Iterates over all records matched."""
-        iterable = self._iterate()
-
-        order_by = self.get_order_by()
-        if order_by:
-            iterable = sorted(
-                iterable, key=lambda x: x.get_sort_key(order_by))
-
-        if self._offset is not None or self._limit is not None:
-            iterable = islice(iterable, self._offset or 0, self._limit)
-
-        for item in iterable:
-            yield item
-
     def first(self):
         """Loads all matching records as list."""
         return next(iter(self), None)
@@ -590,6 +580,21 @@ class Query(object):
 
     def __nonzero__(self):
         return self.first() is not None
+
+    def __iter__(self):
+        """Iterates over all records matched."""
+        iterable = self._iterate()
+
+        order_by = self.get_order_by()
+        if order_by:
+            iterable = sorted(
+                iterable, key=lambda x: x.get_sort_key(order_by))
+
+        if self._offset is not None or self._limit is not None:
+            iterable = islice(iterable, self._offset or 0, self._limit)
+
+        for item in iterable:
+            yield item
 
     def __repr__(self):
         return '<%s %r>' % (
