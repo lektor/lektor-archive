@@ -2,8 +2,6 @@ import uuid
 from datetime import date
 
 from markupsafe import Markup
-from jinja2 import is_undefined
-from werkzeug.http import http_date
 
 from lektor.types import Type
 from lektor import widgets
@@ -30,10 +28,6 @@ class UuidType(Type):
         except Exception:
             return raw.bad_value('Invalid UUID')
 
-    def value_to_json(self, value, pad):
-        if not is_undefined(value):
-            return str(value)
-
 
 class TextType(Type):
     widget_class = widgets.TextAreaWidget
@@ -51,10 +45,6 @@ class HtmlType(Type):
         if raw.value is None:
             return raw.missing_value('Missing HTML')
         return Markup(raw.value)
-
-    def value_to_json(self, value, pad):
-        if not is_undefined(value):
-            return unicode(value)
 
 
 class IntegerType(Type):
@@ -106,7 +96,3 @@ class DateType(Type):
             return date(*map(int, raw.value.split('-')))
         except Exception:
             return raw.bad_value('Bad date format')
-
-    def value_to_json(self, value, pad):
-        if not is_undefined(value):
-            return http_date(value)

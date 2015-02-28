@@ -1,7 +1,9 @@
 import re
 import os
+import sys
 import uuid
 import errno
+import codecs
 import hashlib
 import operator
 import functools
@@ -23,13 +25,21 @@ from lektor.assets import Directory
 
 _slashes_re = re.compile(r'/+')
 
+# Figure out our fs encoding, if it's ascii we upgrade to utf-8
+fs_enc = sys.getfilesystemencoding()
+try:
+    if codecs.lookup(fs_enc).name == 'ascii':
+        fs_enc = 'utf-8'
+except LookupError:
+    pass
+
 
 def cleanup_path(path):
     return '/' + _slashes_re.sub('/', path.strip('/'))
 
 
 def to_os_path(path):
-    return path.strip('/').replace('/', os.path.sep)
+    return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
 
 
 def _require_ctx(record):
@@ -208,8 +218,6 @@ class Record(SourceObject):
         self._data = data
         self._fast_source_hash = None
 
-    record_classification = 'record'
-
     @property
     def datamodel(self):
         """Returns the data model for this record."""
@@ -343,8 +351,7 @@ class Record(SourceObject):
 
 class Page(Record):
     """This represents a loaded record."""
-
-    record_classification = 'page'
+    is_attachment = False
 
     @property
     def source_filename(self):
@@ -356,10 +363,7 @@ class Page(Record):
 
     @property
     def url_path(self):
-        url_path = Record.url_path.__get__(self)
-        if url_path[-1:] != '/':
-            url_path += '/'
-        return url_path
+        return Record.url_path.__get__(self).rstrip('/') + '/'
 
     def is_child_of(self, path):
         this_path = cleanup_path(self['_path']).split('/')
@@ -431,8 +435,7 @@ class Page(Record):
 
 class Attachment(Record):
     """This represents a loaded attachment."""
-
-    record_classification = 'attachment'
+    is_attachment = True
 
     @property
     def source_filename(self):
@@ -795,6 +798,10 @@ class Database(object):
                     if self.env.is_uninteresting_source_name(filename) or \
                        filename == 'contents.lr':
                         continue
+                    try:
+                        filename = filename.decode(fs_enc)
+                    except UnicodeError:
+                        continue
                     if os.path.isfile(os.path.join(dir_path, filename,
                                                    'contents.lr')):
                         yield filename, False
@@ -910,7 +917,8 @@ class Pad(object):
         self.db = db
         self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
 
-    def resolve_url_path(self, url_path, include_invisible=False):
+    def resolve_url_path(self, url_path, include_invisible=False,
+                         include_assets=True):
         """Given a URL path this will find the correct record which also
         might be an attachment.  If a record cannot be found or is unexposed
         the return value will be `None`.
@@ -925,7 +933,8 @@ class Pad(object):
         if rv is not None and (include_invisible or rv.is_exposed):
             return rv
 
-        return self.asset_root.resolve_url_path(pieces)
+        if include_assets:
+            return self.asset_root.resolve_url_path(pieces)
 
     @property
     def root(self):
@@ -963,21 +972,26 @@ class Pad(object):
 
 
 class RecordCache(object):
+    """The record cache holds records eitehr in an persistent or ephemeral
+    section which helps the pad not load records it already saw.
+    """
 
     def __init__(self, ephemeral_cache_size=500):
         self.persistent = {}
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
     def is_persistent(self, record):
+        """Indicates if a record is in the persistent record cache."""
         return record['_path'] in self.persistent
 
     def remember(self, record):
+        """Remembers the record in the record cache."""
         cache_key = record['_path']
-        if cache_key in self.persistent or cache_key in self.ephemeral:
-            return
-        self.ephemeral[cache_key] = record
+        if cache_key not in self.persistent and cache_key not in self.ephemeral:
+            self.ephemeral[cache_key] = record
 
     def persist(self, record):
+        """Persists a record.  This will put it into the persistent cache."""
         cache_key = record['_path']
         self.persistent[cache_key] = record
         try:
@@ -986,8 +1000,10 @@ class RecordCache(object):
             pass
 
     def persist_if_cached(self, record):
-        cache_key = record['_path']
-        if cache_key in self.ephemeral:
+        """If the record is already ephemerally cached, this promotes it to
+        the persistent cache section.
+        """
+        if record['_path'] in self.ephemeral:
             self.persist(record)
 
     def __getitem__(self, key):

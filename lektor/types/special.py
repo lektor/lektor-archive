@@ -1,5 +1,3 @@
-from jinja2 import is_undefined
-
 from lektor.types import Type
 from lektor.utils import slugify, Url
 
@@ -29,7 +27,3 @@ class UrlType(Type):
         if raw.value is None:
             return raw.missing_value('Missing URL')
         return Url(raw.value)
-
-    def value_to_json(self, value, pad):
-        if not is_undefined(value):
-            return value.url

@@ -1,6 +1,10 @@
-from jinja2 import Undefined, is_undefined
+from jinja2 import Undefined
 
 from lektor import widgets
+
+
+class BadValue(Undefined):
+    __slots__ = ()
 
 
 def get_undefined_info(undefined):
@@ -26,9 +30,9 @@ class RawValue(object):
             return '%s in field \'%s\': %s' % (prefix, self.field.name, reason)
         return '%s: %s' % (prefix, reason)
 
-    def bad_value(self, reason):
-        return Undefined(hint=self._get_hint('Bad value', reason),
-                         obj=self.value)
+    def bad_value(self, reason, value=None):
+        return BadValue(hint=self._get_hint('Bad value', reason),
+                        obj=self.value)
 
     def missing_value(self, reason):
         return Undefined(hint=self._get_hint('Missing value', reason),
@@ -43,15 +47,8 @@ class Type(object):
         self.env = env
         self.options = options
 
-    def value_to_raw(self, value):
-        return unicode(value)
-
     def value_from_raw(self, raw):
         return raw
-
-    def value_to_json(self, value, pad):
-        if not is_undefined(value):
-            return value
 
     def __repr__(self):
         return '%s()' % self.__class__.__name__
