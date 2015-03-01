@@ -21,6 +21,7 @@ from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
+from lektor.editor import make_editor_session
 
 
 _slashes_re = re.compile(r'/+')
@@ -727,11 +728,10 @@ def _iter_filename_choices(fn_base):
     yield fn_base + '.lr', True
 
 
-def _iter_datamodel_choices(datamodel_name, raw_data):
+def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
     yield datamodel_name
-    if not raw_data.get('_attachment_for'):
-        yield posixpath.basename(raw_data['_path']) \
-            .split('.')[0].replace('-', '_').lower()
+    if not is_attachment:
+        yield posixpath.basename(path).split('.')[0].replace('-', '_').lower()
     yield 'page'
     yield 'none'
 
@@ -821,17 +821,27 @@ class Database(object):
         data.  This might require the discovery of a parent object through
         the pad.
         """
+        path = raw_data['_path']
         is_attachment = bool(raw_data.get('_attachment_for'))
-        dm_name = (raw_data.get('_model') or '').strip() or None
+        datamodel = (raw_data.get('_model') or '').strip() or None
+        return self.get_implied_datamodel(path, is_attachment, pad,
+                                          datamodel=datamodel)
+
+    def get_implied_datamodel(self, path, is_attachment=False, pad=None,
+                              datamodel=None):
+        """Looks up a datamodel based on the information about the parent
+        of a model.
+        """
+        dm_name = datamodel
 
         # Only look for a datamodel if there was not defined.
         if dm_name is None:
-            parent = posixpath.dirname(raw_data['_path'])
+            parent = posixpath.dirname(path)
             dm_name = None
 
             # If we hit the root, and there is no model defined we need
             # to make sure we do not recurse onto ourselves.
-            if parent != raw_data['_path']:
+            if parent != path:
                 if pad is None:
                     pad = self.new_pad()
                 parent_obj = pad.get(parent)
@@ -841,7 +851,7 @@ class Database(object):
                     else:
                         dm_name = parent_obj.datamodel.child_config.model
 
-        for dm_name in _iter_datamodel_choices(dm_name, raw_data):
+        for dm_name in _iter_datamodel_choices(dm_name, path, is_attachment):
             # If that datamodel exists, let's roll with it.
             datamodel = self.datamodels.get(dm_name)
             if datamodel is not None:
@@ -962,6 +972,12 @@ class Pad(object):
         rv = cls(self, datamodel.process_raw_data(raw_data, self))
         self.db.postprocess_record(rv, persist)
         return self.db.track_record_dependency(rv)
+
+    def edit(self, path, is_attachment=None, datamodel=None):
+        """Edits a record by path."""
+        path = cleanup_path(path)
+        return make_editor_session(self, path, is_attachment=is_attachment,
+                                   datamodel=datamodel)
 
     def query(self, path=None):
         """Queries the database either at root level or below a certain
