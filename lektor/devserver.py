@@ -16,7 +16,6 @@ from lektor.db import Database
 from lektor.builder import Builder
 from lektor.watcher import Watcher
 from lektor.reporter import CliReporter
-from lektor.admin import WebAdmin
 
 
 _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
@@ -78,7 +77,6 @@ def safe_join(directory, filename):
 class WsgiApp(object):
 
     def __init__(self, env, output_path, verbosity=0):
-        self.admin = WebAdmin(env)
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
@@ -97,10 +95,6 @@ class WsgiApp(object):
     def handle_request(self, request):
         pad = self.get_pad()
         filename = None
-
-        # A bang in the URL path requests something from the admin panel.
-        if '!' in request.path:
-            return self.admin
 
         # We start with trying to resolve a source and then use the
         # primary
