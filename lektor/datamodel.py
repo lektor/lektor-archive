@@ -127,11 +127,11 @@ class DataModel(object):
 
         return self._label_tmpl[1].evaluate(record.pad, this=record)
 
-    def get_default_child_slug(self, record):
+    def get_default_child_slug(self, pad, data):
         """Formats out the child slug."""
         slug_format = self.child_config.slug_format
         if slug_format is None:
-            return slugify(record['_id'])
+            return slugify(data['_id'])
 
         if self._child_slug_tmpl is None or \
            self._child_slug_tmpl[0] != slug_format:
@@ -141,7 +141,7 @@ class DataModel(object):
             )
 
         return '_'.join(self._child_slug_tmpl[1].evaluate(
-            record.pad, this=record).strip().split()).strip('/')
+            pad, this=data).strip().split()).strip('/')
 
     def get_default_template_name(self):
         return self.id + '.html'
@@ -443,9 +443,6 @@ add_system_field('_path', type='string')
 
 # The local ID (within a folder) of the record
 add_system_field('_id', type='string')
-
-# The global ID of the record (only really useful for caching i guess)
-add_system_field('_gid', type='uuid')
 
 # the model that defines the data of the record
 add_system_field('_model', type='string')

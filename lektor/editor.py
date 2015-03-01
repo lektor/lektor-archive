@@ -58,13 +58,14 @@ class EditorSession(object):
         self.id = posixpath.basename(path)
         self.pad = pad
         self.path = path
-        self.original_data = original_data
         self.exists = original_data is not None
+        if original_data is None:
+            original_data = OrderedDict()
+        self.original_data = original_data
         self.datamodel = datamodel
 
-        if original_data:
-            for key in implied_keys:
-                original_data.pop(key, None)
+        for key in implied_keys:
+            self.original_data.pop(key, None)
 
         self._data = {}
         self._changed = set()
@@ -73,21 +74,23 @@ class EditorSession(object):
         self.is_attachment = is_attachment
         self.closed = False
 
+    def __contains__(self, key):
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
+
     def __getitem__(self, key):
         if key in self._data:
             rv = self._data[key]
             if rv is None:
                 raise KeyError(key)
             return rv
-        if self.original_data is None:
-            raise KeyError(key)
         return self.original_data[key]
 
     def __setitem__(self, key, value):
-        if self.original_data:
-            old_value = self.original_data.get(key)
-        else:
-            old_value = None
+        old_value = self.original_data.get(key)
         if old_value != value:
             self._changed.add(value)
         else:
@@ -115,15 +118,14 @@ class EditorSession(object):
     def iteritems(self):
         done = set()
 
-        if self.original_data:
-            for key, value in self.original_data.iteritems():
-                done.add(key)
-                if key in implied_keys:
-                    continue
-                if key in self._changed:
-                    value = self._data[key]
-                if value is not None:
-                    yield key, value
+        for key, value in self.original_data.iteritems():
+            done.add(key)
+            if key in implied_keys:
+                continue
+            if key in self._changed:
+                value = self._data[key]
+            if value is not None:
+                yield key, value
 
         for key in sorted(self._data):
             if key in done:
@@ -149,6 +151,8 @@ class EditorSession(object):
     def values(self):
         return list(self.itervalues())
 
+    __iter__ = iterkeys
+
     @property
     def fs_path(self):
         """The path to the record file on the file system."""
@@ -171,27 +175,11 @@ class EditorSession(object):
 
     def commit(self):
         """Saves changes back to the file system."""
-        if self.closed:
-            return
-
-        if self._delete_this:
-            self.closed = True
-            self._real_delete()
-            return
-
-        if not self._changed and self.exists:
-            self.closed = True
-            return
-
-        try:
-            os.makedirs(os.path.dirname(self.fs_path))
-        except OSError:
-            pass
-
-        with atomic_open(self.fs_path, 'wb') as f:
-            for chunk in serialize(self.iteritems(), encoding='utf-8'):
-                f.write(chunk)
-
+        if not self.closed:
+            if self._delete_this:
+                self._delete_impl()
+            else:
+                self._save_impl()
         self.closed = True
 
     def delete(self, recursive=False):
@@ -205,7 +193,7 @@ class EditorSession(object):
         self._delete_this = True
         self._recursive_delete = recursive
 
-    def _real_delete(self):
+    def _delete_impl(self):
         # If this is already an attachment, then we can just delete the
         # metadata and the attachment file, and bail.  The parameters do
         # not matter in that case.
@@ -248,3 +236,23 @@ class EditorSession(object):
             os.rmdir(directory)
         except OSError:
             pass
+
+    def _save_impl(self):
+        if not self._changed and self.exists:
+            return
+
+        try:
+            os.makedirs(os.path.dirname(self.fs_path))
+        except OSError:
+            pass
+
+        with atomic_open(self.fs_path, 'wb') as f:
+            for chunk in serialize(self.iteritems(), encoding='utf-8'):
+                f.write(chunk)
+
+    def __repr__(self):
+        return '<%s %r%s>' % (
+            self.__class__.__name__,
+            self.path,
+            not self.exists and ' new' or '',
+        )

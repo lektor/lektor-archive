@@ -1,10 +1,8 @@
 import re
 import os
 import sys
-import uuid
 import errno
 import codecs
-import hashlib
 import operator
 import functools
 import posixpath
@@ -773,8 +771,6 @@ class Database(object):
             rv['_id'] = posixpath.basename(path)
             if is_attachment:
                 rv['_attachment_for'] = posixpath.dirname(path)
-                if '_attachment_type' not in rv:
-                    rv['_attachment_type'] = self.get_attachment_type(path)
             return rv
 
     def iter_items(self, path):
@@ -874,45 +870,36 @@ class Database(object):
                 ctx.record_dependency(record.datamodel.filename)
         return record
 
-    def postprocess_record(self, record, persist):
+    def process_data(self, data, datamodel, pad):
         # Automatically fill in slugs
-        if is_undefined(record['_slug']):
-            parent = record.parent
+        if is_undefined(data['_slug']):
+            parent_path = posixpath.dirname(data['_path'])
+            parent = None
+            if parent_path != data['_path']:
+                parent = pad.get(parent_path)
             if parent:
-                slug = parent.datamodel.get_default_child_slug(record)
+                slug = parent.datamodel.get_default_child_slug(pad, data)
             else:
                 slug = ''
-            record['_slug'] = slug
+            data['_slug'] = slug
         else:
-            record['_slug'] = record['_slug'].strip('/')
+            data['_slug'] = data['_slug'].strip('/')
+
+        # For attachments figure out the default attachment type if it's
+        # not yet provided.
+        if is_undefined(data['_attachment_type']) and \
+           data['_attachment_for']:
+            data['_attachment_type'] = self.get_attachment_type(data['_path'])
 
         # Automatically fill in templates
-        if is_undefined(record['_template']):
-            record['_template'] = record.datamodel.get_default_template_name()
-
-        # Fill in the global ID
-        gid_hash = hashlib.md5()
-        node = record
-        while node is not None:
-            gid_hash.update(node['_id'].encode('utf-8'))
-            node = node.parent
-        record['_gid'] = uuid.UUID(bytes=gid_hash.digest(), version=3)
-
-        # Automatically cache
-        if persist:
-            record.pad.cache.persist(record)
-        else:
-            record.pad.cache.remember(record)
+        if is_undefined(data['_template']):
+            data['_template'] = datamodel.get_default_template_name()
 
     def get_record_class(self, datamodel, raw_data):
         """Returns the appropriate record class for a datamodel and raw data."""
         is_attachment = bool(raw_data.get('_attachment_for'))
-
         if not is_attachment:
             return Page
-
-        # We need to replicate the logic from postprocess_record here so
-        # that we can find the right attachment class.  Not ideal
         attachment_type = raw_data['_attachment_type']
         return attachment_classes.get(attachment_type, Attachment)
 
@@ -968,9 +955,17 @@ class Pad(object):
             return
 
         datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
-        cls = self.db.get_record_class(datamodel, raw_data)
-        rv = cls(self, datamodel.process_raw_data(raw_data, self))
-        self.db.postprocess_record(rv, persist)
+        data = datamodel.process_raw_data(raw_data, self)
+        self.db.process_data(data, datamodel, self)
+
+        cls = self.db.get_record_class(datamodel, data)
+        rv = cls(self, data)
+
+        if persist:
+            self.cache.persist(rv)
+        else:
+            self.cache.remember(rv)
+
         return self.db.track_record_dependency(rv)
 
     def edit(self, path, is_attachment=None, datamodel=None):
