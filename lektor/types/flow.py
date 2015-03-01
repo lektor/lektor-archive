@@ -6,7 +6,6 @@ from markupsafe import Markup
 from lektor.types import Type
 from lektor.metaformat import tokenize
 from lektor.context import get_ctx
-from lektor import widgets
 
 
 _block_re = re.compile(r'^####\s*(.*?)\s*####\s*$')
@@ -130,7 +129,6 @@ def process_flowblock_data(raw_value):
 
 
 class FlowType(Type):
-    widget_class = widgets.TextAreaWidget
 
     def __init__(self, env, options):
         Type.__init__(self, env, options)

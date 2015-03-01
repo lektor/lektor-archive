@@ -1,7 +1,5 @@
 from jinja2 import Undefined
 
-from lektor import widgets
-
 
 class BadValue(Undefined):
     __slots__ = ()
@@ -40,8 +38,6 @@ class RawValue(object):
 
 
 class Type(object):
-
-    widget_class = widgets.TextInputWidget
 
     def __init__(self, env, options):
         self.env = env

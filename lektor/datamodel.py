@@ -53,7 +53,6 @@ class Field(object):
         if options is None:
             options = {}
         self.type = type(env, options)
-        self.widget = self.type.widget_class(self)
 
     def deserialize_value(self, value, pad=None):
         raw_value = types.RawValue(self.name, value, field=self, pad=pad)

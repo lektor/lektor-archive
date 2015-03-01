@@ -25,6 +25,8 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
     raw_data = pad.db.load_raw_data(path, cls=OrderedDict)
 
     exists = raw_data is not None
+    if raw_data is None:
+        raw_data = OrderedDict()
 
     if is_attachment is None:
         if not exists:
@@ -35,7 +37,7 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
         raise BadEdit('The attachment flag passed is conflicting with the '
                       'record\'s attachment flag.')
 
-    if raw_data is not None:
+    if exists:
         # XXX: what about changing the datamodel after the fact?
         if datamodel is not None:
             raise BadEdit('When editing an existing record, a datamodel '
@@ -47,25 +49,23 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
         elif isinstance(datamodel, basestring):
             datamodel = pad.db.datamodels[datamodel]
 
-    return EditorSession(pad, unicode(path), raw_data, datamodel,
+    for key in implied_keys:
+        raw_data.pop(key, None)
+
+    return EditorSession(pad, unicode(path), raw_data, datamodel, exists,
                          is_attachment)
 
 
 class EditorSession(object):
 
-    def __init__(self, pad, path, original_data, datamodel,
+    def __init__(self, pad, path, original_data, datamodel, exists=True,
                  is_attachment=False):
         self.id = posixpath.basename(path)
         self.pad = pad
         self.path = path
-        self.exists = original_data is not None
-        if original_data is None:
-            original_data = OrderedDict()
+        self.exists = exists
         self.original_data = original_data
         self.datamodel = datamodel
-
-        for key in implied_keys:
-            self.original_data.pop(key, None)
 
         self._data = {}
         self._changed = set()
@@ -152,6 +152,9 @@ class EditorSession(object):
         return list(self.itervalues())
 
     __iter__ = iterkeys
+
+    def __len__(self):
+        return len(self.items())
 
     @property
     def fs_path(self):

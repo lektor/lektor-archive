@@ -4,7 +4,6 @@ from datetime import date
 from markupsafe import Markup
 
 from lektor.types import Type
-from lektor import widgets
 
 
 class StringType(Type):
@@ -30,7 +29,6 @@ class UuidType(Type):
 
 
 class TextType(Type):
-    widget_class = widgets.TextAreaWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -39,7 +37,6 @@ class TextType(Type):
 
 
 class HtmlType(Type):
-    widget_class = widgets.TextAreaWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -73,7 +70,6 @@ class FloatType(Type):
 
 
 class BooleanType(Type):
-    widget_class = widgets.CheckboxWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:
