@@ -10,12 +10,13 @@ from werkzeug.serving import run_simple
 from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
-from werkzeug.wsgi import wrap_file
+from werkzeug.wsgi import wrap_file, pop_path_info
 
 from lektor.db import Database
 from lektor.builder import Builder
 from lektor.watcher import Watcher
 from lektor.reporter import CliReporter
+from lektor.admin import WebAdmin
 
 
 _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
@@ -80,6 +81,7 @@ class WsgiApp(object):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
+        self.admin = WebAdmin(env)
 
     def get_pad(self):
         db = Database(self.env)
@@ -119,6 +121,12 @@ class WsgiApp(object):
 
     def __call__(self, environ, start_response):
         request = Request(environ, shallow=True)
+
+        # Dispatch to the web admin if we need.
+        if request.path.rstrip('/').startswith('/admin'):
+            pop_path_info(environ)
+            return self.admin(environ, start_response)
+
         try:
             response = self.handle_request(request)
         except HTTPException as e:
