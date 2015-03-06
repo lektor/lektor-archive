@@ -4,6 +4,7 @@ import mimetypes
 import posixpath
 import traceback
 import threading
+import subprocess
 from zlib import adler32
 
 from werkzeug.serving import run_simple
@@ -77,11 +78,11 @@ def safe_join(directory, filename):
 
 class WsgiApp(object):
 
-    def __init__(self, env, output_path, verbosity=0):
+    def __init__(self, env, output_path, verbosity=0, debug=False):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
-        self.admin = WebAdmin(env)
+        self.admin = WebAdmin(env, debug=debug)
 
     def get_pad(self):
         db = Database(self.env)
@@ -164,13 +165,49 @@ class BackgroundBuilder(threading.Thread):
                     self.build()
 
 
-def run_server(bindaddr, env, output_path, verbosity=0):
+class DevTools(object):
+    """This provides extra helpers for launching tools such as webpack."""
+
+    def __init__(self):
+        self.watcher = None
+
+    def start(self):
+        if self.watcher is not None:
+            return
+        from lektor import admin
+        admin = os.path.dirname(admin.__file__)
+        subprocess.Popen(['npm', 'install', '.'], cwd=admin).wait()
+        self.watcher = subprocess.Popen(
+            ['../node_modules/.bin/webpack', '--watch'],
+            cwd=os.path.join(admin, 'weblib')
+        )
+
+    def stop(self):
+        if self.watcher is None:
+            return
+        self.watcher.kill()
+        self.watcher.wait()
+        self.watcher = None
+
+
+def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
     background_builder = BackgroundBuilder(env, output_path, verbosity)
     background_builder.setDaemon(True)
     background_builder.start()
-    app = WsgiApp(env, output_path, verbosity)
-    return run_simple(bindaddr[0], bindaddr[1], app,
-                      use_debugger=True, threaded=True)
+    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev)
+
+    dt = None
+    if lektor_dev and not os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        dt = DevTools()
+        dt.start()
+
+    try:
+        return run_simple(bindaddr[0], bindaddr[1], app,
+                          use_debugger=True, threaded=True,
+                          use_reloader=lektor_dev)
+    finally:
+        if dt is not None:
+            dt.stop()
