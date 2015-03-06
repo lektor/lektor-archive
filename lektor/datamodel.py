@@ -20,6 +20,15 @@ class ChildConfig(object):
         self.order_by = order_by
         self.replaced_with = replaced_with
 
+    def to_json(self):
+        return {
+            'enabled': self.enabled,
+            'slug_format': self.slug_format,
+            'model': self.model,
+            'order_by': self.order_by,
+            'replaced_with': self.replaced_with,
+        }
+
 
 class PaginationConfig(object):
 
@@ -29,6 +38,13 @@ class PaginationConfig(object):
         self.enabled = enabled
         self.per_page = per_page
         self.url_suffix = url_suffix
+
+    def to_json(self):
+        return {
+            'enabled': self.enabled,
+            'per_page': self.per_page,
+            'url_suffix': self.url_suffix,
+        }
 
 
 class AttachmentConfig(object):
@@ -40,6 +56,13 @@ class AttachmentConfig(object):
         self.model = model
         self.order_by = order_by
 
+    def to_json(self):
+        return {
+            'enabled': self.enabled,
+            'model': self.model,
+            'order_by': self.order_by,
+        }
+
 
 class Field(object):
 
@@ -48,11 +71,18 @@ class Field(object):
             type = types.builtin_types['string']
         self.name = name
         if label is None:
-            label = name.title().replace('_', ' ')
+            label = name.replace('_', ' ').strip().capitalize()
         self.label = label
         if options is None:
             options = {}
         self.type = type(env, options)
+
+    def to_json(self, pad):
+        return {
+            'name': self.name,
+            'label': self.label,
+            'type': self.type.to_json(pad),
+        }
 
     def deserialize_value(self, value, pad=None):
         raw_value = types.RawValue(self.name, value, field=self, pad=pad)
@@ -67,6 +97,13 @@ class Field(object):
             self.name,
             self.type,
         )
+
+
+def _iter_all_fields(obj):
+    for name in sorted(x for x in obj.field_map if x[:1] == '_'):
+        yield obj.field_map[name]
+    for field in obj.fields:
+        yield field
 
 
 class DataModel(object):
@@ -110,6 +147,21 @@ class DataModel(object):
         self._child_slug_tmpl = None
         self._child_replacements = None
         self._label_tmpl = None
+
+    def to_json(self, pad):
+        """Describes the datamodel as JSON data."""
+        return {
+            'filename': self.filename,
+            'id': self.id,
+            'name': self.name,
+            'label': self.label,
+            'contained': self.contained,
+            'expose': self.expose,
+            'child_config': self.child_config.to_json(),
+            'attachment_config': self.attachment_config.to_json(),
+            'pagination_config': self.pagination_config.to_json(),
+            'fields': [x.to_json(pad) for x in _iter_all_fields(self)],
+        }
 
     def format_record_label(self, record):
         """Returns the label for a given record."""
@@ -179,13 +231,6 @@ class DataModel(object):
         rv['_model'] = self.id
         return rv
 
-    def to_json(self, d, pad):
-        rv = {}
-        for field in self.field_map.itervalues():
-            value = d.get(field.name)
-            rv[field.name] = field.type.value_to_json(value, pad=pad)
-        return rv
-
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,
@@ -208,19 +253,20 @@ class FlowBlockModel(object):
         self.field_map['_flowblock'] = Field(
             env, name='_flowblock', type=types.builtin_types['string'])
 
+    def to_json(self, pad):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'filename': self.filename,
+            'fields': [x.to_json(pad) for x in _iter_all_fields(self)],
+        }
+
     def process_raw_data(self, raw_data, pad=None):
         rv = {}
         for field in self.field_map.itervalues():
             value = raw_data.get(field.name)
             rv[field.name] = field.deserialize_value(value, pad=pad)
         rv['_flowblock'] = self.id
-        return rv
-
-    def to_json(self, d, pad):
-        rv = {}
-        for field in self.field_map.itervalues():
-            value = d.get(field.name)
-            rv[field.name] = field.type.value_to_json(value, pad=pad)
         return rv
 
     def __repr__(self):

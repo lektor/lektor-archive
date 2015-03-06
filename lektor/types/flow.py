@@ -162,3 +162,9 @@ class FlowType(Type):
             return raw.bad_value(e.message)
 
         return Flow(rv)
+
+    def to_json(self, pad):
+        rv = Type.to_json(self, pad)
+        rv['flowblocks'] = dict((k, v.to_json(pad)) for k, v in
+                                pad.db.flowblocks.iteritems())
+        return rv

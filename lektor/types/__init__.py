@@ -43,6 +43,18 @@ class Type(object):
         self.env = env
         self.options = options
 
+    @property
+    def name(self):
+        rv = self.__class__.__name__
+        if rv.endswith('Type'):
+            rv = rv[:-4]
+        return rv.lower()
+
+    def to_json(self, pad):
+        return {
+            'name': self.name,
+        }
+
     def value_from_raw(self, raw):
         return raw
 

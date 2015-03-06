@@ -74,6 +74,15 @@ class EditorSession(object):
         self.is_attachment = is_attachment
         self.closed = False
 
+    def to_json(self):
+        return {
+            'data': dict(self.iteritems()),
+            'id': self.id,
+            'path': self.path,
+            'is_attachment': self.is_attachment,
+            'datamodel': self.datamodel.to_json(self.pad),
+        }
+
     def __contains__(self, key):
         try:
             self[key]
