@@ -1,4 +1,13 @@
-{% extends "layout.html" %}
-{% block body %}
-<div id=content></div>
-{% endblock %}
+<!doctype html>
+<title>Lektor Admin</title>
+<div class=loadbox>
+  <p>Loading Interface ...</p>
+</div>
+<script type=text/javascript>
+  var $LEKTOR_CONFIG = {
+    admin_root: {{ g.lektor_info.admin_root|tojson }},
+    site_root: {{ g.lektor_info.site_root|tojson }}
+  };
+</script>
+<script type=text/javascript src="{{ url_for('static', filename='gen/vendor.js') }}"></script>
+<script type=text/javascript src="{{ url_for('static', filename='gen/lektor.js') }}"></script>

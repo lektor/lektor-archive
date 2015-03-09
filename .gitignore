@@ -6,4 +6,3 @@ dist
 venv
 
 node_modules
-lektor/admin/static/*.gen.js

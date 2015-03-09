@@ -179,7 +179,7 @@ class DevTools(object):
         subprocess.Popen(['npm', 'install', '.'], cwd=admin).wait()
         self.watcher = subprocess.Popen(
             ['../node_modules/.bin/webpack', '--watch'],
-            cwd=os.path.join(admin, 'weblib')
+            cwd=os.path.join(admin, 'static')
         )
 
     def stop(self):
