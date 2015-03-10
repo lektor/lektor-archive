@@ -8,7 +8,14 @@ var utils = require('../utils');
 
 var RecordStateMixin = {
   contextTypes: {
-    getCurrentParams: React.PropTypes.func.isRequired
+    getCurrentParams: React.PropTypes.func.isRequired,
+    getCurrentRoutes: React.PropTypes.func.isRequired
+  },
+
+  /* checks if the record preview is active. */
+  isRecordPreviewActive: function() {
+    var routes = this.context.getCurrentRoutes();
+    return routes.length > 0 && routes[routes.length - 1].name === 'preview';
   },
 
   /* this returns the current record path segments as array */

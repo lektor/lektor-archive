@@ -65,11 +65,13 @@ var Sidebar = React.createClass({
   },
 
   renderChildActions: function() {
+    var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
+
     var items = this.state.recordChildren.map(function(child) {
       var urlPath = utils.fsToUrlPath(child.path);
       return (
         <li key={child._id}>
-          <Link to="edit" params={{path: urlPath}}>{child.label}</Link>
+          <Link to={target} params={{path: urlPath}}>{child.label}</Link>
         </li>
       )
     });
