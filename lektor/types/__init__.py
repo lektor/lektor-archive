@@ -83,7 +83,6 @@ builtin_types = {
     'date': DateType,
 
     # Multi
-    # XXX: configurable!
     'checkboxes': CheckboxesType,
 
     # Special

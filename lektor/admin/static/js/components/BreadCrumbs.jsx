@@ -18,14 +18,14 @@ var BreadCrumbs = React.createClass({
   },
 
   componentDidMount: function() {
-    this._updateCrumbs();
+    this.updateCrumbs();
   },
 
   componentWillReceiveProps: function(nextProps) {
-    this._updateCrumbs();
+    this.updateCrumbs();
   },
 
-  _updateCrumbs: function() {
+  updateCrumbs: function() {
     var path = this.getRecordPath();
     if (path === null) {
       return;
@@ -40,6 +40,14 @@ var BreadCrumbs = React.createClass({
           }
         });
       }.bind(this));
+  },
+
+  onCloseClick: function(e) {
+    var segs = this.state.recordPathInfo.segments;
+    if (segs.length > 0) {
+      window.location.href = utils.getCanonicalUrl(segs[segs.length - 1].url_path);
+      e.preventDefault();
+    }
   },
 
   render: function() {
@@ -66,7 +74,11 @@ var BreadCrumbs = React.createClass({
     }
     return (
       <div className="breadcrumbs">
-        <ul className="breadcrumb">{crumbs}</ul>
+        <ul className="breadcrumb">
+          {crumbs}
+          <li className="close"><a href="/" onClick={this.onCloseClick
+            }>Return to Website</a></li>
+        </ul>
       </div>
     );
   }

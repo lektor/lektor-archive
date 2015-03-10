@@ -20,6 +20,13 @@ div.application {
       li.missing-record-crumb a {
         color: #888;
       }
+
+      li.close {
+        float: right;
+        &:before {
+          content: "";
+        }
+      }
     }
   }
 
@@ -60,7 +67,12 @@ div.application {
       position: relative;
       height: 100%;
       margin-left: 200px;
-      padding: 15px;
+      padding: 10px 15px;
+
+      h2 {
+        margin: 0;
+        font-weight: 400;
+      }
     }
   }
 
@@ -79,4 +91,27 @@ div.application {
       height: 100%;
     }
   }
+}
+
+// form specifics
+.form-group {
+  div.validation-block {
+    margin-top: 5px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  div.validation-block-error {
+    color: @state-danger-text;
+  }
+
+  div.validation-block-warning {
+    color: @state-warning-text;
+  }
+}
+
+.editor dl.system-field dt {
+  color: #666;
+  font-style: italic;
 }

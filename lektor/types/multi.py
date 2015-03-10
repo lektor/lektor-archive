@@ -3,8 +3,12 @@ from lektor.environment import Expression, FormatExpression
 
 
 def parse_choices(s):
+    if not s:
+        return None
+
     rv = []
-    items = (s or '').split(',')
+    items = s.split(',')
+
     missing_keys = False
 
     for item in items:
@@ -51,13 +55,17 @@ class ChoiceSource(object):
         self.item_key = FormatExpression(env, item_key)
         self.item_label = FormatExpression(env, item_label)
 
+    @property
+    def has_choices(self):
+        return self.source is not None or self.choices is not None
+
     def iter_choices(self, pad):
         if self.choices is not None:
             iterable = self.choices
         else:
             iterable = self.source.evaluate(pad)
 
-        for item in iterable:
+        for item in iterable or ():
             key = self.item_key.evaluate(pad, this=item)
             label = self.item_label.evaluate(pad, this=item)
             yield key, label
@@ -67,12 +75,13 @@ class MultiType(Type):
 
     def __init__(self, env, options):
         Type.__init__(self, env, options)
-        self.sources = ChoiceSource(env, options)
+        self.source = ChoiceSource(env, options)
 
     def to_json(self, pad):
         rv = Type.to_json(self, pad)
-        rv['sources'] = [[key, value] for key, value in
-                         self.sources.iter_choices(pad)]
+        if self.source.has_choices:
+            rv['choices'] = [[key, value] for key, value in
+                             self.source.iter_choices(pad)]
         return rv
 
 

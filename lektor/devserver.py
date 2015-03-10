@@ -5,6 +5,7 @@ import posixpath
 import traceback
 import threading
 import subprocess
+from StringIO import StringIO
 from zlib import adler32
 
 from werkzeug.serving import run_simple
@@ -24,6 +25,56 @@ _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
                     if sep not in (None, '/'))
 
 
+def rewrite_html_for_editing(fp):
+    contents = fp.read()
+
+    button = '''
+    <style type="text/css">
+      #lektor-edit-link {
+        position: fixed;
+        z-index: 9999999;
+        right: 10px;
+        top: 10px;
+        position: fixed;
+        margin: 0;
+        font-family: 'Verdana', sans-serif;
+        background: #eee;
+        color: #d00;
+        font-weight: normal;
+        font-size: 32px;
+        padding: 0;
+        text-decoration: none!important;
+        border: none!important;
+        width: 40px;
+        height: 40px;
+        line-height: 40px;
+        text-align: center;
+        opacity: 0.7;
+      }
+
+      #lektor-edit-link:hover {
+        background: #ccc;
+        opacity: 1.0;
+      }
+    </style>
+    <script type="text/javascript">
+      (function() {
+        if (window != window.top) {
+          return;
+        }
+        var link = document.createElement('a');
+        link.setAttribute('href', '/admin/edit?path=' +
+            encodeURIComponent(document.location.pathname));
+        link.setAttribute('id', 'lektor-edit-link');
+        link.innerHTML = '\u270E';
+        document.body.appendChild(link);
+      })();
+    </script>
+    '''
+
+    return StringIO(contents + button)
+
+
 def send_file(request, filename):
     mimetype = mimetypes.guess_type(filename)[0]
     if mimetype is None:
@@ -35,31 +86,37 @@ def send_file(request, filename):
         file = open(filename, 'rb')
         mtime = os.path.getmtime(filename)
         headers['Content-Length'] = os.path.getsize(filename)
-        data = wrap_file(request.environ, file)
     except (IOError, OSError):
         raise NotFound()
+
+    rewritten = False
+    if mimetype == 'text/html':
+        rewritten = True
+        file = rewrite_html_for_editing(file)
+        del headers['Content-Length']
+
+    data = wrap_file(request.environ, file)
 
     rv = Response(data, mimetype=mimetype, headers=headers,
                   direct_passthrough=True)
 
-    # if we know the file modification date, we can store it as
-    # the time of the last modification.
-    if mtime is not None:
-        rv.last_modified = int(mtime)
-
-    rv.cache_control.public = True
-
-    try:
-        rv.set_etag('lektor-%s-%s-%s' % (
-            os.path.getmtime(filename),
-            os.path.getsize(filename),
-            adler32(
-                filename.encode('utf-8') if isinstance(filename, basestring)
-                else filename
-            ) & 0xffffffff
-        ))
-    except OSError:
-        pass
+    if not rewritten:
+        # if we know the file modification date, we can store it as
+        # the time of the last modification.
+        if mtime is not None:
+            rv.last_modified = int(mtime)
+        rv.cache_control.public = True
+        try:
+            rv.set_etag('lektor-%s-%s-%s' % (
+                os.path.getmtime(filename),
+                os.path.getsize(filename),
+                adler32(
+                    filename.encode('utf-8') if isinstance(filename, basestring)
+                    else filename
+                ) & 0xffffffff,
+            ))
+        except OSError:
+            pass
 
     return rv
 

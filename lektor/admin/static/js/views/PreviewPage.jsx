@@ -20,14 +20,14 @@ var PreviewPage = React.createClass({
   },
 
   componentWillReceiveProps: function() {
-    this._syncState();
+    this.syncState();
   },
 
   componentDidMount: function() {
-    this._syncState();
+    this.syncState();
   },
 
-  _syncState: function() {
+  syncState: function() {
     var path = this.getRecordPath();
     if (path === null) {
       this.setState(this.getInitialState());
@@ -74,15 +74,6 @@ var PreviewPage = React.createClass({
           this.transitionTo('preview', {path: urlPath});
         }
       }.bind(this));
-  },
-
-  navigateFrameIfNecessary: function() {
-    var intendedPath = this.getRecordPath();
-    var framePath = this.getFramePath();
-
-    if (!utils.urlPathsConsideredEqual(intendedPath, framePath)) {
-      this._syncState();
-    }
   },
 
   render: function() {

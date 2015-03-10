@@ -27,6 +27,7 @@ def get_path_info():
         return {
             'id': record['_id'],
             'path': record['_path'],
+            'url_path': record.url_path,
             'label': record.record_label,
             'exists': True
         }
@@ -107,7 +108,7 @@ def match_url():
     return jsonify(exists=True, path=record['_path'])
 
 
-@bp.route('/api/record')
-def get_record():
+@bp.route('/api/rawrecord')
+def get_raw_record():
     ts = g.lektor_info.pad.edit(request.args['path'])
     return jsonify(ts.to_json())

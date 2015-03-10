@@ -954,12 +954,7 @@ class Pad(object):
         if raw_data is None:
             return
 
-        datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
-        data = datamodel.process_raw_data(raw_data, self)
-        self.db.process_data(data, datamodel, self)
-
-        cls = self.db.get_record_class(datamodel, data)
-        rv = cls(self, data)
+        rv = self.instance_from_data(raw_data)
 
         if persist:
             self.cache.persist(rv)
@@ -967,6 +962,15 @@ class Pad(object):
             self.cache.remember(rv)
 
         return self.db.track_record_dependency(rv)
+
+    def instance_from_data(self, raw_data, datamodel=None):
+        """This creates an instance from the given raw data."""
+        if datamodel is None:
+            datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
+        data = datamodel.process_raw_data(raw_data, self)
+        self.db.process_data(data, datamodel, self)
+        cls = self.db.get_record_class(datamodel, data)
+        return cls(self, data)
 
     def edit(self, path, is_attachment=None, datamodel=None):
         """Edits a record by path."""

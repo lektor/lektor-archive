@@ -24,6 +24,7 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
     """Creates an editor session for the given path object."""
     raw_data = pad.db.load_raw_data(path, cls=OrderedDict)
 
+    record = None
     exists = raw_data is not None
     if raw_data is None:
         raw_data = OrderedDict()
@@ -49,20 +50,24 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
         elif isinstance(datamodel, basestring):
             datamodel = pad.db.datamodels[datamodel]
 
+    if exists:
+        record = pad.instance_from_data(dict(raw_data), datamodel)
+
     for key in implied_keys:
         raw_data.pop(key, None)
 
-    return EditorSession(pad, unicode(path), raw_data, datamodel, exists,
-                         is_attachment)
+    return EditorSession(pad, unicode(path), raw_data, datamodel, record,
+                         exists, is_attachment)
 
 
 class EditorSession(object):
 
-    def __init__(self, pad, path, original_data, datamodel, exists=True,
+    def __init__(self, pad, path, original_data, datamodel, record, exists=True,
                  is_attachment=False):
         self.id = posixpath.basename(path)
         self.pad = pad
         self.path = path
+        self.record = record
         self.exists = exists
         self.original_data = original_data
         self.datamodel = datamodel
@@ -75,11 +80,21 @@ class EditorSession(object):
         self.closed = False
 
     def to_json(self):
+        label = None
+        url_path = None
+        if self.record is not None:
+            label = self.record.record_label
+            url_path = self.record.url_path
         return {
             'data': dict(self.iteritems()),
-            'id': self.id,
-            'path': self.path,
-            'is_attachment': self.is_attachment,
+            'record_info': {
+                'id': self.id,
+                'path': self.path,
+                'exists': self.exists,
+                'label': label,
+                'url_path': url_path,
+                'is_attachment': self.is_attachment,
+            },
             'datamodel': self.datamodel.to_json(self.pad),
         }
 

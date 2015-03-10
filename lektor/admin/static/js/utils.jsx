@@ -4,12 +4,49 @@ var utils = {
       '/' + utils.stripLeadingSlash(localPath);
   },
 
+  isValidUrl: function(url) {
+    return !!url.match(/^(https?|ftp):\/\/\S+$/);
+  },
+
   stripLeadingSlash: function(string) {
     return string.match(/^\/*(.*?)$/)[1];
   },
 
   stripTrailingSlash: function(string) {
     return string.match(/^(.*?)\/*$/)[1];
+  },
+
+  flipSetValue: function(originalSet, value, isActive) {
+    if (isActive) {
+      return utils.addToSet(originalSet, value);
+    } else {
+      return utils.removeFromSet(originalSet, value);
+    }
+  },
+
+  addToSet: function(originalSet, value) {
+    for (var i = 0; i < originalSet.length; i++) {
+      if (originalSet[i] === value) {
+        return originalSet;
+      }
+    }
+    var rv = originalSet.slice();
+    rv.push(value);
+    return rv;
+  },
+
+  removeFromSet: function(originalSet, value) {
+    var rv = null;
+    var off = 0;
+    for (var i = 0; i < originalSet.length; i++) {
+      if (originalSet[i] === value) {
+        if (rv === null) {
+          rv = originalSet.slice();
+        }
+        rv.splice(i - (off++), 1);
+      }
+    }
+    return (rv === null) ? originalSet : rv;
   },
 
   urlPathsConsideredEqual: function(a, b) {
