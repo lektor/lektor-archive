@@ -7,6 +7,8 @@ bp = Blueprint('dash', __name__)
 endpoints = [
     ('/', 'index'),
     ('/<path>/edit', 'edit'),
+    ('/<path>/delete', 'delete'),
+    ('/<path>/preview', 'preview'),
 ]
 
 

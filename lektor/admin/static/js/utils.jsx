@@ -1,7 +1,32 @@
-var Promise = require('bluebird');
+var utils = {
+  getCanonicalUrl: function(localPath) {
+    return $LEKTOR_CONFIG.site_root.match(/^(.*?)\/*$/)[1] +
+      '/' + utils.stripLeadingSlash(localPath);
+  },
 
+  stripLeadingSlash: function(string) {
+    return string.match(/^\/*(.*?)$/)[1];
+  },
 
-module.exports = {
+  stripTrailingSlash: function(string) {
+    return string.match(/^(.*?)\/*$/)[1];
+  },
+
+  urlPathsConsideredEqual: function(a, b) {
+    if ((a == null) || (b == null)) {
+      return false;
+    }
+    return utils.stripTrailingSlash(a) == utils.stripTrailingSlash(b);
+  },
+
+  fsPathFromAdminObservedPath: function(adminPath) {
+    var base = $LEKTOR_CONFIG.site_root.match(/^(.*?)\/*$/)[1];
+    if (adminPath.substr(0, base.length) != base) {
+      return null;
+    }
+    return '/' + adminPath.substr(base.length).match(/^\/*(.*?)\/*$/)[1];
+  },
+
   loadData: function(url, params) {
     return new Promise(function(resolve, reject) {
       jQuery.ajax({
@@ -50,3 +75,5 @@ module.exports = {
     return string;
   }
 };
+
+module.exports = utils;

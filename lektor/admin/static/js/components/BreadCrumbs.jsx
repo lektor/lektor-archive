@@ -9,7 +9,7 @@ var utils = require('../utils');
 
 
 var BreadCrumbs = React.createClass({
-  mixins: [RecordState],
+  mixins: [RecordState, Router.State],
 
   getInitialState: function() {
     return {
@@ -23,6 +23,11 @@ var BreadCrumbs = React.createClass({
 
   componentWillReceiveProps: function(nextProps) {
     this._updateCrumbs();
+  },
+
+  isPreviewActive: function() {
+    var routes = this.getRoutes();
+    return routes.length > 0 && routes[routes.length - 1].name === 'preview';
   },
 
   _updateCrumbs: function() {
@@ -44,6 +49,8 @@ var BreadCrumbs = React.createClass({
 
   render: function() {
     var crumbs = [];
+    var target = this.isPreviewActive() ? 'preview' : 'edit';
+
     if (this.state.recordPathInfo != null) {
       crumbs = this.state.recordPathInfo.segments.map(function(item) {
         var urlPath = utils.fsToUrlPath(item.path);
@@ -57,14 +64,14 @@ var BreadCrumbs = React.createClass({
 
         return (
           <li key={item.path} className={className}>
-            <Link to="edit" params={{path: urlPath}}>{label}</Link>
+            <Link to={target} params={{path: urlPath}}>{label}</Link>
           </li>
         );
       });
     }
     return (
       <div className="breadcrumbs">
-        <ul>{crumbs}</ul>
+        <ul className="breadcrumb">{crumbs}</ul>
       </div>
     );
   }

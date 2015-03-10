@@ -5,16 +5,23 @@ var Router = require("react-router");
 var {Link, RouteHandler} = Router;
 
 var BreadCrumbs = require('../components/BreadCrumbs');
+var Sidebar = require('../components/Sidebar');
 
 var App = React.createClass({
   render: function() {
     return (
-      <div>
+      <div className="application">
         <header>
-          <h1>Lektor Admin</h1>
           <BreadCrumbs/>
         </header>
-        <RouteHandler/>
+        <div className="editor">
+          <div className="sidebar">
+            <Sidebar/>
+          </div>
+          <div className="view">
+            <RouteHandler/>
+          </div>
+        </div>
       </div>
     );
   }

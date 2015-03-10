@@ -1,0 +1,82 @@
+@import "./bootstrap-overrides.less";
+
+html, body {
+  height: 100%;
+}
+
+
+div.application {
+  height: 100%;
+
+  header {
+    margin: 0;
+    padding: 0;
+    background: #eee;
+
+    ul.breadcrumb {
+      margin: 0;
+      height: 34px;
+
+      li.missing-record-crumb a {
+        color: #888;
+      }
+    }
+  }
+
+  div.editor {
+    position: absolute;
+    top: 34px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    div.sidebar {
+      width: 200px;
+      padding: 10px 15px;
+      float: left;
+
+      h3 {
+        margin: 0;
+        padding: 0;
+      }
+
+      ul.nav {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        li {
+          margin: 0;
+          padding: 0;
+        }
+      }
+
+      .section + .section {
+        margin-top: 15px;
+      }
+    }
+
+    div.view {
+      position: relative;
+      height: 100%;
+      margin-left: 200px;
+      padding: 15px;
+    }
+  }
+
+  div.preview {
+    position: absolute;
+    height: 100%;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+
+    iframe {
+      display: block;
+      border: 0;
+      width: 100%;
+      height: 100%;
+    }
+  }
+}
