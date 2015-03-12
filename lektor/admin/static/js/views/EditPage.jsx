@@ -29,6 +29,7 @@ var EditPage = React.createClass({
 
   getInitialState: function() {
     return {
+      recordInitialData: null,
       recordData: null,
       recordDataModel: null,
       recordInfo: null
@@ -47,7 +48,8 @@ var EditPage = React.createClass({
     utils.loadData('/rawrecord', {path: this.getRecordPath()})
       .then(function(resp) {
         this.setState({
-          recordData: resp.data,
+          recordInitialData: resp.data,
+          recordData: {},
           recordDataModel: resp.datamodel,
           recordInfo: resp.record_info,
         });
@@ -74,21 +76,44 @@ var EditPage = React.createClass({
     });
   },
 
+  getValues: function() {
+    var rv = {};
+    this.state.recordDataModel.fields.forEach(function(field) {
+      var value = this.state.recordData[field.name];
+
+      if (value !== undefined) {
+        var Widget = widgets.getWidgetComponentWithFallback(field.type);
+        if (Widget.serializeValue) {
+          value = Widget.serializeValue(value);
+        }
+      } else {
+        value = this.state.recordInitialData[field.name];
+      }
+
+      rv[field.name] = value;
+    }.bind(this));
+
+    return rv;
+  },
+
   renderFormFields: function() {
     var fields = this.state.recordDataModel.fields.map(function(field) {
       if (isHiddenField(field.name)) {
         return null;
       }
 
-      var value = this.state.recordData[field.name] || '';
-      var Widget = widgets.getWidgetComponent(field.type);
-      if (!Widget) {
-        Widget = widgets.FallbackWidget;
-      } 
-
       var className = 'field';
       if (field.name.substr(0, 1) == '_') {
         className += ' system-field';
+      }
+
+      var Widget = widgets.getWidgetComponentWithFallback(field.type);
+      var value = this.state.recordData[field.name];
+      if (value === undefined) {
+        var value = this.state.recordInitialData[field.name] || '';
+        if (Widget.deserializeValue) {
+          value = Widget.deserializeValue(value);
+        }
       }
 
       return (

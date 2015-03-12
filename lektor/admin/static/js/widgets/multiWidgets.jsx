@@ -5,44 +5,32 @@ var utils = require('../utils');
 var {BasicWidgetMixin} = require('./mixins');
 
 
-function choiceSetFromValue(value) {
-  return value.split(',').map(function(x) {
-    return x.match(/^\s*(.*?)\s*$/)[1];
-  });
-}
-
 var CheckboxesInputWidget = React.createClass({
   mixins: [BasicWidgetMixin],
 
-  getInitialState: function() {
-    return {
-      activeChoices: choiceSetFromValue(this.props.value)
-    };
-  },
+  statics: {
+    deserializeValue: function(value) {
+      return value.split(',').map(function(x) {
+        return x.match(/^\s*(.*?)\s*$/)[1];
+      });
+    },
 
-  componentWillReceiveProps: function(nextProps) {
-    if (this.props.value != nextProps.value) {
-      this.setState({
-        activeChoices: choiceSetFromValue(nextProps.value)
-      })
+    serializeValue: function(value) {
+      return value.join(', ');
     }
   },
 
   onChange: function(field, event) {
-    var activeChoices = utils.flipSetValue(this.state.activeChoices,
-                                           field, event.target.checked);
-    this.setState({
-      activeChoices: activeChoices
-    }, function() {
-      if (this.props.onChange) {
-        this.props.onChange(activeChoices.join(', '))
-      }
-    }.bind(this));
+    var newValue = utils.flipSetValue(this.props.value,
+                                      field, event.target.checked);
+    if (this.props.onChange) {
+      this.props.onChange(newValue)
+    }
   },
 
   isActive: function(field) {
-    for (var i = 0; i < this.state.activeChoices.length; i++) {
-      if (this.state.activeChoices[i] === field) {
+    for (var i = 0; i < this.props.value.length; i++) {
+      if (this.props.value[i] === field) {
         return true;
       }
     }

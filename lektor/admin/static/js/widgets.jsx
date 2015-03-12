@@ -37,8 +37,13 @@ function getWidgetComponent(type) {
   return widgetComponents[type.name] || null;
 }
 
+function getWidgetComponentWithFallback(type) {
+  return widgetComponents[type.name] || FallbackWidget;
+}
+
 
 module.exports = {
   getWidgetComponent: getWidgetComponent,
+  getWidgetComponentWithFallback: getWidgetComponentWithFallback,
   FallbackWidget: FallbackWidget
 };

@@ -11,7 +11,7 @@ function ValidationFailure(options) {
 
 var BasicWidgetMixin = {
   propTypes: {
-    value: React.PropTypes.string,
+    value: React.PropTypes.any,
     type: React.PropTypes.object,
     onChange: React.PropTypes.func
   },

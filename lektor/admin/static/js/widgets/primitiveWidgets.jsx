@@ -83,6 +83,10 @@ var SlugInputWidget = React.createClass({
 var IntegerInputWidget = React.createClass({
   mixins: [InputWidgetMixin],
 
+  postprocessValue: function(value) {
+    return value.match(/^\s*(.*?)\s*$/)[1];
+  },
+
   getValidationFailureImpl: function() {
     if (this.props.value && !this.props.value.match(/^\d+$/)) {
       return new ValidationFailure({
@@ -132,7 +136,7 @@ var MultiLineTextInputWidget = React.createClass({
   },
 
   render: function() {
-    var {type, onChange, ...otherProps} = this.props;
+    var {className, type, onChange, ...otherProps} = this.props;
     var className = (className || '');
 
     return (
@@ -155,7 +159,7 @@ var BooleanInputWidget = React.createClass({
   },
 
   render: function() {
-    var {className, onChange, value, ...otherProps} = this.props;
+    var {className, type, onChange, value, ...otherProps} = this.props;
     className = (className || '') + ' checkbox';
 
     return (
