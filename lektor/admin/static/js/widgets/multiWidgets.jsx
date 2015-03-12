@@ -2,6 +2,7 @@
 
 var React = require('react');
 var utils = require('../utils');
+var {BasicWidgetMixin} = require('./mixins');
 
 
 function choiceSetFromValue(value) {
@@ -11,11 +12,7 @@ function choiceSetFromValue(value) {
 }
 
 var CheckboxesInputWidget = React.createClass({
-  propTypes: {
-    value: React.PropTypes.string,
-    type: React.PropTypes.object,
-    onChange: React.PropTypes.func
-  },
+  mixins: [BasicWidgetMixin],
 
   getInitialState: function() {
     return {

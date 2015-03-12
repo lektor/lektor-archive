@@ -1,7 +1,7 @@
 'use strict';
 
 var React = require('react');
-var {InputWidgetMixin, BasicWidgetMixin, ValidationFailure} = require('./mixins');
+var {BasicWidgetMixin, ValidationFailure} = require('./mixins');
 var utils = require('../utils');
 
 function isTrue(value) {
@@ -10,21 +10,14 @@ function isTrue(value) {
 
 
 var InputWidgetMixin = {
-  propTypes: {
-    value: React.PropTypes.string,
-    type: React.PropTypes.object,
-    onChange: React.PropTypes.func
-  },
-
-  getValidationFailure: function() {
-    if (this.getValidationFailureImpl) {
-      return this.getValidationFailureImpl();
-    }
-    return null;
-  },
+  mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
-    this.props.onChange(event.target.value);
+    var value = event.target.value;
+    if (this.postprocessValue) {
+      value = this.postprocessValue(value);
+    }
+    this.props.onChange(value);
   },
 
   render: function() {
@@ -130,6 +123,7 @@ var UrlInputWidget = React.createClass({
 });
 
 var MultiLineTextInputWidget = React.createClass({
+  mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
     if (this.props.onChange) {
@@ -154,6 +148,7 @@ var MultiLineTextInputWidget = React.createClass({
 });
 
 var BooleanInputWidget = React.createClass({
+  mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
     this.props.onChange(event.target.checked ? 'yes' : 'no');

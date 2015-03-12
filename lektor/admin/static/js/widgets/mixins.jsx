@@ -9,7 +9,23 @@ function ValidationFailure(options) {
   this.type = options.type || 'error';
 }
 
+var BasicWidgetMixin = {
+  propTypes: {
+    value: React.PropTypes.string,
+    type: React.PropTypes.object,
+    onChange: React.PropTypes.func
+  },
+
+  getValidationFailure: function() {
+    if (this.getValidationFailureImpl) {
+      return this.getValidationFailureImpl();
+    }
+    return null;
+  }
+}
+
 
 module.exports = {
-  ValidationFailure: ValidationFailure
+  ValidationFailure: ValidationFailure,
+  BasicWidgetMixin: BasicWidgetMixin
 };

@@ -76,7 +76,7 @@ var EditPage = React.createClass({
 
   renderFormFields: function() {
     var fields = this.state.recordDataModel.fields.map(function(field) {
-      if (isHiddenField(field.name) || field.name.substr(0, 1) == '_') {
+      if (isHiddenField(field.name)) {
         return null;
       }
 
