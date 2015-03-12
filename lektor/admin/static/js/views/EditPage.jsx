@@ -1,6 +1,5 @@
 'use strict';
 
-var qs = require('querystring');
 var React = require('react');
 var Router = require('react-router');
 
@@ -66,16 +65,26 @@ var EditPage = React.createClass({
     return ri.id;
   },
 
+  onValueChange: function(field, value) {
+    var updates = {};
+    updates[field.name] = {$set: value || ''};
+    var rd = React.addons.update(this.state.recordData, updates);
+    this.setState({
+      recordData: rd
+    });
+  },
+
   renderFormFields: function() {
     var fields = this.state.recordDataModel.fields.map(function(field) {
-      if (isHiddenField(field.name)) {
+      if (isHiddenField(field.name) || field.name.substr(0, 1) == '_') {
         return null;
       }
 
-      var value = this.state.recordData[field.name];
-      var widget = widgets.createWidget(field.type, value, {
-        ref: 'f_' + field.name
-      });
+      var value = this.state.recordData[field.name] || '';
+      var Widget = widgets.getWidgetComponent(field.type);
+      if (!Widget) {
+        Widget = widgets.FallbackWidget;
+      } 
 
       var className = 'field';
       if (field.name.substr(0, 1) == '_') {
@@ -85,26 +94,16 @@ var EditPage = React.createClass({
       return (
         <dl key={field.name} className={className}>
           <dt>{field.label}</dt>
-          <dd>{widget}</dd>
+          <dd><Widget
+            value={value}
+            onChange={this.onValueChange.bind(this, field)}
+            type={field.type}
+          /></dd>
         </dl>
       );
     }.bind(this));
 
     return <div>{fields}</div>;
-  },
-
-  /* returns the new values from the form data. */
-  collectNewRecordData: function() {
-    var rv = {};
-    var fields = this.state.recordDataModel.fields;
-    for (var i = 0; i < fields.length; i++) {
-      var field = fields[i];
-      var ref = this.refs['f_' + field.name];
-      if (ref) {
-        rv[field.name] = ref.state.value;
-      }
-    }
-    return rv;
   },
 
   render: function() {

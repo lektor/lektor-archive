@@ -4,6 +4,61 @@ var React = require('react');
 var {InputWidgetMixin, BasicWidgetMixin, ValidationFailure} = require('./mixins');
 var utils = require('../utils');
 
+function isTrue(value) {
+  return value == 'true' || value == 'yes' || value == '1';
+}
+
+
+var InputWidgetMixin = {
+  propTypes: {
+    value: React.PropTypes.string,
+    type: React.PropTypes.object,
+    onChange: React.PropTypes.func
+  },
+
+  getValidationFailure: function() {
+    if (this.getValidationFailureImpl) {
+      return this.getValidationFailureImpl();
+    }
+    return null;
+  },
+
+  onChange: function(event) {
+    this.props.onChange(event.target.value);
+  },
+
+  render: function() {
+    var {type, onChange, className, ...otherProps} = this.props;
+    var help = null;
+    var failure = this.getValidationFailure();
+    var className = (className || '');
+    className += ' input-group';
+
+    if (failure !== null) {
+      className += ' has-feedback has-' + failure.type;
+      var valClassName = 'validation-block validation-block-' + failure.type;
+      help = <div className={valClassName}>{failure.message}</div>;
+    }
+
+    var addon = this.getInputAddon ? this.getInputAddon() : null;
+
+    return (
+      <div className="form-group">
+        <div className={className}>
+          <input
+            type={this.getInputType()}
+            className="form-control"
+            onChange={onChange ? this.onChange : undefined}
+            {...otherProps} />
+          {addon}
+        </div>
+        {help}
+      </div>
+    )
+  }
+};
+
+
 var SingleLineTextInputWidget = React.createClass({
   mixins: [InputWidgetMixin],
 
@@ -36,7 +91,7 @@ var IntegerInputWidget = React.createClass({
   mixins: [InputWidgetMixin],
 
   getValidationFailureImpl: function() {
-    if (this.state.value && !this.state.value.match(/^\d+$/)) {
+    if (this.props.value && !this.props.value.match(/^\d+$/)) {
       return new ValidationFailure({
         message: 'Not a valid number'
       });
@@ -57,7 +112,7 @@ var UrlInputWidget = React.createClass({
   mixins: [InputWidgetMixin],
 
   getValidationFailureImpl: function() {
-    if (this.state.value && !utils.isValidUrl(this.state.value)) {
+    if (this.props.value && !utils.isValidUrl(this.props.value)) {
       return new ValidationFailure({
         message: 'Not a valid URL'
       });
@@ -75,18 +130,15 @@ var UrlInputWidget = React.createClass({
 });
 
 var MultiLineTextInputWidget = React.createClass({
-  mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
-    this.setState({
-      value: event.target.value
-    }, function() {
-      this.notifyChange();
-    }.bind(this));
+    if (this.props.onChange) {
+      this.props.onChange(event.target.value)
+    }
   },
 
   render: function() {
-    var {defaultValue, ...otherProps} = this.props;
+    var {type, onChange, ...otherProps} = this.props;
     var className = (className || '');
 
     return (
@@ -94,37 +146,21 @@ var MultiLineTextInputWidget = React.createClass({
         <textarea
           rows="10"
           className="form-control"
-          {...otherProps}
-          value={this.state.value}
-          onChange={this.onChange} />
+          onChange={onChange ? this.onChange : undefined}
+          {...otherProps} />
       </div>
     )
   }
 });
 
 var BooleanInputWidget = React.createClass({
-  mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
-    if (event.target.checked != this.isChecked()) {
-      this.setState({
-        value: event.target.checked ? 'yes' : 'no'
-      }, function() {
-        this.notifyChange();
-      }.bind(this));
-    }
-  },
-
-  isChecked: function() {
-    var val = this.state.value.toLowerCase();
-    if (val == 'true' || val == 'yes' || val == '1') {
-      return true;
-    }
-    return false;
+    this.props.onChange(event.target.checked ? 'yes' : 'no');
   },
 
   render: function() {
-    var {className, ...otherProps} = this.props;
+    var {className, onChange, value, ...otherProps} = this.props;
     className = (className || '') + ' checkbox';
 
     return (
@@ -132,8 +168,8 @@ var BooleanInputWidget = React.createClass({
         <label>
           <input type="checkbox"
             {...otherProps}
-            checked={this.isChecked()}
-            onChange={this.onChange} />
+            checked={isTrue(value)}
+            onChange={onChange ? this.onChange : undefined} />
         </label>
       </div>
     )

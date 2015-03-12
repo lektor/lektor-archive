@@ -1,31 +1,45 @@
 'use strict';
 
 var React = require('react');
-var {BasicWidgetMixin} = require('./mixins');
 var utils = require('../utils');
 
+
+function choiceSetFromValue(value) {
+  return value.split(',').map(function(x) {
+    return x.match(/^\s*(.*?)\s*$/)[1];
+  });
+}
+
 var CheckboxesInputWidget = React.createClass({
-  mixins: [BasicWidgetMixin],
   propTypes: {
-    choices: React.PropTypes.array
+    value: React.PropTypes.string,
+    type: React.PropTypes.object,
+    onChange: React.PropTypes.func
   },
 
   getInitialState: function() {
     return {
-      activeChoices: this.props.defaultValue.split(',').map(function(x) {
-        return x.match(/^\s*(.*?)\s*$/)[1];
-      })
+      activeChoices: choiceSetFromValue(this.props.value)
     };
+  },
+
+  componentWillReceiveProps: function(nextProps) {
+    if (this.props.value != nextProps.value) {
+      this.setState({
+        activeChoices: choiceSetFromValue(nextProps.value)
+      })
+    }
   },
 
   onChange: function(field, event) {
     var activeChoices = utils.flipSetValue(this.state.activeChoices,
                                            field, event.target.checked);
     this.setState({
-      activeChoices: activeChoices,
-      value: activeChoices.join(', ')
+      activeChoices: activeChoices
     }, function() {
-      this.notifyChange();
+      if (this.props.onChange) {
+        this.props.onChange(activeChoices.join(', '))
+      }
     }.bind(this));
   },
 
@@ -39,10 +53,10 @@ var CheckboxesInputWidget = React.createClass({
   },
 
   render: function() {
-    var {className, ...otherProps} = this.props;
+    var {className, value, type, ...otherProps} = this.props;
     className = (className || '') + ' checkbox';
 
-    var choices = this.props.choices.map(function(item) {
+    var choices = this.props.type.choices.map(function(item) {
       return (
         <div className={className} key={item[0]}>
           <label>
@@ -63,13 +77,6 @@ var CheckboxesInputWidget = React.createClass({
   }
 });
 
-function createCheckboxInputWidget(type, value, props) {
-  return <CheckboxesInputWidget
-    defaultValue={value}
-    choices={type.choices}
-    {...props} />;
-}
-
 module.exports = {
-  createCheckboxInputWidget: createCheckboxInputWidget
+  CheckboxesInputWidget: CheckboxesInputWidget
 };

@@ -4,10 +4,10 @@ var React = require('react');
 
 var primitiveWidgets = require('./widgets/primitiveWidgets');
 var multiWidgets = require('./widgets/multiWidgets');
+var {BasicWidgetMixin} = require('./widgets/mixins');
 
 
-// primitive widgets do not really need a fancy factory
-var basicWidgets = {
+var widgetComponents = {
   'string': primitiveWidgets.SingleLineTextInputWidget,
   'integer': primitiveWidgets.IntegerInputWidget,
   'boolean': primitiveWidgets.BooleanInputWidget,
@@ -15,48 +15,30 @@ var basicWidgets = {
   'slug': primitiveWidgets.SlugInputWidget,
   'text': primitiveWidgets.MultiLineTextInputWidget,
   'html': primitiveWidgets.MultiLineTextInputWidget,
-  'markdown': primitiveWidgets.MultiLineTextInputWidget
-};
-
-// widgets that come with custom factories
-var complexWidgets = {
-  'checkboxes': multiWidgets.createCheckboxInputWidget
+  'markdown': primitiveWidgets.MultiLineTextInputWidget,
+  'flow': primitiveWidgets.MultiLineTextInputWidget,
+  'checkboxes': multiWidgets.CheckboxesInputWidget
 }
 
 
 var FallbackWidget = React.createClass({
-  propTypes: {
-    name: React.PropTypes.string
-  },
-
+  mixins: [BasicWidgetMixin],
   render: function() {
     return (
       <div>
-        <em>Widget for "{this.props.name}" not implemented</em>
+        <em>Widget for "{this.props.type.name}" not implemented</em>
       </div>
     )
   }
 });
 
 
-function createWidget(type, value, props) {
-  props = props || {};
-  value = value || '';
-
-  var Widget = basicWidgets[type.name];
-  if (Widget !== undefined) {
-    return <Widget defaultValue={value} {...props} />
-  }
-
-  var factory = complexWidgets[type.name];
-  if (factory !== undefined) {
-    return factory(type, value, props);
-  }
-
-  return <FallbackWidget name={type.name} />
+function getWidgetComponent(type) {
+  return widgetComponents[type.name] || null;
 }
 
 
 module.exports = {
-  createWidget: createWidget
+  getWidgetComponent: getWidgetComponent,
+  FallbackWidget: FallbackWidget
 };
