@@ -3,3 +3,9 @@
 *.egg-info
 build
 dist
+*.pyproj
+*.sln
+*.suo
+venv
+inifile.*
+example

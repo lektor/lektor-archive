@@ -201,6 +201,7 @@ class Publisher(object):
             return None
         
     def calculate_change_list(self):
+        #TODO delete tmp file after it was read into artifacts dict
         #TODO handling if artifacts.gz was not found 
         #-> Root dir manipulated?
         #-> Fresh directory / Initial sync?
