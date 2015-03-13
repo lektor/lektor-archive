@@ -13,12 +13,11 @@ def get_pad(refresh=False):
     return pad
 
 
-def get_frontend_source(all_sources=False):
+def get_frontend_source():
     """Returns the source currently referenced in the frontend.
     """
     path = request.environ['lektor.frontend_path']
-    return get_pad().resolve_url_path(path, all_sources=all_sources,
-                                      include_invisible=True)
+    return get_pad().resolve_url_path(path, include_invisible=True)
 
 
 def action_url(endpoint=None, source=None, **values):

@@ -34,6 +34,7 @@ DEFAULT_CONFIG = {
         '.docx': 'document',
 
         '.txt': 'text',
+        '.log': 'text',
     },
 }
 

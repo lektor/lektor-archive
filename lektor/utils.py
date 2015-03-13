@@ -149,10 +149,12 @@ def sort_normalize_string(s):
     return unicodedata.normalize('NFD', unicode(s).lower().strip())
 
 
-def get_dependent_url(url_path, suffix):
+def get_dependent_url(url_path, suffix, ext=None):
     url_directory, url_filename = posixpath.split(url_path)
     url_base, url_ext = posixpath.splitext(url_filename)
-    return posixpath.join(url_directory, url_base + u'@' + suffix + url_ext)
+    if ext is None:
+        ext = url_ext
+    return posixpath.join(url_directory, url_base + u'@' + suffix + ext)
 
 
 @contextmanager
@@ -167,15 +169,15 @@ def atomic_open(filename, mode='r'):
     try:
         yield f
     except:
+        f.close()
         exc_type, exc_value, tb = sys.exc_info()
         if tmp_filename is not None:
             try:
                 os.remove(tmp_filename)
             except OSError:
                 pass
-        f.close()
         raise exc_type, exc_value, tb
     else:
+        f.close()
         if tmp_filename is not None:
             rename(tmp_filename, filename)
-        f.close()

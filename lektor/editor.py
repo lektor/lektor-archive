@@ -30,8 +30,7 @@ class Editor(object):
         it will be the same data as the raw data that was originally used
         to retrieve the source object.
         """
-        return self.pad.db.load_raw_data(
-            source['_path'], source.record_classification, cls=None)
+        return self.pad.db.load_raw_data(source['_path'], cls=cls)
 
     def add_page_record(self, parent_source, new_data):
         """Creates a new page below a parent.  The data is trusted.

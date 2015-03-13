@@ -18,7 +18,9 @@ setup(
         'watchdog',
         'Markdown',
         'Flask',
-        # XXX: python-inifile
+        'EXIFRead',
+        'Pillow',
+        'inifile',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

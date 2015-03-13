@@ -2,7 +2,6 @@ import threading
 import markdown
 
 from markupsafe import Markup
-from jinja2 import is_undefined
 
 from lektor.types import Type
 from lektor import widgets
@@ -55,10 +54,3 @@ class MarkdownType(Type):
         if raw.value is None:
             return raw.missing_value('Missing markdown')
         return Markdown(raw.value)
-
-    def value_to_json(self, value, pad):
-        if not is_undefined(value):
-            return {
-                'source': value.source,
-                'html': unicode(value.html)
-            }

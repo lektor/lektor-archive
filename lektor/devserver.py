@@ -104,7 +104,7 @@ class WsgiApp(object):
 
         # We start with trying to resolve a source and then use the
         # primary
-        source = pad.resolve_url_path(request.path, all_sources=True)
+        source = pad.resolve_url_path(request.path)
         if source is not None:
             with CliReporter(self.env, verbosity=self.verbosity):
                 builder = self.get_builder(pad)
@@ -171,4 +171,4 @@ def run_server(bindaddr, env, output_path, verbosity=0):
     background_builder.start()
     app = WsgiApp(env, output_path, verbosity)
     return run_simple(bindaddr[0], bindaddr[1], app,
-                      use_debugger=True)
+                      use_debugger=True, threaded=True)

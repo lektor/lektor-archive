@@ -58,7 +58,7 @@ class SourceObject(object):
         path = posixpath.join(this, path)
 
         if resolve:
-            source = self.pad.get(path, all_sources=True)
+            source = self.pad.get(path)
             if source is not None:
                 path = source.url_path
 
