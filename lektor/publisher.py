@@ -201,17 +201,18 @@ class Publisher(object):
             return None
         
     def calculate_change_list(self):
-        #TODO delete tmp file after it was read into artifacts dict
         #TODO handling if artifacts.gz was not found 
         #-> Root dir manipulated?
         #-> Fresh directory / Initial sync?
         f = self._get_remote_artifacts_file()
         if f:
             self._decode_artifacts_file(f, self._artifacts)
+            del f
             for item in self._artifacts.items():
                 print item
         else:
-            print "No file found"
+            print "No file found."
+
 
     def publish(self):
         try:
@@ -222,154 +223,3 @@ class Publisher(object):
         
         print "Publish finished without errors."
             
-
-
-'''def get_ftp_root(self, root):
-        ftp_root = os.path.join(*root.split(self.source)[1::])
-        #remove preceding slash
-        ftp_root = ftp_root.replace(os.path.sep, '', 1)
-        ftp_root = ftp_root.replace(os.path.sep, self.ftp.host.sep)
-        # XXX: ftp_root is now unicode!
-        ftp_root = self.ftp.host.path.join(self.destination, ftp_root)
-        return ftp_root
-    
-    def initial_upload(self):
-        try:
-            orig_root = self.source
-            for root, dirs, files in os.walk(self.source):
-                ftp_root = self.get_ftp_root(root)
-                # XXX: use self.chdir
-                self.ftp.host.chdir(ftp_root)
-                
-                for dir in dirs:
-                    # XXX: use self.mkdir
-                    self.ftp.host.mkdir(dir)
-                    
-                for file in files:
-                    src = os.path.join(root, file)
-                    tgt = self.ftp.host.path.join(ftp_root, unicode(file))
-                    # XXX: use self.upload
-                    print "Uploading: " + file
-                    self.ftp.host.upload(src, tgt)
-        except FTPError as e:
-            print e.strerror
-            # XXX: raise error
-            exit()'''
-
-
-
-'''
-class FtpConnection(object):
-
-    def __init__(self, server_url, user, pw)
-        self._server_url = server_url
-        self._user = user
-        self._pw = pw
-        self._ftp = None
-        
-    @property
-    def ftp(self):
-        if self.ftp is None:
-            self._ftp = FTP(self._server_url, self._user, self._pw)
-        return self._ftp
-        
-    def connect(self):
-        self._ftp = FTP(self._server_url, self._user, self._pw)
-    
-        
-            
-            
-server_url = "127.0.0.1"
-user = "Tester"
-pw = "tester"
-
-wd = 'deleteTest_2_2_2'
-
-ftp = FTP(server_url, user, pw)
-ftp.cwd(wd)
-root = FtpTree()
-root.build_tree(ftp)
-
-#delete root folder (with all folders and files in it)
-for path, file in root.walk():
-    ftp.delete(posixpath.join(path, file.name))
-dirs = []
-for path, dir in root.walk_dirs():
-    dirs.append(posixpath.join(path, dir.name))    
-for dir in dirs[::-1]:
-    ftp.rmd(dir)
-ftp.rmd(ftp.pwd())
-
-
-    
-######################################
-#old
-######################################
-
-
-class Publisher():
-
-    def __init__(self, root_path, remote_path):
-        self.root_path = root_path
-        self.remote_path = remote_path
-
-def abspatha(*paths):
-    filename = os.path.join(*(paths or ('',)))
-    if not os.path.isabs(filename):
-        filename = os.path.join(self.remote_path, filename)        
-    return filename
-
-root_dir = "/Client1"
-    
-def abspath(*paths):
-    filepath = posixpath.join(*(paths or ('',)))
-    if not posixpath.isabs(filepath):
-        filepath = posixpath.join(root_dir, filepath)
-    return filepath
-        
-def parse_remote_files(ftp, directory=''): 
-
-    wd = abspath(directory)
-
-    #TODO make function for this
-    if ftp.pwd() != wd:
-        ftp.cwd(wd)
-
-    rdict = {}
-    rlist = []
-    ftp.retrlines('MLSD', rlist.append)
-
-    #TODO look at every fact to determine what it is
-    for f in rlist:
-        unpack = f.split(';')
-        type = unpack[0]
-        data = unpack[1:]
-        if type.startswith("type="):
-            type = type.split('=')[1]
-            if type == 'dir':
-                folder = posixpath.join(wd, data[1].strip())
-                #TODO directory dict to create or delete dicts before updating files later
-                rdict[folder] = 'd'
-                rdict.update(parse_remote_files(ftp, folder))
-            elif type == 'file':
-                rdict[posixpath.join(wd, data[2].strip())] = (data[0].split('=')[1], data[1].split('=')[1])
-            else:
-                continue #throw MLSD error
-            
-        else:
-            continue #throw MLSD error
-    return rdict
-
-    
-#TODO connect to absolute path of cwd and check it
-#server_url = "127.0.0.1"
-#root_dir = "/Client1"
-#ftp = FTP(server_url, "Tester", "tester")
-
-#rdict = parse_remote_files(ftp, root_dir)
-    
-#print rdict
-
-#['type=file;modify=20150103222118;size=0; asdf.txt', 'type=dir;modify=20150103222126; testsasdf']
-
-'''
