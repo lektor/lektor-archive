@@ -27,7 +27,8 @@ function isIllegalField(name) {
 
 var EditPage = React.createClass({
   mixins: [
-    RecordState
+    RecordState,
+    Router.Navigation
   ],
 
   getInitialState: function() {
@@ -96,12 +97,13 @@ var EditPage = React.createClass({
   },
 
   saveChanges: function(event) {
+    var path = this.getRecordPath();
     var newData = this.getValues();
     utils.apiRequest('/rawrecord', {json: {
-        data: newData, path: this.getRecordPath()}, method: 'PUT'})
+        data: newData, path: path}, method: 'PUT'})
       .then(function(resp) {
-        /* TODO: something here */
-      });
+        this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+      }.bind(this));
   },
 
   getLabel: function() {
@@ -161,8 +163,8 @@ var EditPage = React.createClass({
         <h2>{gettext('Edit “%s”').replace('%s', this.getLabel())}</h2>
         {this.renderFormFields()}
         <div className="actions">
-          <button type="submit" className="btn btn-default"
-            onClick={this.saveChanges}>Save</button>
+          <button type="submit" className="btn btn-primary"
+            onClick={this.saveChanges}>{gettext('Save')}</button>
         </div>
       </div>
     );

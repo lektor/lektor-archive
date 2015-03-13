@@ -91,7 +91,8 @@ function serialize(blocks) {
         if (lineIsDashes(line)) {
           line = '-' + line;
         }
-        rv.push(line + '\n');
+        rv.push(line + (idx < arr.length - 1 ||
+                        value.match(/\n$/) ? '\n' : ''));
       });
     } else {
       rv.push(key + ': ' + value + '\n');
