@@ -251,13 +251,17 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
-    background_builder = BackgroundBuilder(env, output_path, verbosity)
-    background_builder.setDaemon(True)
-    background_builder.start()
+    wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+    save_for_bg = not lektor_dev or wz_as_main
+
+    if save_for_bg:
+        background_builder = BackgroundBuilder(env, output_path, verbosity)
+        background_builder.setDaemon(True)
+        background_builder.start()
     app = WsgiApp(env, output_path, verbosity, debug=lektor_dev)
 
     dt = None
-    if lektor_dev and not os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    if lektor_dev and not wz_as_main:
         dt = DevTools()
         dt.start()
 

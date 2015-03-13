@@ -112,3 +112,13 @@ def match_url():
 def get_raw_record():
     ts = g.lektor_info.pad.edit(request.args['path'])
     return jsonify(ts.to_json())
+
+
+@bp.route('/api/rawrecord', methods=['PUT'])
+def update_raw_record():
+    values = request.get_json()
+    data = values['data']
+    ts = g.lektor_info.pad.edit(values['path'])
+    with ts:
+        ts.update(data)
+    return jsonify(path=ts.path)

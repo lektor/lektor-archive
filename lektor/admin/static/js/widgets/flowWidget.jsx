@@ -136,53 +136,74 @@ var FlowWidget = React.createClass({
     }
   },
 
-  renderBlock: function(flowBlockModel, data) {
-    var fields = flowBlockModel.fields.map(function(field) {
-      if (field.name == '_flowblock') {
-        return null;
-      }
+  // XXX: the modification of props is questionable
 
-      var value = data[field.name];
-      var Widget = getWidgetComponent(field.type);
-      if (!Widget) {
-        return null;
-      }
+  moveBlock: function(idx, offset, event) {
+    event.preventDefault();
 
-      function onValueChange(value) {
-        data[field.name] = value;
-        this.props.onChange(this.props.value);
-      }
+    var newIndex = idx + offset;
+    if (newIndex < 0 || newIndex >= this.props.value.length) {
+      return;
+    }
 
-      return (
-        <dl key={field.name}>
-          <dt>{field.label}</dt>
-          <dd><Widget
-            value={value}
-            onChange={this.props.onChange ? onValueChange.bind(this) : undefined}
-            type={field.type}
-          /></dd>
-        </dl>
-      );
-    }.bind(this));
+    var tmp = this.props.value[newIndex];
+    this.props.value[newIndex] = this.props.value[idx];
+    this.props.value[idx] = tmp;
 
-    return (
-      <div className="flow-block">
-        <h4 className="block-name">{flowBlockModel.name}</h4>
-        {fields}
-      </div>
-    );
+    if (this.props.onChange) {
+      this.props.onChange(this.props.value);
+    }
   },
 
-  renderCurrentBlocks: function() {
-    return this.props.value.map(function(blockInfo) {
+  removeBlock: function(idx, event) {
+    event.preventDefault();
+
+    this.props.value.splice(idx, 1);
+    if (this.props.onChange) {
+      this.props.onChange(this.props.value);
+    }
+  },
+
+  renderBlocks: function() {
+    return this.props.value.map(function(blockInfo, idx) {
       // bad block is no block
       if (blockInfo === null) {
         return null;
       }
 
+      var fields = blockInfo.flowBlockModel.fields.map(function(field) {
+        var value = blockInfo.data[field.name];
+        var Widget = getWidgetComponent(field.type);
+        if (!Widget) {
+          return null;
+        }
+
+        function onValueChange(value) {
+          blockInfo.data[field.name] = value;
+          this.props.onChange(this.props.value);
+        }
+
+        return (
+          <dl key={field.name}>
+            <dt>{field.label}</dt>
+            <dd><Widget
+              value={value}
+              onChange={this.props.onChange ? onValueChange.bind(this) : undefined}
+              type={field.type}
+            /></dd>
+          </dl>
+        );
+      }.bind(this));
+
       return (
-        <div key={blockInfo.localId}>
-          {this.renderBlock(blockInfo.flowBlockModel, blockInfo.data)}
+        <div key={blockInfo.localId} className="flow-block">
+          <ul className="actions">
+            <li><a href="#" onClick={this.moveBlock.bind(this, idx, -1)}>Up</a></li>
+            <li><a href="#" onClick={this.moveBlock.bind(this, idx, 1)}>Down</a></li>
+            <li><a href="#" onClick={this.removeBlock.bind(this, idx)}>Remove</a></li>
+          </ul>
+          <h4 className="block-name">{blockInfo.flowBlockModel.name}</h4>
+          {fields}
         </div>
       );
     }.bind(this));
@@ -194,7 +215,7 @@ var FlowWidget = React.createClass({
 
     return (
       <div className={className}>
-        {this.renderCurrentBlocks()}
+        {this.renderBlocks()}
       </div>
     );
   }

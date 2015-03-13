@@ -111,7 +111,49 @@ div.application {
   }
 }
 
-.editor dl.system-field dt {
-  color: #666;
-  font-style: italic;
+.edit-area {
+  dl.system-field dt {
+    color: #666;
+    font-style: italic;
+  }
+
+  dl.field {
+    dt {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    dd {
+      margin-left: 0;
+    }
+  }
+
+  div.flow-block {
+    background: #fafafa;
+    border: 1px solid #ccc;
+    margin: 0;
+    padding: 5px 10px;
+    border-radius: 5px;
+
+    &+ div.flow-block {
+      margin-top: 15px;
+    }
+
+    h4 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    ul.actions {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      float: right;
+
+      li {
+        display: inline-block;
+        margin-left: 8px;
+      }
+    }
+  }
 }

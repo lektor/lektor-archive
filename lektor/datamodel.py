@@ -258,7 +258,8 @@ class FlowBlockModel(object):
             'id': self.id,
             'name': self.name,
             'filename': self.filename,
-            'fields': [x.to_json(pad) for x in _iter_all_fields(self)],
+            'fields': [x.to_json(pad) for x in _iter_all_fields(self)
+                       if x.name != '_flowblock'],
         }
 
     def process_raw_data(self, raw_data, pad=None):

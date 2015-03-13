@@ -82,7 +82,7 @@ function serialize(blocks) {
   blocks.forEach(function(item, idx) {
     var [key, value] = item;
     if (idx > 0) {
-      rv.push('---\n\n');
+      rv.push('---\n');
     }
     if (value.match(/([\r\n]|(^[\t ])|([\t ]$))/m)) {
       rv.push(key + ':\n');
@@ -91,9 +91,8 @@ function serialize(blocks) {
         if (lineIsDashes(line)) {
           line = '-' + line;
         }
-        rv.push(line + (idx < arr.length - 1 ? '\n' : ''));
+        rv.push(line + '\n');
       });
-      rv.push('\n');
     } else {
       rv.push(key + ': ' + value + '\n');
     }

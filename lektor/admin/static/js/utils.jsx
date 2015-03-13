@@ -64,12 +64,37 @@ var utils = {
     return '/' + adminPath.substr(base.length).match(/^\/*(.*?)\/*$/)[1];
   },
 
-  loadData: function(url, params) {
+  loadData: function(url, params, options) {
+    options = options || {};
     return new Promise(function(resolve, reject) {
       jQuery.ajax({
         url: $LEKTOR_CONFIG.admin_root + '/api' + url,
-        data: params
+        data: params,
+        method: options.method || 'GET'
       })
+        .done(function(data) {
+          resolve(data);
+        })
+        .fail(function() {
+          reject(new Error('Loading of data failed'));
+        });
+    });
+  },
+
+  apiRequest: function(url, options) {
+    options = options || {};
+    options.url = $LEKTOR_CONFIG.admin_root + '/api' + url;
+    if (options.json !== undefined) {
+      options.data = JSON.stringify(options.json);
+      options.contentType = 'application/json';
+      delete options.json;
+    }
+    if (!options.method) {
+      options.method = 'GET';
+    }
+
+    return new Promise(function(resolve, reject) {
+      jQuery.ajax(options)
         .done(function(data) {
           resolve(data);
         })

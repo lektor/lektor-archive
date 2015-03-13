@@ -116,7 +116,7 @@ class EditorSession(object):
     def __setitem__(self, key, value):
         old_value = self.original_data.get(key)
         if old_value != value:
-            self._changed.add(value)
+            self._changed.add(key)
         else:
             # If the key is in the possibly implied key set and set to
             # that value, we will set it to changed anyways.  This allows
@@ -134,10 +134,14 @@ class EditorSession(object):
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        if exc_type is None:
+        if exc_type is not None:
             self.rollback()
         else:
             self.commit()
+
+    def update(self, *args, **kwargs):
+        for key, value in dict(*args, **kwargs).iteritems():
+            self[key] = value
 
     def iteritems(self):
         done = set()

@@ -9,8 +9,11 @@ var widgets = require('../widgets');
 var {gettext} = utils;
 
 
-function isHiddenField(name) {
+function isIllegalField(name) {
   switch (name) {
+    case '_id':
+    case '_expose':
+    case '_hidden':
     case '_path':
     case '_gid':
     case '_model':
@@ -68,6 +71,10 @@ var EditPage = React.createClass({
   getValues: function() {
     var rv = {};
     this.state.recordDataModel.fields.forEach(function(field) {
+      if (isIllegalField(field.name)) {
+        return;
+      }
+
       var value = this.state.recordData[field.name];
 
       if (value !== undefined) {
@@ -88,6 +95,15 @@ var EditPage = React.createClass({
     return rv;
   },
 
+  saveChanges: function(event) {
+    var newData = this.getValues();
+    utils.apiRequest('/rawrecord', {json: {
+        data: newData, path: this.getRecordPath()}, method: 'PUT'})
+      .then(function(resp) {
+        /* TODO: something here */
+      });
+  },
+
   getLabel: function() {
     var ri = this.state.recordInfo;
     if (!ri) {
@@ -101,7 +117,7 @@ var EditPage = React.createClass({
 
   renderFormFields: function() {
     var fields = this.state.recordDataModel.fields.map(function(field) {
-      if (isHiddenField(field.name)) {
+      if (isIllegalField(field.name)) {
         return null;
       }
 
@@ -141,9 +157,13 @@ var EditPage = React.createClass({
     }
 
     return (
-      <div>
+      <div className="edit-area">
         <h2>{gettext('Edit “%s”').replace('%s', this.getLabel())}</h2>
         {this.renderFormFields()}
+        <div className="actions">
+          <button type="submit" className="btn btn-default"
+            onClick={this.saveChanges}>Save</button>
+        </div>
       </div>
     );
   }
