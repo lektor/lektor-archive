@@ -56,17 +56,6 @@ var EditPage = React.createClass({
       }.bind(this));
   },
 
-  getLabel: function() {
-    var ri = this.state.recordInfo;
-    if (!ri) {
-      return null;
-    }
-    if (ri.exists) {
-      return ri.label;
-    }
-    return ri.id;
-  },
-
   onValueChange: function(field, value) {
     var updates = {};
     updates[field.name] = {$set: value || ''};
@@ -84,16 +73,30 @@ var EditPage = React.createClass({
       if (value !== undefined) {
         var Widget = widgets.getWidgetComponentWithFallback(field.type);
         if (Widget.serializeValue) {
-          value = Widget.serializeValue(value);
+          value = Widget.serializeValue(value, field.type);
         }
       } else {
         value = this.state.recordInitialData[field.name];
+        if (value === undefined) {
+          value = null;
+        }
       }
 
       rv[field.name] = value;
     }.bind(this));
 
     return rv;
+  },
+
+  getLabel: function() {
+    var ri = this.state.recordInfo;
+    if (!ri) {
+      return null;
+    }
+    if (ri.exists) {
+      return ri.label;
+    }
+    return ri.id;
   },
 
   renderFormFields: function() {
@@ -112,7 +115,7 @@ var EditPage = React.createClass({
       if (value === undefined) {
         var value = this.state.recordInitialData[field.name] || '';
         if (Widget.deserializeValue) {
-          value = Widget.deserializeValue(value);
+          value = Widget.deserializeValue(value, field.type);
         }
       }
 

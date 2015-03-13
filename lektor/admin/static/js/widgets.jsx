@@ -4,6 +4,7 @@ var React = require('react');
 
 var primitiveWidgets = require('./widgets/primitiveWidgets');
 var multiWidgets = require('./widgets/multiWidgets');
+var flowWidget = require('./widgets/flowWidget');
 var {BasicWidgetMixin} = require('./widgets/mixins');
 
 
@@ -16,7 +17,7 @@ var widgetComponents = {
   'text': primitiveWidgets.MultiLineTextInputWidget,
   'html': primitiveWidgets.MultiLineTextInputWidget,
   'markdown': primitiveWidgets.MultiLineTextInputWidget,
-  'flow': primitiveWidgets.MultiLineTextInputWidget,
+  'flow': flowWidget.FlowWidget,
   'checkboxes': multiWidgets.CheckboxesInputWidget
 }
 
