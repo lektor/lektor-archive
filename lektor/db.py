@@ -1,8 +1,6 @@
-import re
 import os
 import sys
 import errno
-import codecs
 import operator
 import functools
 import posixpath
@@ -13,7 +11,7 @@ from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
 
 from lektor import metaformat
-from lektor.utils import sort_normalize_string
+from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, fs_enc
 from lektor.sourceobj import SourceObject
 from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
@@ -21,54 +19,6 @@ from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
 from lektor.editor import make_editor_session
 
-
-_slashes_re = re.compile(r'/+')
-
-# Figure out our fs encoding, if it's ascii we upgrade to utf-8
-fs_enc = sys.getfilesystemencoding()
-try:
-    if codecs.lookup(fs_enc).name == 'ascii':
-        fs_enc = 'utf-8'
-except LookupError:
-    pass
-
-
-def cleanup_path(path):
-    return '/' + _slashes_re.sub('/', path.strip('/'))
-
-
-def to_os_path(path):
-    return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
-
-def resolve_path(execute_file, cwd=None):
-    if (os.name != 'nt'):
-        return execute_file
-    extensions = ['']
-    execute_file = to_os_path(execute_file)
-    
-    path_var = os.environ.get('PATH', '').split(os.pathsep)
-    path_ext_var = os.environ.get('PATHEXT', '').split(';')
-    
-    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
-    if not ext_existing:
-        extensions = path_ext_var
-        
-    
-    try:
-        for ext in extensions:
-            if cwd:
-                execute = os.path.join(cwd, execute_file + ext)
-                if os.access(execute, os.X_OK):
-                    return execute
-            else:
-                for path in path_var:
-                    execute = os.path.join(path, execute_file + ext)
-                    if os.access(execute, os.X_OK):
-                        return execute
-    except OSError:
-        pass
-            
-    return None
 
 def _require_ctx(record):
     ctx = get_ctx()
