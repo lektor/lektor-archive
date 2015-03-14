@@ -117,6 +117,15 @@ var EditPage = React.createClass({
     return ri.id;
   },
 
+  getPlaceholderForField: function(field) {
+    if (field.name == '_slug') {
+      return this.state.recordInfo.slug_format;
+    } else if (field.name == '_template') {
+      return this.state.recordInfo.default_template;
+    }
+    return null;
+  },
+
   renderFormFields: function() {
     var fields = this.state.recordDataModel.fields.map(function(field) {
       if (isIllegalField(field.name)) {
@@ -137,6 +146,8 @@ var EditPage = React.createClass({
         }
       }
 
+      var placeholder = this.getPlaceholderForField(field);
+
       return (
         <dl key={field.name} className={className}>
           <dt>{field.label}</dt>
@@ -144,6 +155,7 @@ var EditPage = React.createClass({
             value={value}
             onChange={this.onValueChange.bind(this, field)}
             type={field.type}
+            placeholder={placeholder}
           /></dd>
         </dl>
       );

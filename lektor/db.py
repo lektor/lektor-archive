@@ -870,18 +870,21 @@ class Database(object):
                 ctx.record_dependency(record.datamodel.filename)
         return record
 
+    def get_default_slug(self, data, pad):
+        parent_path = posixpath.dirname(data['_path'])
+        parent = None
+        if parent_path != data['_path']:
+            parent = pad.get(parent_path)
+        if parent:
+            slug = parent.datamodel.get_default_child_slug(pad, data)
+        else:
+            slug = ''
+        return slug
+
     def process_data(self, data, datamodel, pad):
         # Automatically fill in slugs
         if is_undefined(data['_slug']):
-            parent_path = posixpath.dirname(data['_path'])
-            parent = None
-            if parent_path != data['_path']:
-                parent = pad.get(parent_path)
-            if parent:
-                slug = parent.datamodel.get_default_child_slug(pad, data)
-            else:
-                slug = ''
-            data['_slug'] = slug
+            data['_slug'] = self.get_default_slug(data, pad)
         else:
             data['_slug'] = data['_slug'].strip('/')
 

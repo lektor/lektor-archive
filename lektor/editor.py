@@ -72,6 +72,16 @@ class EditorSession(object):
         self.original_data = original_data
         self.datamodel = datamodel
 
+        slug_format = None
+        parent_name = posixpath.dirname(path)
+        if parent_name != path:
+            parent = pad.get(parent_name)
+            if parent is not None:
+                slug_format = parent.datamodel.child_config.slug_format
+        if slug_format is None:
+            slug_format = u'{{ this._id }}'
+        self.slug_format = slug_format
+
         self._data = {}
         self._changed = set()
         self._delete_this = False
@@ -94,6 +104,8 @@ class EditorSession(object):
                 'label': label,
                 'url_path': url_path,
                 'is_attachment': self.is_attachment,
+                'slug_format': self.slug_format,
+                'default_template': self.datamodel.get_default_template_name(),
             },
             'datamodel': self.datamodel.to_json(self.pad),
         }
