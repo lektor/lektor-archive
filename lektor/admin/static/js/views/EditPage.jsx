@@ -4,6 +4,7 @@ var React = require('react');
 var Router = require('react-router');
 
 var RecordState = require('../mixins/RecordState');
+var NavigationConfirmationMixin = require('../mixins/NavigationConfirmationMixin');
 var utils = require('../utils');
 var widgets = require('../widgets');
 var {gettext} = utils;
@@ -25,10 +26,12 @@ function isIllegalField(name) {
 }
 
 
+
 var EditPage = React.createClass({
   mixins: [
     RecordState,
-    Router.Navigation
+    Router.Navigation,
+    NavigationConfirmationMixin
   ],
 
   getInitialState: function() {
@@ -36,7 +39,8 @@ var EditPage = React.createClass({
       recordInitialData: null,
       recordData: null,
       recordDataModel: null,
-      recordInfo: null
+      recordInfo: null,
+      hasPendingChanges: false
     }
   },
 
@@ -44,8 +48,16 @@ var EditPage = React.createClass({
     this.syncEditor();
   },
 
+  componentWillUnmount: function() {
+    console.log('UNMOUNT');
+  },
+
   componentWillReceiveProps: function(nextProps) {
     this.syncEditor();
+  },
+
+  hasPendingChanges: function() {
+    return this.state.hasPendingChanges;
   },
 
   syncEditor: function() {
@@ -56,6 +68,7 @@ var EditPage = React.createClass({
           recordData: {},
           recordDataModel: resp.datamodel,
           recordInfo: resp.record_info,
+          hasPendingChanges: false
         });
       }.bind(this));
   },
@@ -65,7 +78,8 @@ var EditPage = React.createClass({
     updates[field.name] = {$set: value || ''};
     var rd = React.addons.update(this.state.recordData, updates);
     this.setState({
-      recordData: rd
+      recordData: rd,
+      hasPendingChanges: true
     });
   },
 
@@ -102,7 +116,11 @@ var EditPage = React.createClass({
     utils.apiRequest('/rawrecord', {json: {
         data: newData, path: path}, method: 'PUT'})
       .then(function(resp) {
-        this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+        this.setState({
+          hasPendingChanges: false
+        }, function() {
+          this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+        });
       }.bind(this));
   },
 
