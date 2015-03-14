@@ -180,13 +180,13 @@ class LessFileAssetBuildProgram(BuildProgram):
         here = os.path.dirname(self.source.source_filename)
 
         exe = self.build_state.env.config['LESSC_EXECUTABLE']
-        if exe is None:
-            if sys.platform.startswith('win'):
-                exe = 'lessc.cmd'
-            else:
-                exe = 'lessc'
+        #if exe is None:
+        #    if sys.platform.startswith('win'):
+        #        exe = 'lessc.cmd'
+        #    else:
+        #        exe = 'lessc'
 
-        cmdline = [exe, '--no-js', '--include-path=%s' % here,
+        cmdline = ['lessc', '--no-js', '--include-path=%s' % here,
                    '--source-map=%s' % map_out,
                    self.source.source_filename,
                    source_out]
