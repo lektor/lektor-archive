@@ -2,6 +2,7 @@
 
 var React = require('react');
 var utils = require('../utils');
+var {gettext} = utils;
 var metaformat = require('../metaformat');
 var {BasicWidgetMixin} = require('./mixins');
 
@@ -158,7 +159,23 @@ var FlowWidget = React.createClass({
   removeBlock: function(idx, event) {
     event.preventDefault();
 
-    this.props.value.splice(idx, 1);
+    if (confirm(gettext('Do you really want to remove this block?'))) {
+      this.props.value.splice(idx, 1);
+      if (this.props.onChange) {
+        this.props.onChange(this.props.value);
+      }
+    }
+  },
+
+  addNewBlock: function(event) {
+    event.preventDefault();
+
+    var key = this.refs.new_block_choice.getDOMNode().value;
+    var flowBlockModel = this.props.type.flowblocks[key];
+
+    // this is a rather ugly way to do this, but hey, it works.
+    this.props.value.push(deserializeFlowBlock(flowBlockModel, [],
+                                               ++lastBlockId));
     if (this.props.onChange) {
       this.props.onChange(this.props.value);
     }
@@ -209,6 +226,38 @@ var FlowWidget = React.createClass({
     }.bind(this));
   },
 
+  renderAddBlockSection: function() {
+    var choices = [];
+
+    for (var key in this.props.type.flowblocks) {
+      var flowBlockModel = this.props.type.flowblocks[key];
+      choices.push([flowBlockModel.id, flowBlockModel.name]);
+    }
+    choices.sort(function(a, b) {
+      return a[1].toLowerCase().localeCompare(b[1].toLowerCase());
+    });
+    choices = choices.map(function(item) {
+      var [value, title] = item;
+      return <option key={value} value={value}>{title}</option>
+    });
+
+    return (
+      <div className="add-block">
+        <div className="row row-inline-thin-padding">
+          <div className="col-md-4">
+            <select ref="new_block_choice" className="form-control">
+              {choices}
+            </select>
+          </div>
+          <div className="col-md-2">
+            <button className="btn btn-default"
+              onClick={this.addNewBlock}>{gettext('Add Block')}</button>
+          </div>
+        </div>
+      </div>
+    )
+  },
+
   render: function() {
     var {className, value, type, ...otherProps} = this.props;
     className = (className || '') + ' flow';
@@ -216,6 +265,7 @@ var FlowWidget = React.createClass({
     return (
       <div className={className}>
         {this.renderBlocks()}
+        {this.renderAddBlockSection()}
       </div>
     );
   }
