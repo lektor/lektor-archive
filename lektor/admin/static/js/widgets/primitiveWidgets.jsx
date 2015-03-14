@@ -130,21 +130,71 @@ var MultiLineTextInputWidget = React.createClass({
   mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
+    this.recalculateSize();
     if (this.props.onChange) {
-      this.props.onChange(event.target.value)
+      this.props.onChange(event.target.value);
     }
   },
 
+  componentDidMount: function() {
+    this.recalculateSize();
+    window.addEventListener('resize', this.recalculateSize);
+  },
+
+  componentWillUnmount: function() {
+    window.removeEventListener('resize', this.recalculateSize);
+  },
+
+  componentDidUpdate: function(prevProps) {
+    this.recalculateSize();
+  },
+
+  isInAutoResizeMode: function() {
+    return this.props.rows === undefined;
+  },
+
+  recalculateSize: function() {
+    if (!this.isInAutoResizeMode()) {
+      return;
+    }
+    var diff;
+    var node = this.getDOMNode();
+
+    if (window.getComputedStyle) {
+      var s = window.getComputedStyle(node);
+      if (s.getPropertyValue('box-sizing') === 'border-box' ||
+          s.getPropertyValue('-moz-box-sizing') === 'border-box' ||
+          s.getPropertyValue('-webkit-box-sizing') === 'border-box') {
+        diff = 0;
+      } else {
+        diff = (
+          parseInt(s.getPropertyValue('padding-bottom') || 0, 10) +
+          parseInt(s.getPropertyValue('padding-top') || 0, 10)
+        );
+      }
+    } else {
+      diff = 0;
+    }
+
+    var node = this.refs.ta.getDOMNode();
+    node.style.height = 'auto';
+    node.style.height = (node.scrollHeight - diff) + 'px';
+  },
+
   render: function() {
-    var {className, type, onChange, ...otherProps} = this.props;
+    var {className, type, onChange, style, ...otherProps} = this.props;
     var className = (className || '');
+
+    style = style || {};
+    style.overflow = 'hidden';
 
     return (
       <div className={className}>
         <textarea
-          rows="10"
+          ref="ta"
           className="form-control"
           onChange={onChange ? this.onChange : undefined}
+          style={style}
           {...otherProps} />
       </div>
     )
