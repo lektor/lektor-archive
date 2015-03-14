@@ -133,6 +133,11 @@ var utils = {
     return null;
   },
 
+  scrolledToBottom: function() {
+    return document.body.offsetHeight + document.body.scrollTop
+      >= document.body.scrollHeight;
+  },
+
   gettext: function(string) {
     return string;
   }

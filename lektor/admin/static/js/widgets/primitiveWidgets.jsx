@@ -158,7 +158,7 @@ var MultiLineTextInputWidget = React.createClass({
       return;
     }
     var diff;
-    var node = this.getDOMNode();
+    var node = this.refs.ta.getDOMNode();
 
     if (window.getComputedStyle) {
       var s = window.getComputedStyle(node);
@@ -176,9 +176,16 @@ var MultiLineTextInputWidget = React.createClass({
       diff = 0;
     }
 
-    var node = this.refs.ta.getDOMNode();
+    var wasAtBottom = utils.scrolledToBottom();
+    var oldScrollTop = document.body.scrollTop;
+    var oldHeight = jQuery(node).outerHeight();
+
     node.style.height = 'auto';
-    node.style.height = (node.scrollHeight - diff) + 'px';
+    var newHeight = (node.scrollHeight - diff);
+    node.style.height = newHeight + 'px';
+
+    window.scrollTo(
+      document.body.scrollLeft, oldScrollTop + (newHeight - oldHeight));
   },
 
   render: function() {
@@ -186,7 +193,11 @@ var MultiLineTextInputWidget = React.createClass({
     var className = (className || '');
 
     style = style || {};
-    style.overflow = 'hidden';
+    if (this.isInAutoResizeMode()) {
+      style.display = 'block';
+      style.overflow = 'hidden';
+      style.resize = 'none';
+    }
 
     return (
       <div className={className}>
