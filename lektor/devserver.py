@@ -14,7 +14,7 @@ from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.wsgi import wrap_file, pop_path_info
 
-from lektor.db import Database
+from lektor.db import Database, resolve_path
 from lektor.builder import Builder
 from lektor.watcher import Watcher
 from lektor.reporter import CliReporter
@@ -233,9 +233,12 @@ class DevTools(object):
             return
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
-        subprocess.Popen(['npm', 'install', '.'], cwd=admin).wait()
+        subprocess.Popen([resolve_path('npm'), 'install', '.'], 
+                         cwd=admin).wait()
         self.watcher = subprocess.Popen(
-            ['../node_modules/.bin/webpack', '--watch'],
+            [resolve_path('../node_modules/.bin/webpack', 
+             cwd=os.path.join(admin, 'static')), 
+             '--watch'],
             cwd=os.path.join(admin, 'static')
         )
 

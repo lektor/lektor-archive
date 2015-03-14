@@ -40,6 +40,35 @@ def cleanup_path(path):
 def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
 
+def resolve_path(execute_file, cwd=None):
+    if (os.name != 'nt'):
+        return execute_file
+    extensions = ['']
+    execute_file = to_os_path(execute_file)
+    
+    path_var = os.environ.get('PATH', '').split(os.pathsep)
+    path_ext_var = os.environ.get('PATHEXT', '').split(';')
+    
+    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
+    if not ext_existing:
+        extensions = path_ext_var
+        
+    
+    try:
+        for ext in extensions:
+            if cwd:
+                execute = os.path.join(cwd, execute_file + ext)
+                if os.access(execute, os.X_OK):
+                    return execute
+            else:
+                for path in path_var:
+                    execute = os.path.join(path, execute_file + ext)
+                    if os.access(execute, os.X_OK):
+                        return execute
+    except OSError:
+        pass
+            
+    return None
 
 def _require_ctx(record):
     ctx = get_ctx()
