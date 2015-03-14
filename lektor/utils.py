@@ -23,7 +23,6 @@ from jinja2 import is_undefined
 from markupsafe import Markup
 
 
-#is_windows = sys.platform.startswith('win')
 is_windows = (os.name == 'nt')
 
 _slash_escape = '\\/' not in json.dumps('/')
@@ -47,7 +46,11 @@ def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
 
 
-def resolve_path(execute_file, cwd=None):
+def is_path(path):
+    return os.path.sep in path or (os.path.altsep and os.path.altsep in path)
+
+
+def resolve_path(execute_file, cwd):
     execute_file = to_os_path(execute_file)
     if os.name != 'nt':
         return execute_file
@@ -62,10 +65,9 @@ def resolve_path(execute_file, cwd=None):
 
     try:
         for ext in extensions:
-            if cwd:
-                execute = os.path.join(cwd, execute_file + ext)
-                if os.access(execute, os.X_OK):
-                    return execute
+            execute = os.path.join(cwd, execute_file + ext)
+            if os.access(execute, os.X_OK):
+                return execute
             for path in path_var:
                 execute = os.path.join(path, execute_file + ext)
                 if os.access(execute, os.X_OK):
@@ -235,9 +237,9 @@ def atomic_open(filename, mode='r'):
 
 def portable_popen(cmd, *args, **kwargs):
     if kwargs.has_key('cwd'):
-        cmd[0] = resolve_path(cmd[0], cwd=kwargs['cwd'])
+        cmd[0] = resolve_path(cmd[0], kwargs['cwd'])
     else:
-        cmd[0] = resolve_path(cmd[0])
+        cmd[0] = resolve_path(cmd[0], os.getcwd())
 
     return subprocess.Popen(cmd, *args, **kwargs)
 
