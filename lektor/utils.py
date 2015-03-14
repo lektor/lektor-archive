@@ -38,40 +38,42 @@ try:
 except LookupError:
     pass
 
+
 def cleanup_path(path):
     return '/' + _slashes_re.sub('/', path.strip('/'))
+
 
 def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
 
-#def resolve_path(execute_file, cwd=None): 
-#    if (os.name != 'nt'):
-#        return execute_file
-#    extensions = ['']
-#    execute_file = to_os_path(execute_file)
-    
-#    path_var = os.environ.get('PATH', '').split(os.pathsep)
-#    path_ext_var = os.environ.get('PATHEXT', '').split(';')
-    
-#    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
-#    if not ext_existing:
-#        extensions = path_ext_var
 
-#    try:
-#        for ext in extensions:
-#            if cwd:
-#                execute = os.path.join(cwd, execute_file + ext)
-#                if os.access(execute, os.X_OK):
-#                    return execute
-#            else:
-#                for path in path_var:
-#                    execute = os.path.join(path, execute_file + ext)
-#                    if os.access(execute, os.X_OK):
-#                        return execute
-#    except OSError:
-#        pass
-            
-#    return None
+def resolve_path(execute_file, cwd=None):
+    execute_file = to_os_path(execute_file)
+    if os.name != 'nt':
+        return execute_file
+
+    extensions = ['']
+    path_var = os.environ.get('PATH', '').split(os.pathsep)
+    path_ext_var = os.environ.get('PATHEXT', '').split(';')
+
+    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
+    if not ext_existing:
+        extensions = path_ext_var
+
+    try:
+        for ext in extensions:
+            if cwd:
+                execute = os.path.join(cwd, execute_file + ext)
+                if os.access(execute, os.X_OK):
+                    return execute
+            for path in path_var:
+                execute = os.path.join(path, execute_file + ext)
+                if os.access(execute, os.X_OK):
+                    return execute
+    except OSError:
+        pass
+
+    return None
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -229,12 +231,14 @@ def atomic_open(filename, mode='r'):
         f.close()
         if tmp_filename is not None:
             rename(tmp_filename, filename)
-            
+
+
 def portable_popen(cmd, *args, **kwargs):
-    cmd[0] = to_os_path(cmd[0])
-    if(os.name == 'nt'):
-        return subprocess.Popen(cmd, *args, shell=True, **kwargs)
+    if kwargs.has_key('cwd'):
+        cmd[0] = resolve_path(cmd[0], cwd=kwargs['cwd'])
     else:
-        return subprocess.Popen(cmd, *args, **kwargs)
+        cmd[0] = resolve_path(cmd[0])
+
+    return subprocess.Popen(cmd, *args, **kwargs)
 
 
