@@ -3,27 +3,12 @@
 var React = require('react');
 var Router = require('react-router');
 
+var ToggleGroup = require('../components/ToggleGroup');
 var RecordState = require('../mixins/RecordState');
 var NavigationConfirmationMixin = require('../mixins/NavigationConfirmationMixin');
 var utils = require('../utils');
 var widgets = require('../widgets');
 var {gettext} = utils;
-
-
-function isIllegalField(name) {
-  switch (name) {
-    case '_id':
-    case '_expose':
-    case '_hidden':
-    case '_path':
-    case '_gid':
-    case '_model':
-    case '_attachment_for':
-    case '_attachment_type':
-      return true;
-  }
-  return false;
-}
 
 
 
@@ -60,6 +45,22 @@ var EditPage = React.createClass({
     return this.state.hasPendingChanges;
   },
 
+  isIllegalField: function(field) {
+    switch (field.name) {
+      case '_id':
+      case '_expose':
+      case '_hidden':
+      case '_path':
+      case '_gid':
+      case '_model':
+      case '_attachment_for':
+        return true;
+      case '_attachment_type':
+        return !this.state.recordInfo.is_attachment;
+    }
+    return false;
+  },
+
   syncEditor: function() {
     utils.loadData('/rawrecord', {path: this.getRecordPath()})
       .then(function(resp) {
@@ -86,7 +87,7 @@ var EditPage = React.createClass({
   getValues: function() {
     var rv = {};
     this.state.recordDataModel.fields.forEach(function(field) {
-      if (isIllegalField(field.name)) {
+      if (this.isIllegalField(field)) {
         return;
       }
 
@@ -140,14 +141,19 @@ var EditPage = React.createClass({
       return this.state.recordInfo.slug_format;
     } else if (field.name == '_template') {
       return this.state.recordInfo.default_template;
+    } else if (field.name == '_attachment_type') {
+      return this.state.recordInfo.implied_attachment_type;
     }
     return null;
   },
 
   renderFormFields: function() {
-    var fields = this.state.recordDataModel.fields.map(function(field) {
-      if (isIllegalField(field.name)) {
-        return null;
+    var fields = [];
+    var systemFields = [];
+    
+    this.state.recordDataModel.fields.forEach(function(field) {
+      if (this.isIllegalField(field)) {
+        return;
       }
 
       var className = 'field';
@@ -164,22 +170,34 @@ var EditPage = React.createClass({
         }
       }
 
-      var placeholder = this.getPlaceholderForField(field);
-
-      return (
+      var rv = (
         <dl key={field.name} className={className}>
           <dt>{field.label}</dt>
           <dd><Widget
             value={value}
             onChange={this.onValueChange.bind(this, field)}
             type={field.type}
-            placeholder={placeholder}
+            placeholder={this.getPlaceholderForField(field)}
           /></dd>
         </dl>
       );
+
+      if (field.name.substr(0, 1) == '_') {
+        systemFields.push(rv);
+      } else {
+        fields.push(rv);
+      }
+
     }.bind(this));
 
-    return <div>{fields}</div>;
+    return (
+      <div>
+        {fields}
+        <ToggleGroup
+          groupTitle={gettext('System fields')}
+          defaultVisibility={false}>{systemFields}</ToggleGroup>
+      </div>
+    );
   },
 
   render: function() {

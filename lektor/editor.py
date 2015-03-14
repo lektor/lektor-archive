@@ -81,6 +81,10 @@ class EditorSession(object):
         if slug_format is None:
             slug_format = u'{{ this._id }}'
         self.slug_format = slug_format
+        self.implied_attachment_type = None
+
+        if is_attachment:
+            self.implied_attachment_type = pad.db.get_attachment_type(path)
 
         self._data = {}
         self._changed = set()
@@ -105,6 +109,7 @@ class EditorSession(object):
                 'url_path': url_path,
                 'is_attachment': self.is_attachment,
                 'slug_format': self.slug_format,
+                'implied_attachment_type': self.implied_attachment_type,
                 'default_template': self.datamodel.get_default_template_name(),
             },
             'datamodel': self.datamodel.to_json(self.pad),
