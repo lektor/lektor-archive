@@ -100,7 +100,7 @@ var AddChildPage = React.createClass({
     }
     var params = {};
     if (!this.state.newChildInfo.implied_model) {
-      params.model = this.state.selectedModel;
+      params._model = this.state.selectedModel;
     }
     var primaryField = this.getPrimaryField();
     if (primaryField) {
@@ -182,7 +182,7 @@ var AddChildPage = React.createClass({
         {this.renderFields()}
         <div className="actions">
           <button className="btn btn-primary" onClick={this.createRecord}>{
-            gettext('Create Child')}</button>
+            gettext('Continue to Edit')}</button>
         </div>
       </div>
     );

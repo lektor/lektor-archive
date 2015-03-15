@@ -18,7 +18,8 @@ var Sidebar = React.createClass({
       recordChildren: [],
       canHaveAttachments: false,
       canHaveChildren: false,
-      isAttachment: false
+      isAttachment: false,
+      recordExists: false
     };
   },
 
@@ -44,12 +45,17 @@ var Sidebar = React.createClass({
           recordChildren: resp.children,
           canHaveAttachments: resp.can_have_attachments,
           canHaveChildren: resp.can_have_children,
-          isAttachment: resp.is_attachment
+          isAttachment: resp.is_attachment,
+          recordExists: resp.exists
         });
       }.bind(this));
   },
 
   renderPageActions: function() {
+    if (!this.state.recordExists) {
+      return [];
+    }
+
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
     var links = [];
     var linkParams = {path: urlPath};

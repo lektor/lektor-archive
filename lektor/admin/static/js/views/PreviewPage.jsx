@@ -1,6 +1,5 @@
 'use strict';
 
-var qs = require('querystring');
 var React = require('react');
 var Router = require('react-router');
 

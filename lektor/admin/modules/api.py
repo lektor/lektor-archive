@@ -85,7 +85,8 @@ def get_record_info():
                    can_have_attachments=can_have_attachments,
                    children=children,
                    can_have_children=can_have_children,
-                   is_attachment=is_attachment)
+                   is_attachment=is_attachment,
+                   exists=record is not None)
 
 
 @bp.route('/api/previewinfo')
@@ -110,7 +111,13 @@ def match_url():
 
 @bp.route('/api/rawrecord')
 def get_raw_record():
-    ts = g.lektor_info.pad.edit(request.args['path'])
+    datamodel = None
+    datamodel_name = request.args.get('model')
+    if datamodel_name is not None:
+        datamodel = g.lektor_info.pad.db.datamodels.get(datamodel_name)
+
+    ts = g.lektor_info.pad.edit(request.args['path'],
+                                datamodel=datamodel)
     return jsonify(ts.to_json())
 
 
