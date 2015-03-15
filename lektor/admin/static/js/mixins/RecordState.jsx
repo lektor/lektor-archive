@@ -29,6 +29,7 @@ var RecordStateMixin = {
     return utils.urlToFsPath(this.context.getCurrentParams().path);
   },
 
+  /* returns true if this is the root record */
   isRootRecord: function() {
     return this.getRecordPath() === '';
   },

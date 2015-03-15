@@ -382,7 +382,7 @@ class Page(Record):
         hidden.
         """
         if self.datamodel.child_config.replaced_with is not None:
-            return iter(())
+            return EmptyQuery(path=self['_path'], pad=self.pad)
         return self.all_children
 
     def find_page(self, path):
@@ -645,6 +645,16 @@ class Query(object):
             self.__class__.__name__,
             self.path,
         )
+
+
+class EmptyQuery(Query):
+
+    def _get(self, id, persist=True):
+        pass
+
+    def _iterate(self):
+        """Low level record iteration."""
+        return iter(())
 
 
 class AttachmentsQuery(Query):

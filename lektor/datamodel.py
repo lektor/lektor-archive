@@ -109,17 +109,18 @@ def _iter_all_fields(obj):
 class DataModel(object):
 
     def __init__(self, env, id, name, label=None,
-                 filename=None, contained=None,
+                 filename=None, hidden=None,
                  expose=None, child_config=None, attachment_config=None,
-                 pagination_config=None, fields=None, parent=None):
+                 pagination_config=None, fields=None,
+                 primary_field=None, parent=None):
         self.env = env
         self.filename = filename
         self.id = id
         self.name = name
         self.label = label
-        if contained is None:
-            contained = False
-        self.contained = contained
+        if hidden is None:
+            hidden = False
+        self.hidden = hidden
         if expose is None:
             expose = True
         self.expose = expose
@@ -135,6 +136,9 @@ class DataModel(object):
         if fields is None:
             fields = []
         self.fields = fields
+        if primary_field is None and fields:
+            primary_field = fields[0].name
+        self.primary_field = primary_field
         self.parent = parent
 
         # This is a mapping of the key names to the actual field which
@@ -154,8 +158,9 @@ class DataModel(object):
             'filename': self.filename,
             'id': self.id,
             'name': self.name,
+            'primary_field': self.primary_field,
             'label': self.label,
-            'contained': self.contained,
+            'hidden': self.hidden,
             'expose': self.expose,
             'child_config': self.child_config.to_json(),
             'attachment_config': self.attachment_config.to_json(),
@@ -297,7 +302,8 @@ def datamodel_data_from_ini(id, inifile):
         parent=inifile.get('model.inherits'),
         name=inifile.get('model.name', id.title().replace('_', ' ')),
         label=inifile.get('model.label'),
-        contained=inifile.get_bool('model.contained', default=None),
+        primary_field=inifile.get('model.primary_field'),
+        hidden=inifile.get_bool('model.hidden', default=None),
         expose=inifile.get_bool('model.expose', default=None),
         child_config=dict(
             enabled=inifile.get_bool('children.enabled', default=None),
@@ -375,10 +381,11 @@ def datamodel_from_data(env, model_data, parent=None):
         id=model_data['id'],
         parent=parent,
         name=model_data['name'],
+        primary_field=model_data['primary_field'],
 
         # direct data that can inherit
         label=get_value('label'),
-        contained=get_value('contained'),
+        hidden=get_value('hidden'),
         expose=get_value('expose'),
         child_config=ChildConfig(
             enabled=get_value('child_config.enabled'),
@@ -459,7 +466,7 @@ def load_datamodels(env):
     for model_id in data.keys():
         get_model(model_id)
 
-    rv['none'] = DataModel(env, 'none', 'None')
+    rv['none'] = DataModel(env, 'none', 'None', hidden=True)
 
     return rv
 

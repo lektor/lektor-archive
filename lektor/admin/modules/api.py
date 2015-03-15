@@ -114,6 +114,39 @@ def get_raw_record():
     return jsonify(ts.to_json())
 
 
+@bp.route('/api/newrecord')
+def get_new_record_info():
+    pad = g.lektor_info.pad
+    ts = pad.edit(request.args['path'])
+    if ts.is_attachment:
+        can_have_children = False
+    elif ts.datamodel.child_config.replaced_with is not None:
+        can_have_children = False
+    else:
+        can_have_children = True
+    implied = ts.datamodel.child_config.model
+
+    def describe_model(model):
+        primary_field = None
+        if model.primary_field is not None:
+            f = model.field_map.get(model.primary_field)
+            if f is not None:
+                primary_field = f.to_json(pad)
+        return {
+            'id': model.id,
+            'name': model.name,
+            'primary_field': primary_field
+        }
+
+    return jsonify({
+        'can_have_children': can_have_children,
+        'implied_model': implied,
+        'available_models': dict(
+            (k, describe_model(v)) for k, v in pad.db.datamodels.iteritems()
+            if not v.hidden or k == implied)
+    })
+
+
 @bp.route('/api/deleterecord')
 def get_delete_info():
     path = request.args['path']
