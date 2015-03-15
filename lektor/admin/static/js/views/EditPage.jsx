@@ -204,6 +204,14 @@ var EditPage = React.createClass({
       return null;
     }
 
+    var deleteButton = null;
+    if (!this.isRootRecord()) {
+      deleteButton = (
+        <button type="submit" className="btn btn-default"
+          onClick={this.deleteRecord}>{gettext('Delete')}</button>
+      );
+    }
+
     return (
       <div className="edit-area">
         <h2>{gettext('Edit “%s”').replace('%s', this.getLabel())}</h2>
@@ -211,8 +219,7 @@ var EditPage = React.createClass({
         <div className="actions">
           <button type="submit" className="btn btn-primary"
             onClick={this.saveChanges}>{gettext('Save')}</button>
-          <button type="submit" className="btn btn-default"
-            onClick={this.deleteRecord}>{gettext('Delete')}</button>
+          {deleteButton}
         </div>
       </div>
     );
