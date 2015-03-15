@@ -156,9 +156,10 @@ def get_delete_info():
 
 @bp.route('/api/deleterecord', methods=['POST'])
 def delete_record():
-    ts = g.lektor_info.pad.edit(request.values['path'])
-    with ts:
-        ts.delete()
+    if request.values['path'] != '/':
+        ts = g.lektor_info.pad.edit(request.values['path'])
+        with ts:
+            ts.delete()
     return jsonify(okay=True)
 
 
