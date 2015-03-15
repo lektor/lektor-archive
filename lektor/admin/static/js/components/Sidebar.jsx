@@ -72,6 +72,13 @@ var Sidebar = React.createClass({
         }>{gettext('Preview')}</Link></li>
     );
 
+    if (this.state.canHaveChildren) {
+      links.push(
+        <li key='add-child'><Link to="add-child" params={linkParams
+          }>{gettext('Add Child')}</Link></li>
+      );
+    }
+
     return (
       <div key="actions" className="section">
         <h3>{gettext('Actions')}</h3>

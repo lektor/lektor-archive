@@ -12,6 +12,7 @@ endpoints = [
     ('/<path>/edit', 'edit'),
     ('/<path>/delete', 'delete'),
     ('/<path>/preview', 'preview'),
+    ('/<path>/add-child', 'add_child'),
 ]
 
 

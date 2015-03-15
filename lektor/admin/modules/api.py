@@ -139,6 +139,7 @@ def get_new_record_info():
         }
 
     return jsonify({
+        'label': ts.record and ts.record.record_label or ts.id,
         'can_have_children': can_have_children,
         'implied_model': implied,
         'available_models': dict(

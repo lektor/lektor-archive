@@ -25,6 +25,7 @@ var routes = (function() {
   var EditPage = require('./views/EditPage');
   var DeletePage = require('./views/DeletePage');
   var PreviewPage = require('./views/PreviewPage');
+  var AddChildPage = require('./views/AddChildPage');
 
   // route setup
   return (
@@ -32,6 +33,7 @@ var routes = (function() {
       <Route name="edit" path=":path/edit" handler={EditPage}/>
       <Route name="delete" path=":path/delete" handler={DeletePage}/>
       <Route name="preview" path=":path/preview" handler={PreviewPage}/>
+      <Route name="add-child" path=":path/add-child" handler={AddChildPage}/>
       <DefaultRoute handler={Dash}/>
       <NotFoundRoute handler={BadRoute}/>
     </Route>
