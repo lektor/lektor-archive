@@ -85,6 +85,10 @@ class MultiType(Type):
         return rv
 
 
+class SelectType(MultiType):
+    pass
+
+
 class CheckboxesType(MultiType):
 
     def value_from_raw(self, raw):

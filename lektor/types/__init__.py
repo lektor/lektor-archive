@@ -65,7 +65,7 @@ class Type(object):
 from lektor.types.primitives import \
      StringType, UuidType, TextType, HtmlType, IntegerType, FloatType, \
      BooleanType, DateType
-from lektor.types.multi import CheckboxesType
+from lektor.types.multi import CheckboxesType, SelectType
 from lektor.types.special import SortKeyType, SlugType, UrlType
 from lektor.types.formats import MarkdownType
 from lektor.types.flow import FlowType
@@ -84,6 +84,7 @@ builtin_types = {
 
     # Multi
     'checkboxes': CheckboxesType,
+    'select': SelectType,
 
     # Special
     'sort_key': SortKeyType,
