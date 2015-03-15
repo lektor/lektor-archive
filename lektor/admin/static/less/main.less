@@ -37,6 +37,12 @@ div.application {
     right: 0;
     bottom: 0;
 
+    dl {
+      .form-group {
+        margin: 0;
+      }
+    }
+
     div.sidebar {
       width: 200px;
       padding: 10px 15px;
@@ -150,7 +156,14 @@ div.application {
 
     h4 {
       margin: 0;
-      font-size: 18px;
+      font-size: 14px;
+      background: #ccc;
+      margin: -5px -10px 5px -10px;
+      padding: 5px 10px;
+    }
+
+    dl {
+      margin: 5px 0;
     }
 
     ul.actions {
@@ -164,5 +177,67 @@ div.application {
         margin-left: 8px;
       }
     }
+  }
+
+  div.flow {
+    padding: 10px;
+    background: #f8f8f8;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+
+    div.add-block {
+      background: #eee;
+      border: 1px solid #ccc;
+      margin-top: 15px;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+  }
+}
+
+div.toggle-group {
+  padding: 10px;
+  margin: 15px 0;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+
+  h4 {
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    line-height: 20px;
+    font-size: 15px;
+
+    &:before {
+      content: "";
+      display: block;
+      float: left;
+      width: 16px;
+      font-size: 12px!important;
+      text-align: left;
+      text-decoration: none!important;
+      color: #888!important;
+    }
+  }
+
+  &.toggle-group-open {
+    h4:before {
+      content: "▼";
+    }
+  }
+
+  &.toggle-group-closed {
+    h4:before {
+      content: "▶";
+    }
+
+    .children {
+      display: none;
+    }
+  }
+
+  div.header {
+    height: 20px;
   }
 }

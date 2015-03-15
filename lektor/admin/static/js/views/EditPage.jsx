@@ -3,32 +3,20 @@
 var React = require('react');
 var Router = require('react-router');
 
+var ToggleGroup = require('../components/ToggleGroup');
 var RecordState = require('../mixins/RecordState');
+var NavigationConfirmationMixin = require('../mixins/NavigationConfirmationMixin');
 var utils = require('../utils');
 var widgets = require('../widgets');
 var {gettext} = utils;
 
 
-function isIllegalField(name) {
-  switch (name) {
-    case '_id':
-    case '_expose':
-    case '_hidden':
-    case '_path':
-    case '_gid':
-    case '_model':
-    case '_attachment_for':
-    case '_attachment_type':
-      return true;
-  }
-  return false;
-}
-
 
 var EditPage = React.createClass({
   mixins: [
     RecordState,
-    Router.Navigation
+    Router.Navigation,
+    NavigationConfirmationMixin
   ],
 
   getInitialState: function() {
@@ -36,7 +24,8 @@ var EditPage = React.createClass({
       recordInitialData: null,
       recordData: null,
       recordDataModel: null,
-      recordInfo: null
+      recordInfo: null,
+      hasPendingChanges: false
     }
   },
 
@@ -44,8 +33,32 @@ var EditPage = React.createClass({
     this.syncEditor();
   },
 
+  componentWillUnmount: function() {
+    console.log('UNMOUNT');
+  },
+
   componentWillReceiveProps: function(nextProps) {
     this.syncEditor();
+  },
+
+  hasPendingChanges: function() {
+    return this.state.hasPendingChanges;
+  },
+
+  isIllegalField: function(field) {
+    switch (field.name) {
+      case '_id':
+      case '_expose':
+      case '_hidden':
+      case '_path':
+      case '_gid':
+      case '_model':
+      case '_attachment_for':
+        return true;
+      case '_attachment_type':
+        return !this.state.recordInfo.is_attachment;
+    }
+    return false;
   },
 
   syncEditor: function() {
@@ -56,6 +69,7 @@ var EditPage = React.createClass({
           recordData: {},
           recordDataModel: resp.datamodel,
           recordInfo: resp.record_info,
+          hasPendingChanges: false
         });
       }.bind(this));
   },
@@ -65,14 +79,15 @@ var EditPage = React.createClass({
     updates[field.name] = {$set: value || ''};
     var rd = React.addons.update(this.state.recordData, updates);
     this.setState({
-      recordData: rd
+      recordData: rd,
+      hasPendingChanges: true
     });
   },
 
   getValues: function() {
     var rv = {};
     this.state.recordDataModel.fields.forEach(function(field) {
-      if (isIllegalField(field.name)) {
+      if (this.isIllegalField(field)) {
         return;
       }
 
@@ -102,7 +117,11 @@ var EditPage = React.createClass({
     utils.apiRequest('/rawrecord', {json: {
         data: newData, path: path}, method: 'PUT'})
       .then(function(resp) {
-        this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+        this.setState({
+          hasPendingChanges: false
+        }, function() {
+          this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+        });
       }.bind(this));
   },
 
@@ -117,10 +136,24 @@ var EditPage = React.createClass({
     return ri.id;
   },
 
+  getPlaceholderForField: function(field) {
+    if (field.name == '_slug') {
+      return this.state.recordInfo.slug_format;
+    } else if (field.name == '_template') {
+      return this.state.recordInfo.default_template;
+    } else if (field.name == '_attachment_type') {
+      return this.state.recordInfo.implied_attachment_type;
+    }
+    return null;
+  },
+
   renderFormFields: function() {
-    var fields = this.state.recordDataModel.fields.map(function(field) {
-      if (isIllegalField(field.name)) {
-        return null;
+    var fields = [];
+    var systemFields = [];
+    
+    this.state.recordDataModel.fields.forEach(function(field) {
+      if (this.isIllegalField(field)) {
+        return;
       }
 
       var className = 'field';
@@ -137,19 +170,34 @@ var EditPage = React.createClass({
         }
       }
 
-      return (
+      var rv = (
         <dl key={field.name} className={className}>
           <dt>{field.label}</dt>
           <dd><Widget
             value={value}
             onChange={this.onValueChange.bind(this, field)}
             type={field.type}
+            placeholder={this.getPlaceholderForField(field)}
           /></dd>
         </dl>
       );
+
+      if (field.name.substr(0, 1) == '_') {
+        systemFields.push(rv);
+      } else {
+        fields.push(rv);
+      }
+
     }.bind(this));
 
-    return <div>{fields}</div>;
+    return (
+      <div>
+        {fields}
+        <ToggleGroup
+          groupTitle={gettext('System fields')}
+          defaultVisibility={false}>{systemFields}</ToggleGroup>
+      </div>
+    );
   },
 
   render: function() {

@@ -13,6 +13,7 @@ var BasicWidgetMixin = {
   propTypes: {
     value: React.PropTypes.any,
     type: React.PropTypes.object,
+    placeholder: React.PropTypes.any,
     onChange: React.PropTypes.func
   },
 
