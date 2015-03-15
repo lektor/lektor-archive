@@ -1,7 +1,7 @@
 class LektorException(RuntimeError):
     pass
     
-
+    
 class FTPException(LektorException):
     pass
 

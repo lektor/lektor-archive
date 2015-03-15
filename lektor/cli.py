@@ -149,7 +149,8 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
     print ' * Tree path: %s' % ctx.get_tree()
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
-               verbosity=verbosity)
+               verbosity=verbosity,
+               lektor_dev=os.environ.get('LEKTOR_DEV') == '1')
 
 
 @cli.command('sync', short_help='Synchronizes stuff to a host.')

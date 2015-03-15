@@ -1,0 +1,16 @@
+<!doctype html>
+<title>Lektor Admin</title>
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='gen/styles.css') }}">
+<div id=dash>
+  <div class=loadbox>
+    <p>Loading Interface ...</p>
+  </div>
+</div>
+<script type=text/javascript>
+  var $LEKTOR_CONFIG = {
+    admin_root: {{ g.lektor_info.admin_root|tojson }},
+    site_root: {{ g.lektor_info.site_root|tojson }}
+  };
+</script>
+<script type=text/javascript src="{{ url_for('static', filename='gen/vendor.js') }}"></script>
+<script type=text/javascript src="{{ url_for('static', filename='gen/app.js') }}"></script>

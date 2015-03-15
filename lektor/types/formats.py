@@ -4,7 +4,6 @@ import markdown
 from markupsafe import Markup
 
 from lektor.types import Type
-from lektor import widgets
 
 
 _markdown_cache = threading.local()
@@ -48,7 +47,6 @@ class Markdown(object):
 
 
 class MarkdownType(Type):
-    widget_class = widgets.TextAreaWidget
 
     def value_from_raw(self, raw):
         if raw.value is None:

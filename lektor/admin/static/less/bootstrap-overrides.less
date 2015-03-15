@@ -1,0 +1,47 @@
+// Core variables and mixins
+@import (reference) "~bootstrap/less/variables";
+@import (reference) "~bootstrap/less/mixins";
+
+// Reset and dependencies
+@import "~bootstrap/less/normalize";
+@import "~bootstrap/less/print";
+
+// Core CSS
+@import "~bootstrap/less/scaffolding";
+@import "~bootstrap/less/grid";
+@import "~bootstrap/less/forms";
+@import "~bootstrap/less/buttons";
+
+// Components
+@import "~bootstrap/less/input-groups";
+@import "~bootstrap/less/breadcrumbs";
+@import "~bootstrap/less/responsive-embed";
+@import "~bootstrap/less/panels";
+
+// Utility classes
+@import "~bootstrap/less/utilities";
+@import "~bootstrap/less/responsive-utilities";
+
+// Fonts
+@import url(http://fonts.googleapis.com/css?family=Roboto:400,300,300italic,400italic,500,500italic);
+@font-family-sans-serif: 'Roboto', 'Verdana', sans-serif;
+
+// Colors
+@brand-primary: #dd0000;
+
+
+// Fix up breadcrumbs
+.breadcrumb > li + li:before {
+  content: "∕";
+  color: #555;
+}
+
+.row-inline-thin-padding {
+  margin-left: -5px;
+  margin-right: -5px;
+
+  [class*="col-"] {
+    padding-left: 5px!important;
+    padding-right: 5px!important;
+  }
+}

@@ -1,3 +1,6 @@
+from werkzeug.utils import find_modules
+
+
 def register_modules(app):
-    from lektor.admin.modules import panel
-    app.register_blueprint(panel.bp)
+    for module in find_modules(__name__):
+        app.register_blueprint(__import__(module, None, None, ['bp']).bp)

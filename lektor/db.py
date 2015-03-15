@@ -1,10 +1,6 @@
-import re
 import os
 import sys
-import uuid
 import errno
-import codecs
-import hashlib
 import operator
 import functools
 import posixpath
@@ -15,33 +11,14 @@ from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
 
 from lektor import metaformat
-from lektor.utils import sort_normalize_string
+from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, fs_enc
 from lektor.sourceobj import SourceObject
 from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
+from lektor.editor import make_editor_session
 
-
-_slashes_re = re.compile(r'/+')
-
-# Figure out our fs encoding, if it's ascii we upgrade to utf-8
-fs_enc = sys.getfilesystemencoding()
-try:
-    if codecs.lookup(fs_enc).name == 'ascii':
-        fs_enc = 'utf-8'
-except LookupError:
-    pass
-
-def cleanup_path(path):
-    return '/' + _slashes_re.sub('/', path.strip('/'))
-
-
-def to_os_path(path):
-    return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
-    
-def to_posix_path(path):
-    return path.replace('\\', '/').decode(fs_enc, 'replace')
 
 def _require_ctx(record):
     ctx = get_ctx()
@@ -728,11 +705,10 @@ def _iter_filename_choices(fn_base):
     yield fn_base + '.lr', True
 
 
-def _iter_datamodel_choices(datamodel_name, raw_data):
+def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
     yield datamodel_name
-    if not raw_data.get('_attachment_for'):
-        yield posixpath.basename(raw_data['_path']) \
-            .split('.')[0].replace('-', '_').lower()
+    if not is_attachment:
+        yield posixpath.basename(path).split('.')[0].replace('-', '_').lower()
     yield 'page'
     yield 'none'
 
@@ -774,8 +750,6 @@ class Database(object):
             rv['_id'] = posixpath.basename(path)
             if is_attachment:
                 rv['_attachment_for'] = posixpath.dirname(path)
-                if '_attachment_type' not in rv:
-                    rv['_attachment_type'] = self.get_attachment_type(path)
             return rv
 
     def iter_items(self, path):
@@ -822,17 +796,27 @@ class Database(object):
         data.  This might require the discovery of a parent object through
         the pad.
         """
+        path = raw_data['_path']
         is_attachment = bool(raw_data.get('_attachment_for'))
-        dm_name = (raw_data.get('_model') or '').strip() or None
+        datamodel = (raw_data.get('_model') or '').strip() or None
+        return self.get_implied_datamodel(path, is_attachment, pad,
+                                          datamodel=datamodel)
+
+    def get_implied_datamodel(self, path, is_attachment=False, pad=None,
+                              datamodel=None):
+        """Looks up a datamodel based on the information about the parent
+        of a model.
+        """
+        dm_name = datamodel
 
         # Only look for a datamodel if there was not defined.
         if dm_name is None:
-            parent = posixpath.dirname(raw_data['_path'])
+            parent = posixpath.dirname(path)
             dm_name = None
 
             # If we hit the root, and there is no model defined we need
             # to make sure we do not recurse onto ourselves.
-            if parent != raw_data['_path']:
+            if parent != path:
                 if pad is None:
                     pad = self.new_pad()
                 parent_obj = pad.get(parent)
@@ -842,7 +826,7 @@ class Database(object):
                     else:
                         dm_name = parent_obj.datamodel.child_config.model
 
-        for dm_name in _iter_datamodel_choices(dm_name, raw_data):
+        for dm_name in _iter_datamodel_choices(dm_name, path, is_attachment):
             # If that datamodel exists, let's roll with it.
             datamodel = self.datamodels.get(dm_name)
             if datamodel is not None:
@@ -865,45 +849,39 @@ class Database(object):
                 ctx.record_dependency(record.datamodel.filename)
         return record
 
-    def postprocess_record(self, record, persist):
-        # Automatically fill in slugs
-        if is_undefined(record['_slug']):
-            parent = record.parent
-            if parent:
-                slug = parent.datamodel.get_default_child_slug(record)
-            else:
-                slug = ''
-            record['_slug'] = slug
+    def get_default_slug(self, data, pad):
+        parent_path = posixpath.dirname(data['_path'])
+        parent = None
+        if parent_path != data['_path']:
+            parent = pad.get(parent_path)
+        if parent:
+            slug = parent.datamodel.get_default_child_slug(pad, data)
         else:
-            record['_slug'] = record['_slug'].strip('/')
+            slug = ''
+        return slug
+
+    def process_data(self, data, datamodel, pad):
+        # Automatically fill in slugs
+        if is_undefined(data['_slug']):
+            data['_slug'] = self.get_default_slug(data, pad)
+        else:
+            data['_slug'] = data['_slug'].strip('/')
+
+        # For attachments figure out the default attachment type if it's
+        # not yet provided.
+        if is_undefined(data['_attachment_type']) and \
+           data['_attachment_for']:
+            data['_attachment_type'] = self.get_attachment_type(data['_path'])
 
         # Automatically fill in templates
-        if is_undefined(record['_template']):
-            record['_template'] = record.datamodel.get_default_template_name()
-
-        # Fill in the global ID
-        gid_hash = hashlib.md5()
-        node = record
-        while node is not None:
-            gid_hash.update(node['_id'].encode('utf-8'))
-            node = node.parent
-        record['_gid'] = uuid.UUID(bytes=gid_hash.digest(), version=3)
-
-        # Automatically cache
-        if persist:
-            record.pad.cache.persist(record)
-        else:
-            record.pad.cache.remember(record)
+        if is_undefined(data['_template']):
+            data['_template'] = datamodel.get_default_template_name()
 
     def get_record_class(self, datamodel, raw_data):
         """Returns the appropriate record class for a datamodel and raw data."""
         is_attachment = bool(raw_data.get('_attachment_for'))
-
         if not is_attachment:
             return Page
-
-        # We need to replicate the logic from postprocess_record here so
-        # that we can find the right attachment class.  Not ideal
         attachment_type = raw_data['_attachment_type']
         return attachment_classes.get(attachment_type, Attachment)
 
@@ -958,11 +936,29 @@ class Pad(object):
         if raw_data is None:
             return
 
-        datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
-        cls = self.db.get_record_class(datamodel, raw_data)
-        rv = cls(self, datamodel.process_raw_data(raw_data, self))
-        self.db.postprocess_record(rv, persist)
+        rv = self.instance_from_data(raw_data)
+
+        if persist:
+            self.cache.persist(rv)
+        else:
+            self.cache.remember(rv)
+
         return self.db.track_record_dependency(rv)
+
+    def instance_from_data(self, raw_data, datamodel=None):
+        """This creates an instance from the given raw data."""
+        if datamodel is None:
+            datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
+        data = datamodel.process_raw_data(raw_data, self)
+        self.db.process_data(data, datamodel, self)
+        cls = self.db.get_record_class(datamodel, data)
+        return cls(self, data)
+
+    def edit(self, path, is_attachment=None, datamodel=None):
+        """Edits a record by path."""
+        path = cleanup_path(path)
+        return make_editor_session(self, path, is_attachment=is_attachment,
+                                   datamodel=datamodel)
 
     def query(self, path=None):
         """Queries the database either at root level or below a certain

@@ -4,23 +4,76 @@ import mimetypes
 import posixpath
 import traceback
 import threading
+import subprocess
+from StringIO import StringIO
 from zlib import adler32
 
 from werkzeug.serving import run_simple
 from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
-from werkzeug.wsgi import wrap_file
+from werkzeug.wsgi import wrap_file, pop_path_info
 
 from lektor.db import Database
 from lektor.builder import Builder
 from lektor.watcher import Watcher
 from lektor.reporter import CliReporter
 from lektor.admin import WebAdmin
+from lektor.utils import portable_popen
 
 
 _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
                     if sep not in (None, '/'))
+
+
+def rewrite_html_for_editing(fp):
+    contents = fp.read()
+
+    button = '''
+    <style type="text/css">
+      #lektor-edit-link {
+        position: fixed;
+        z-index: 9999999;
+        right: 10px;
+        top: 10px;
+        position: fixed;
+        margin: 0;
+        font-family: 'Verdana', sans-serif;
+        background: #eee;
+        color: #d00;
+        font-weight: normal;
+        font-size: 32px;
+        padding: 0;
+        text-decoration: none!important;
+        border: none!important;
+        width: 40px;
+        height: 40px;
+        line-height: 40px;
+        text-align: center;
+        opacity: 0.7;
+      }
+
+      #lektor-edit-link:hover {
+        background: #ccc;
+        opacity: 1.0;
+      }
+    </style>
+    <script type="text/javascript">
+      (function() {
+        if (window != window.top) {
+          return;
+        }
+        var link = document.createElement('a');
+        link.setAttribute('href', '/admin/edit?path=' +
+            encodeURIComponent(document.location.pathname));
+        link.setAttribute('id', 'lektor-edit-link');
+        link.innerHTML = '\u270E';
+        document.body.appendChild(link);
+      })();
+    </script>
+    '''
+
+    return StringIO(contents + button)
 
 
 def send_file(request, filename):
@@ -34,31 +87,37 @@ def send_file(request, filename):
         file = open(filename, 'rb')
         mtime = os.path.getmtime(filename)
         headers['Content-Length'] = os.path.getsize(filename)
-        data = wrap_file(request.environ, file)
     except (IOError, OSError):
         raise NotFound()
+
+    rewritten = False
+    if mimetype == 'text/html':
+        rewritten = True
+        file = rewrite_html_for_editing(file)
+        del headers['Content-Length']
+
+    data = wrap_file(request.environ, file)
 
     rv = Response(data, mimetype=mimetype, headers=headers,
                   direct_passthrough=True)
 
-    # if we know the file modification date, we can store it as
-    # the time of the last modification.
-    if mtime is not None:
-        rv.last_modified = int(mtime)
-
-    rv.cache_control.public = True
-
-    try:
-        rv.set_etag('lektor-%s-%s-%s' % (
-            os.path.getmtime(filename),
-            os.path.getsize(filename),
-            adler32(
-                filename.encode('utf-8') if isinstance(filename, basestring)
-                else filename
-            ) & 0xffffffff
-        ))
-    except OSError:
-        pass
+    if not rewritten:
+        # if we know the file modification date, we can store it as
+        # the time of the last modification.
+        if mtime is not None:
+            rv.last_modified = int(mtime)
+        rv.cache_control.public = True
+        try:
+            rv.set_etag('lektor-%s-%s-%s' % (
+                os.path.getmtime(filename),
+                os.path.getsize(filename),
+                adler32(
+                    filename.encode('utf-8') if isinstance(filename, basestring)
+                    else filename
+                ) & 0xffffffff,
+            ))
+        except OSError:
+            pass
 
     return rv
 
@@ -77,11 +136,11 @@ def safe_join(directory, filename):
 
 class WsgiApp(object):
 
-    def __init__(self, env, output_path, verbosity=0):
-        self.admin = WebAdmin(env)
+    def __init__(self, env, output_path, verbosity=0, debug=False):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
+        self.admin = WebAdmin(env, debug=debug)
 
     def get_pad(self):
         db = Database(self.env)
@@ -97,10 +156,6 @@ class WsgiApp(object):
     def handle_request(self, request):
         pad = self.get_pad()
         filename = None
-
-        # A bang in the URL path requests something from the admin panel.
-        if '!' in request.path:
-            return self.admin
 
         # We start with trying to resolve a source and then use the
         # primary
@@ -125,6 +180,12 @@ class WsgiApp(object):
 
     def __call__(self, environ, start_response):
         request = Request(environ, shallow=True)
+
+        # Dispatch to the web admin if we need.
+        if request.path.rstrip('/').startswith('/admin'):
+            pop_path_info(environ)
+            return self.admin(environ, start_response)
+
         try:
             response = self.handle_request(request)
         except HTTPException as e:
@@ -162,13 +223,52 @@ class BackgroundBuilder(threading.Thread):
                     self.build()
 
 
-def run_server(bindaddr, env, output_path, verbosity=0):
+class DevTools(object):
+    """This provides extra helpers for launching tools such as webpack."""
+
+    def __init__(self):
+        self.watcher = None
+
+    def start(self):
+        if self.watcher is not None:
+            return
+        from lektor import admin
+        admin = os.path.dirname(admin.__file__)
+        portable_popen(['npm', 'install', '.'], cwd=admin).wait()
+        self.watcher = portable_popen(['../node_modules/.bin/webpack',                      
+                                       '--watch'],
+                                      cwd=os.path.join(admin, 'static'))
+
+    def stop(self):
+        if self.watcher is None:
+            return
+        self.watcher.kill()
+        self.watcher.wait()
+        self.watcher = None
+
+
+def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
-    background_builder = BackgroundBuilder(env, output_path, verbosity)
-    background_builder.setDaemon(True)
-    background_builder.start()
-    app = WsgiApp(env, output_path, verbosity)
-    return run_simple(bindaddr[0], bindaddr[1], app,
-                      use_debugger=True, threaded=True)
+    wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+    save_for_bg = not lektor_dev or wz_as_main
+
+    if save_for_bg:
+        background_builder = BackgroundBuilder(env, output_path, verbosity)
+        background_builder.setDaemon(True)
+        background_builder.start()
+    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev)
+
+    dt = None
+    if lektor_dev and not wz_as_main:
+        dt = DevTools()
+        dt.start()
+
+    try:
+        return run_simple(bindaddr[0], bindaddr[1], app,
+                          use_debugger=True, threaded=True,
+                          use_reloader=lektor_dev)
+    finally:
+        if dt is not None:
+            dt.stop()

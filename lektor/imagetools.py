@@ -8,7 +8,7 @@ from datetime import datetime
 from jinja2 import Undefined
 from PIL import Image
 
-from lektor.utils import get_dependent_url
+from lektor.utils import get_dependent_url, portable_popen
 from lektor.reporter import reporter
 
 
@@ -161,9 +161,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                    artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
-        # XXX: this is super annoying but it looks like windows wants
-        # shell invocation :(
-        subprocess.Popen(cmdline, shell=sys.platform.startswith('win')).wait()
+        portable_popen(cmdline).wait()
 
     return Thumbnail(dst_url_path, width, height)
 

@@ -1,13 +1,14 @@
+import time
+import os
 import ftplib
 import gzip
 from inifile import IniFile
-from lektor.db import to_posix_path, to_os_path
+from lektor.utils import to_posix_path, to_os_path
 from lektor.exceptions import FTPException, FileNotFound, \
                               ConnectionFailed, IncorrectLogin, \
                               TVFSNotSupported, RootNotFound
 
-import time
-import os
+
 
 class FileInfo(object):
     """A file info object holds metainformation of a file so that changes
@@ -76,6 +77,7 @@ class FTPConnection(object):
             except Exception:
                 pass
     
+<<<<<<< HEAD
     def _connect(self):
         #TODO if not default port, TLS, etc
         try:
