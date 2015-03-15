@@ -206,35 +206,25 @@ class Record(SourceObject):
             return self.pad.db.default_model
 
     @property
-    def is_exposed(self):
-        """This is `true` if the record is exposed, `false` otherwise.  If
-        a record does not set this itself, it's inherited from the parent
-        record.  If no record has this defined in the direct line to the
-        root, then a default of `True` is assumed.
-        """
-        expose = self._data['_expose']
-        if is_undefined(expose):
-            if not self.datamodel.expose:
-                return False
-            if self.parent is None:
-                return True
-            return self.parent.is_exposed
-        return expose
-
-    @property
     def is_hidden(self):
-        """Hidden is similar to exposed but it does not inherit down to
-        children.  Hidden children generally completely disappear from all
-        handling.
+        """If a record is hidden it will not be processed.  This is related
+        to the expose flag that can be set on the datamodel.
         """
-        return self._data['_hidden'] or False
+        if not is_undefined(self._data['_hidden']):
+            return self._data['_hidden']
+
+        node = self
+        while node is not None:
+            if not node.datamodel.expose:
+                return True
+            node = node.parent
+
+        return False
 
     @property
     def is_visible(self):
-        """Indicates that this page is actually visible.  That means it is
-        exposed and not hidden.
-        """
-        return self.is_exposed and not self.is_hidden
+        """The negated version of :attr:`is_hidden`."""
+        return not self.is_hidden
 
     @property
     def record_label(self):
@@ -909,7 +899,7 @@ class Pad(object):
             pieces = []
 
         rv = node.resolve_url_path(pieces)
-        if rv is not None and (include_invisible or rv.is_exposed):
+        if rv is not None and (include_invisible or rv.is_visible):
             return rv
 
         if include_assets:

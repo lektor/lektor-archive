@@ -241,15 +241,16 @@ var FlowWidget = React.createClass({
       return <option key={value} value={value}>{title}</option>
     });
 
+    // XXX: column layout -> something better
     return (
       <div className="add-block">
         <div className="row row-inline-thin-padding">
-          <div className="col-md-4">
+          <div className="col-md-8">
             <select ref="new_block_choice" className="form-control">
               {choices}
             </select>
           </div>
-          <div className="col-md-2">
+          <div className="col-md-4">
             <button className="btn btn-default"
               onClick={this.addNewBlock}>{gettext('Add Block')}</button>
           </div>

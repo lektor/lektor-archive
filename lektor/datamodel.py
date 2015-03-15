@@ -493,21 +493,14 @@ add_system_field('_id', type='string')
 # the model that defines the data of the record
 add_system_field('_model', type='string')
 
-# the template that should be used for rendering if not hidden and exposed
+# the template that should be used for rendering if not hidden
 add_system_field('_template', type='string')
 
 # the slug that should be used for this record.  This is added below the
 # slug of the parent.
 add_system_field('_slug', type='slug')
 
-# by default all records are exposed.  If a record is set to unexposed
-# then it is not rendered and neither are any of its children.
-add_system_field('_expose', type='boolean',
-                 checkbox_label='Should this page and its children be exposed?')
-
-# this is similar to expose but only affects the record itself.  This can
-# be used to create a "folder" that is actually empty but the children
-# itself are exposed.  Useful for error pages and similar things.
+# This can be used to hide an individual record.
 add_system_field('_hidden', type='boolean',
                  checkbox_label='Should this page itself be hidden?')
 

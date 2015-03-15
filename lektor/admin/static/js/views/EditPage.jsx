@@ -48,8 +48,6 @@ var EditPage = React.createClass({
   isIllegalField: function(field) {
     switch (field.name) {
       case '_id':
-      case '_expose':
-      case '_hidden':
       case '_path':
       case '_gid':
       case '_model':
