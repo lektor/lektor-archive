@@ -172,7 +172,7 @@ var AddChildPage = React.createClass({
     addField('id', {
       name: '_id',
       label: 'ID',
-      type: {name: 'string'}
+      type: {name: 'slug'}
     }, this.getImpliedId());
 
     return fields;
