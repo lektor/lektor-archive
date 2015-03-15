@@ -10,7 +10,8 @@ from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
 
 from lektor import metaformat
-from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, fs_enc
+from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, \
+     fs_enc
 from lektor.sourceobj import SourceObject
 from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
@@ -543,6 +544,10 @@ class Query(object):
 
     def _iterate(self):
         """Low level record iteration."""
+        ctx = get_ctx()
+        if ctx is not None:
+            ctx.record_dependency(self.pad.db.to_fs_path(self.path))
+
         for name, is_attachment in self.pad.db.iter_items(self.path):
             if not ((is_attachment == self._include_attachments) or
                     (not is_attachment == self._include_pages)):
