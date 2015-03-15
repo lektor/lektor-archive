@@ -65,7 +65,7 @@ class FtpTree(FtpDirectory):
 
 class FtpConnection(object):
 
-    def __init__(self, server_url, user, pw)
+    def __init__(self, server_url, user, pw):
         self._server_url = server_url
         self._user = user
         self._pw = pw

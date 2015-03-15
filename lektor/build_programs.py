@@ -11,6 +11,7 @@ from lektor.db import Page, Attachment
 from lektor.assets import File, Directory, LessFile
 from lektor.reporter import reporter
 from lektor.context import get_ctx
+from lektor.utils import portable_popen
 
 
 build_programs = []
@@ -180,10 +181,11 @@ class LessFileAssetBuildProgram(BuildProgram):
 
         exe = self.build_state.env.config['LESSC_EXECUTABLE']
         if exe is None:
-            if sys.platform.startswith('win'):
-                exe = 'lessc.cmd'
-            else:
-                exe = 'lessc'
+            exe = 'lessc'
+        #    if sys.platform.startswith('win'):
+        #        exe = 'lessc.cmd'
+        #    else:
+        #        exe = 'lessc'
 
         cmdline = [exe, '--no-js', '--include-path=%s' % here,
                    '--source-map=%s' % map_out,
@@ -192,7 +194,7 @@ class LessFileAssetBuildProgram(BuildProgram):
 
         reporter.report_debug_info('lessc cmd line', cmdline)
 
-        proc = subprocess.Popen(cmdline)
+        proc = portable_popen(cmdline)
         if proc.wait() != 0:
             raise RuntimeError('lessc failed')
 

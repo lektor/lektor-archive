@@ -19,6 +19,7 @@ from lektor.builder import Builder
 from lektor.watcher import Watcher
 from lektor.reporter import CliReporter
 from lektor.admin import WebAdmin
+from lektor.utils import portable_popen
 
 
 _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
@@ -233,11 +234,10 @@ class DevTools(object):
             return
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
-        subprocess.Popen(['npm', 'install', '.'], cwd=admin).wait()
-        self.watcher = subprocess.Popen(
-            ['../node_modules/.bin/webpack', '--watch'],
-            cwd=os.path.join(admin, 'static')
-        )
+        portable_popen(['npm', 'install', '.'], cwd=admin).wait()
+        self.watcher = portable_popen(['../node_modules/.bin/webpack',                      
+                                       '--watch'],
+                                      cwd=os.path.join(admin, 'static'))
 
     def stop(self):
         if self.watcher is None:

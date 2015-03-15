@@ -1,7 +1,10 @@
 import os
 import sys
+import re
 import json
+import codecs
 import uuid
+import subprocess
 import tempfile
 import posixpath
 import traceback
@@ -20,10 +23,59 @@ from jinja2 import is_undefined
 from markupsafe import Markup
 
 
-is_windows = sys.platform.startswith('win')
-
+is_windows = (os.name == 'nt')
 
 _slash_escape = '\\/' not in json.dumps('/')
+
+_slashes_re = re.compile(r'/+')
+
+# Figure out our fs encoding, if it's ascii we upgrade to utf-8
+fs_enc = sys.getfilesystemencoding()
+try:
+    if codecs.lookup(fs_enc).name == 'ascii':
+        fs_enc = 'utf-8'
+except LookupError:
+    pass
+
+
+def cleanup_path(path):
+    return '/' + _slashes_re.sub('/', path.strip('/'))
+
+
+def to_os_path(path):
+    return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
+
+
+def is_path(path):
+    return os.path.sep in path or (os.path.altsep and os.path.altsep in path)
+
+
+def resolve_path(execute_file, cwd):
+    execute_file = to_os_path(execute_file)
+    if os.name != 'nt':
+        return execute_file
+
+    extensions = ['']
+    path_var = os.environ.get('PATH', '').split(os.pathsep)
+    path_ext_var = os.environ.get('PATHEXT', '').split(';')
+
+    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
+    if not ext_existing:
+        extensions = path_ext_var
+
+    try:
+        for ext in extensions:
+            execute = os.path.join(cwd, execute_file + ext)
+            if os.access(execute, os.X_OK):
+                return execute
+            for path in path_var:
+                execute = os.path.join(path, execute_file + ext)
+                if os.access(execute, os.X_OK):
+                    return execute
+    except OSError:
+        pass
+
+    return None
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -181,3 +233,14 @@ def atomic_open(filename, mode='r'):
         f.close()
         if tmp_filename is not None:
             rename(tmp_filename, filename)
+
+
+def portable_popen(cmd, *args, **kwargs):
+    if kwargs.has_key('cwd'):
+        cmd[0] = resolve_path(cmd[0], kwargs['cwd'])
+    else:
+        cmd[0] = resolve_path(cmd[0], os.getcwd())
+
+    return subprocess.Popen(cmd, *args, **kwargs)
+
+
