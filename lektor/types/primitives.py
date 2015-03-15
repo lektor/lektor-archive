@@ -71,6 +71,11 @@ class FloatType(Type):
 
 class BooleanType(Type):
 
+    def to_json(self, pad):
+        rv = Type.to_json(self, pad)
+        rv['checkbox_label'] = self.options.get('checkbox_label')
+        return rv
+
     def value_from_raw(self, raw):
         if raw.value is None:
             return raw.missing_value('Missing boolean')

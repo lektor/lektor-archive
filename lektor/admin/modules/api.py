@@ -114,6 +114,54 @@ def get_raw_record():
     return jsonify(ts.to_json())
 
 
+@bp.route('/api/deleterecord')
+def get_delete_info():
+    path = request.args['path']
+    record = g.lektor_info.pad.get(path)
+    children = []
+    child_count = 0
+
+    if record is None:
+        can_be_deleted = True
+        is_attachment = False
+        label = posixpath.basename(path)
+    else:
+        can_be_deleted = record['_path'] != '/'
+        is_attachment = record.is_attachment
+        label = record.record_label
+        if not is_attachment:
+            children = [{
+                'id': x['_id'],
+                'label': x.record_label,
+            } for x in record.real_children.limit(10)]
+            child_count = record.real_children.count()
+
+    return jsonify(
+        record_info={
+            'id': posixpath.basename(path),
+            'path': path,
+            'exists': record is not None,
+            'label': label,
+            'can_be_deleted': can_be_deleted,
+            'is_attachment': is_attachment,
+            'attachments': [{
+                'id': x['_id'],
+                'type': x['_attachment_type']
+            } for x in getattr(record, 'attachments', ())],
+            'children': children,
+            'child_count': child_count,
+        },
+    )
+
+
+@bp.route('/api/deleterecord', methods=['POST'])
+def delete_record():
+    ts = g.lektor_info.pad.edit(request.values['path'])
+    with ts:
+        ts.delete()
+    return jsonify(okay=True)
+
+
 @bp.route('/api/rawrecord', methods=['PUT'])
 def update_raw_record():
     values = request.get_json()

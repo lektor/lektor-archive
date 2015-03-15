@@ -502,7 +502,7 @@ add_system_field('_slug', type='slug')
 
 # This can be used to hide an individual record.
 add_system_field('_hidden', type='boolean',
-                 checkbox_label='Should this page itself be hidden?')
+                 checkbox_label='Should this page be hidden?')
 
 # Useful fields for attachments.
 add_system_field('_attachment_for', type='string')

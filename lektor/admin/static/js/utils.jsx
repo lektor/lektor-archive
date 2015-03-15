@@ -64,6 +64,10 @@ var utils = {
     return '/' + adminPath.substr(base.length).match(/^\/*(.*?)\/*$/)[1];
   },
 
+  getParentFsPath: function(fsPath) {
+    return fsPath.match(/^(.*?)\/([^\/]*)$/)[1];
+  },
+
   loadData: function(url, params, options) {
     options = options || {};
     return new Promise(function(resolve, reject) {
@@ -140,6 +144,10 @@ var utils = {
 
   gettext: function(string) {
     return string;
+  },
+
+  ngettext: function(s, p, n) {
+    return n != 1 ? p : s;
   }
 };
 

@@ -266,12 +266,6 @@ class Record(SourceObject):
         """Returns a clone of the internal data dictionary."""
         return dict(self._data)
 
-    def to_json(self):
-        """Similar to :meth:`to_dict` but the return value will be valid
-        JSON.
-        """
-        return self.datamodel.to_json(self._data, pad=self.pad)
-
     def iter_fields(self):
         """Iterates over all fields and values."""
         return self._data.iteritems()

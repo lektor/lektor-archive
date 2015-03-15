@@ -51,14 +51,33 @@ var Sidebar = React.createClass({
 
   renderPageActions: function() {
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
+    var links = [];
     var linkParams = {path: urlPath};
+    var deleteLink = null;
+
+    links.push(
+      <li key='edit'><Link to="edit" params={linkParams
+        }>{gettext('Edit')}</Link></li>
+    );
+
+    if (urlPath !== 'root') {
+      links.push(
+        <li key='delete'><Link to="delete" params={
+          linkParams}>{gettext('Delete')}</Link></li>
+      );
+    }
+
+    links.push(
+      <li key='preview'><Link to="preview" params={linkParams
+        }>{gettext('Preview')}</Link></li>
+    );
+
     return (
       <div key="actions" className="section">
         <h3>{gettext('Actions')}</h3>
         <ul className="nav">
-          <li><Link to="edit" params={linkParams}>{gettext('Edit')}</Link></li>
-          <li><Link to="delete" params={linkParams}>{gettext('Delete')}</Link></li>
-          <li><Link to="preview" params={linkParams}>{gettext('Preview')}</Link></li>
+          {links}
+          {deleteLink}
         </ul>
       </div>
     );

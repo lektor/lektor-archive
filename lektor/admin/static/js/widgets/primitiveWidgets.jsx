@@ -233,6 +233,7 @@ var BooleanInputWidget = React.createClass({
             {...otherProps}
             checked={isTrue(value)}
             onChange={onChange ? this.onChange : undefined} />
+          {type.checkbox_label}
         </label>
       </div>
     )

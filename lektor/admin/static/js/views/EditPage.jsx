@@ -11,7 +11,6 @@ var widgets = require('../widgets');
 var {gettext} = utils;
 
 
-
 var EditPage = React.createClass({
   mixins: [
     RecordState,
@@ -31,10 +30,6 @@ var EditPage = React.createClass({
 
   componentDidMount: function() {
     this.syncEditor();
-  },
-
-  componentWillUnmount: function() {
-    console.log('UNMOUNT');
   },
 
   componentWillReceiveProps: function(nextProps) {
@@ -121,6 +116,11 @@ var EditPage = React.createClass({
           this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
         });
       }.bind(this));
+  },
+
+  deleteRecord: function(event) {
+    var urlPath = utils.fsToUrlPath(this.getRecordPath());
+    this.transitionTo('delete', {path: urlPath});
   },
 
   getLabel: function() {
@@ -211,6 +211,8 @@ var EditPage = React.createClass({
         <div className="actions">
           <button type="submit" className="btn btn-primary"
             onClick={this.saveChanges}>{gettext('Save')}</button>
+          <button type="submit" className="btn btn-default"
+            onClick={this.deleteRecord}>{gettext('Delete')}</button>
         </div>
       </div>
     );
