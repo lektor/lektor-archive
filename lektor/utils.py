@@ -236,7 +236,7 @@ def atomic_open(filename, mode='r'):
 
 
 def portable_popen(cmd, *args, **kwargs):
-    if kwargs.has_key('cwd'):
+    if 'cwd' in kwargs:
         cmd[0] = resolve_path(cmd[0], kwargs['cwd'])
     else:
         cmd[0] = resolve_path(cmd[0], os.getcwd())
@@ -244,3 +244,12 @@ def portable_popen(cmd, *args, **kwargs):
     return subprocess.Popen(cmd, *args, **kwargs)
 
 
+def is_valid_id(value):
+    if value == '':
+        return True
+    return (
+        '/' not in value and
+        value.strip() == value and
+        value.split() == [value] and
+        not value.startswith('.')
+    )

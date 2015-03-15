@@ -2,6 +2,8 @@ import posixpath
 
 from flask import Blueprint, jsonify, request, g
 
+from lektor.utils import is_valid_id
+
 
 bp = Blueprint('api', __name__)
 
@@ -152,14 +154,23 @@ def get_new_record_info():
 @bp.route('/api/newrecord', methods=['POST'])
 def add_new_record():
     values = request.get_json()
+    exists = False
+
+    if not is_valid_id(values['id']):
+        return jsonify(valid_id=False, exists=False, path=None)
 
     path = posixpath.join(values['path'], values['id'])
 
     ts = g.lektor_info.pad.edit(path, datamodel=values.get('model'))
     with ts:
-        ts.update(values.get('data') or {})
+        if ts.exists:
+            exists = True
+        else:
+            ts.update(values.get('data') or {})
 
     return jsonify({
+        'valid_id': True,
+        'exists': exists,
         'path': path
     })
 

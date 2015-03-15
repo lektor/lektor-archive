@@ -5,7 +5,7 @@ import posixpath
 from collections import OrderedDict
 
 from lektor.metaformat import serialize
-from lektor.utils import atomic_open
+from lektor.utils import atomic_open, is_valid_id
 
 
 implied_keys = set(['_id', '_path', '_gid', '_attachment_for'])
@@ -23,6 +23,9 @@ class BadDelete(BadEdit):
 def make_editor_session(pad, path, is_attachment=None, datamodel=None):
     """Creates an editor session for the given path object."""
     raw_data = pad.db.load_raw_data(path, cls=OrderedDict)
+    id = posixpath.basename(path)
+    if not is_valid_id(id):
+        raise BadEdit('Invalid ID')
 
     record = None
     exists = raw_data is not None
@@ -56,15 +59,15 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
     for key in implied_keys:
         raw_data.pop(key, None)
 
-    return EditorSession(pad, unicode(path), raw_data, datamodel, record,
+    return EditorSession(pad, id, unicode(path), raw_data, datamodel, record,
                          exists, is_attachment)
 
 
 class EditorSession(object):
 
-    def __init__(self, pad, path, original_data, datamodel, record, exists=True,
+    def __init__(self, pad, id, path, original_data, datamodel, record, exists=True,
                  is_attachment=False):
-        self.id = posixpath.basename(path)
+        self.id = id
         self.pad = pad
         self.path = path
         self.record = record

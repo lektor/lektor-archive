@@ -93,10 +93,9 @@ var AddChildPage = React.createClass({
   },
 
   createRecord: function() {
-    // XXX: validate
     var id = this.state.id || this.getImpliedId();
     if (!id) {
-      alert(gettext('No ID provided :('));
+      alert(gettext('Error: No ID provided :('));
       return;
     }
 
@@ -112,8 +111,16 @@ var AddChildPage = React.createClass({
 
     utils.apiRequest('/newrecord', {json: params, method: 'POST'})
       .then(function(resp) {
-        var urlPath = utils.fsToUrlPath(resp.path);
-        this.transitionTo('edit', {path: urlPath});
+        if (resp.exists) {
+          alert(gettext('Error: Record with this ID (%s) exists already.')
+               .replace('%s', id));
+        } else if (!resp.valid_id) {
+          alert(gettext('Error: The ID provided (%s) is not allowed.')
+               .replace('%s', id));
+        } else {
+          var urlPath = utils.fsToUrlPath(resp.path);
+          this.transitionTo('edit', {path: urlPath});
+        }
       }.bind(this));
   },
 
