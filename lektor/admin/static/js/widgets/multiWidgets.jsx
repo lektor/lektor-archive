@@ -10,9 +10,13 @@ var CheckboxesInputWidget = React.createClass({
 
   statics: {
     deserializeValue: function(value) {
-      return value.split(',').map(function(x) {
+      var rv = value.split(',').map(function(x) {
         return x.match(/^\s*(.*?)\s*$/)[1];
       });
+      if (rv.length === 1 && rv[0] === '') {
+        rv = [];
+      }
+      return rv;
     },
 
     serializeValue: function(value) {
