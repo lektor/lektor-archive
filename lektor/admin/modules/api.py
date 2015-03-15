@@ -111,13 +111,7 @@ def match_url():
 
 @bp.route('/api/rawrecord')
 def get_raw_record():
-    datamodel = None
-    datamodel_name = request.args.get('model')
-    if datamodel_name is not None:
-        datamodel = g.lektor_info.pad.db.datamodels.get(datamodel_name)
-
-    ts = g.lektor_info.pad.edit(request.args['path'],
-                                datamodel=datamodel)
+    ts = g.lektor_info.pad.edit(request.args['path'])
     return jsonify(ts.to_json())
 
 
@@ -152,6 +146,21 @@ def get_new_record_info():
         'available_models': dict(
             (k, describe_model(v)) for k, v in pad.db.datamodels.iteritems()
             if not v.hidden or k == implied)
+    })
+
+
+@bp.route('/api/newrecord', methods=['POST'])
+def add_new_record():
+    values = request.get_json()
+
+    path = posixpath.join(values['path'], values['id'])
+
+    ts = g.lektor_info.pad.edit(path, datamodel=values.get('model'))
+    with ts:
+        ts.update(values.get('data') or {})
+
+    return jsonify({
+        'path': path
     })
 
 

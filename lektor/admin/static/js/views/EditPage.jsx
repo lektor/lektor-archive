@@ -56,23 +56,10 @@ var EditPage = React.createClass({
   },
 
   syncEditor: function() {
-    var q = {path: this.getRecordPath()};
-    var params = this.context.getCurrentQuery();
-    if (params._model) {
-      q.model = params._model;
-    }
-
-    utils.loadData('/rawrecord', q)
+    utils.loadData('/rawrecord', {path: this.getRecordPath()})
       .then(function(resp) {
-        var initialData = resp.data;
-        for (var key in params) {
-          if (key !== '_model' && !initialData[key]) {
-            initialData[key] = params[key];
-          }
-        }
-
         this.setState({
-          recordInitialData: initialData,
+          recordInitialData: resp.data,
           recordData: {},
           recordDataModel: resp.datamodel,
           recordInfo: resp.record_info,
@@ -219,30 +206,20 @@ var EditPage = React.createClass({
     }
 
     var deleteButton = null;
-    if (!this.isRootRecord() && this.state.recordInfo.exists) {
+    if (!this.isRootRecord()) {
       deleteButton = (
         <button type="submit" className="btn btn-default"
           onClick={this.deleteRecord}>{gettext('Delete')}</button>
       );
     }
 
-    var title, saveText;
-
-    if (this.state.recordInfo.exists) {
-      title = gettext('Edit “%s”');
-      saveText = gettext('Save changes');
-    } else {
-      title = gettext('Create “%s”');
-      saveText = gettext('Create page');
-    }
-
     return (
       <div className="edit-area">
-        <h2>{title.replace('%s', this.getLabel())}</h2>
+        <h2>{gettext('Edit “%s”').replace('%s', this.getLabel())}</h2>
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
-            onClick={this.saveChanges}>{saveText}</button>
+            onClick={this.saveChanges}>{gettext('Save changes')}</button>
           {deleteButton}
         </div>
       </div>

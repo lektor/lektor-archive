@@ -93,23 +93,28 @@ var AddChildPage = React.createClass({
   },
 
   createRecord: function() {
+    // XXX: validate
     var id = this.state.id || this.getImpliedId();
     if (!id) {
       alert(gettext('No ID provided :('));
       return;
     }
-    var params = {};
+
+    var data = {};
+    var params = {id: id, path: this.getRecordPath(), data: data};
     if (!this.state.newChildInfo.implied_model) {
-      params._model = this.state.selectedModel;
+      data._model = this.state.selectedModel;
     }
     var primaryField = this.getPrimaryField();
     if (primaryField) {
-      params[primaryField.name] = this.state.primary;
+      data[primaryField.name] = this.state.primary;
     }
 
-    var newPath = utils.joinFsPath(this.getRecordPath(), id);
-    var urlPath = utils.fsToUrlPath(newPath);
-    this.transitionTo('edit', {path: urlPath}, params);
+    utils.apiRequest('/newrecord', {json: params, method: 'POST'})
+      .then(function(resp) {
+        var urlPath = utils.fsToUrlPath(resp.path);
+        this.transitionTo('edit', {path: urlPath});
+      }.bind(this));
   },
 
   renderFields: function() {
@@ -182,7 +187,7 @@ var AddChildPage = React.createClass({
         {this.renderFields()}
         <div className="actions">
           <button className="btn btn-primary" onClick={this.createRecord}>{
-            gettext('Continue to Edit')}</button>
+            gettext('Create Page')}</button>
         </div>
       </div>
     );

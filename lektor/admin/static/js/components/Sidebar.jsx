@@ -52,10 +52,6 @@ var Sidebar = React.createClass({
   },
 
   renderPageActions: function() {
-    if (!this.state.recordExists) {
-      return [];
-    }
-
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
     var links = [];
     var linkParams = {path: urlPath};
