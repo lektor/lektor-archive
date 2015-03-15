@@ -1,5 +1,4 @@
 import os
-import sys
 import errno
 import operator
 import functools
@@ -43,6 +42,12 @@ class _CmpHelper(object):
         if isinstance(a, basestring) and isinstance(b, basestring):
             return sort_normalize_string(a), sort_normalize_string(b)
         if type(a) is type(b):
+            return a, b
+        if isinstance(a, Undefined) or isinstance(b, Undefined):
+            if isinstance(a, Undefined):
+                a = None
+            if isinstance(b, Undefined):
+                b = None
             return a, b
         if isinstance(a, (int, long, float)):
             try:

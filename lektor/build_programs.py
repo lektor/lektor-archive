@@ -1,9 +1,12 @@
 import os
+import sys
 import json
 import shutil
 import posixpath
 
 from itertools import chain
+
+from werkzeug.debug.tbtools import Traceback
 
 from lektor.db import Page, Attachment
 from lektor.assets import File, Directory, LessFile
@@ -114,11 +117,19 @@ class PageBuildProgram(BuildProgram):
                 posixpath.join(self.source.url_path, 'index.html'),
                 sources=[self.source.source_filename])
 
+    def render_failure(self, exc_info):
+        tb = Traceback(*exc_info)
+        return tb.render_full()
+
     def build_artifact(self, artifact):
         with artifact.open('wb') as f:
-            rv = self.build_state.env.render_template(
-                self.source['_template'], self.build_state.pad,
-                this=self.source)
+            try:
+                rv = self.build_state.env.render_template(
+                    self.source['_template'], self.build_state.pad,
+                    this=self.source)
+            except Exception:
+                rv = self.render_failure(sys.exc_info())
+                self.build_state.mark_artifact_sources_dirty([artifact])
             f.write(rv.encode('utf-8') + b'\n')
 
     def iter_child_sources(self):
