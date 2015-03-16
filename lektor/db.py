@@ -8,6 +8,7 @@ from itertools import islice
 
 from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
+from jinja2.exceptions import UndefinedError
 
 from lektor import metaformat
 from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, \
@@ -77,6 +78,13 @@ def _auto_wrap_expr(value):
     if isinstance(value, _Expr):
         return value
     return _Literal(value)
+
+
+def save_eval(filter, record):
+    try:
+        return filter.__eval__(record)
+    except UndefinedError as e:
+        return Undefined(e.message)
 
 
 class _Expr(object):
@@ -557,7 +565,7 @@ class Query(object):
             if self._visible_only and not record.is_visible:
                 continue
             for filter in self._filters or ():
-                if not filter.__eval__(record):
+                if not save_eval(filter, record):
                     break
             else:
                 yield record
