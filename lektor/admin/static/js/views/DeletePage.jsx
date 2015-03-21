@@ -6,6 +6,8 @@ var Router = require('react-router');
 
 var RecordState = require('../mixins/RecordState');
 var utils = require('../utils');
+var hub = require('../hub');
+var {AttachmentsChangedEvent} = require('../events');
 var {gettext, ngettext} = utils;
 
 
@@ -49,6 +51,12 @@ var DeletePage = React.createClass({
 
     utils.apiRequest('/deleterecord', {data: {path: path}, method: 'POST'})
       .then(function(resp) {
+        if (this.state.recordInfo.is_attachment) {
+          hub.emit(new AttachmentsChangedEvent({
+            recordPath: this.getParentRecordPath(),
+            attachmentsRemoved: [this.state.recordInfo.id]
+          }));
+        }
         this.context.router.transitionTo('edit', {path: targetPath});
       }.bind(this));
   },

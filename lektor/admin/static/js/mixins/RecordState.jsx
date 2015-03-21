@@ -28,6 +28,11 @@ var RecordStateMixin = {
     return utils.urlToFsPath(this.context.router.getCurrentParams().path);
   },
 
+  /* returns the parent path if available */
+  getParentRecordPath: function() {
+    return utils.getParentFsPath(this.getRecordPath());
+  },
+
   /* returns true if this is the root record */
   isRootRecord: function() {
     return this.getRecordPath() === '';

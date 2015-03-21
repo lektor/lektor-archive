@@ -5,6 +5,8 @@ var React = require('react');
 var Router = require('react-router');
 
 var RecordState = require('../mixins/RecordState');
+var hub = require('../hub');
+var {AttachmentsChangedEvent} = require('../events');
 var utils = require('../utils');
 var widgets = require('../widgets');
 var {gettext, ngettext} = utils;
@@ -68,7 +70,14 @@ var AddAttachmentPage = React.createClass({
     this.setState({
       isUploading: false,
       newProgress: 100
-    });
+    }, function() {
+      hub.emit(new AttachmentsChangedEvent({
+        recordPath: this.getRecordPath(),
+        attachmentsAdded: resp.buckets.map(function(bucket) {
+          return bucket.stored_filename;
+        })
+      }));
+    }.bind(this));
   },
 
   onFileSelected: function(event) {
@@ -102,7 +111,6 @@ var AddAttachmentPage = React.createClass({
 
   renderCurrentFiles: function() {
     var files = this.state.currentFiles.map(function(file) {
-      console.log(file);
       return (
         <li key={file.name}>{file.name} ({file.type})</li>
       );

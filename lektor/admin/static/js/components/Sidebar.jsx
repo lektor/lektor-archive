@@ -6,6 +6,8 @@ var {Link} = Router;
 
 var RecordState = require('../mixins/RecordState');
 var utils = require('../utils');
+var hub = require('../hub');
+var {AttachmentsChangedEvent} = require('../events');
 var {gettext} = utils;
 
 
@@ -25,10 +27,23 @@ var Sidebar = React.createClass({
 
   componentDidMount: function() {
     this._updateRecordInfo();
+
+    hub.subscribe(AttachmentsChangedEvent, this.onAttachmentsChanged, this);
   },
 
   componentWillReceiveProps: function(nextProps) {
     this._updateRecordInfo();
+  },
+
+  componentWillUnmount: function() {
+    hub.unsubscribe(AttachmentsChangedEvent, this.onAttachmentsChanged, this);
+  },
+
+  onAttachmentsChanged: function(event) {
+    console.log(event);
+    if (event.recordPath === this.getRecordPath()) {
+      this._updateRecordInfo();
+    }
   },
 
   _updateRecordInfo: function() {
