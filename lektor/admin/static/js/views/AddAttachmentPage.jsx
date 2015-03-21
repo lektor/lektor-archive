@@ -22,8 +22,7 @@ function getGoodDefaultModel(models) {
 
 var AddAttachmentPage = React.createClass({
   mixins: [
-    RecordState,
-    Router.Navigation
+    RecordState
   ],
 
   getInitialState: function() {
