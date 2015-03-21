@@ -721,7 +721,7 @@ def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
     yield datamodel_name
     if not is_attachment:
         yield posixpath.basename(path).split('.')[0].replace('-', '_').lower()
-    yield 'page'
+        yield 'page'
     yield 'none'
 
 

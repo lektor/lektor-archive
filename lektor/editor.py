@@ -103,6 +103,8 @@ class EditorSession(object):
         if self.record is not None:
             label = self.record.record_label
             url_path = self.record.url_path
+        else:
+            label = self.id
         return {
             'data': dict(self.iteritems()),
             'record_info': {

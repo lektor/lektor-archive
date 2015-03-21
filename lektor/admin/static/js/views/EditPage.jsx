@@ -122,17 +122,6 @@ var EditPage = React.createClass({
     this.context.router.transitionTo('delete', {path: urlPath});
   },
 
-  getLabel: function() {
-    var ri = this.state.recordInfo;
-    if (!ri) {
-      return null;
-    }
-    if (ri.exists) {
-      return ri.label;
-    }
-    return ri.id;
-  },
-
   getPlaceholderForField: function(field) {
     if (field.name == '_slug') {
       return this.state.recordInfo.slug_format;
@@ -213,7 +202,7 @@ var EditPage = React.createClass({
 
     return (
       <div className="edit-area">
-        <h2>{gettext('Edit “%s”').replace('%s', this.getLabel())}</h2>
+        <h2>{gettext('Edit “%s”').replace('%s', this.state.recordInfo.label)}</h2>
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
