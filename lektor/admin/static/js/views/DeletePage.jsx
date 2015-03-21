@@ -11,8 +11,7 @@ var {gettext, ngettext} = utils;
 
 var DeletePage = React.createClass({
   mixins: [
-    RecordState,
-    Router.Navigation
+    RecordState
   ],
 
   getInitialState: function() {
@@ -50,13 +49,13 @@ var DeletePage = React.createClass({
 
     utils.apiRequest('/deleterecord', {data: {path: path}, method: 'POST'})
       .then(function(resp) {
-        this.transitionTo('edit', {path: targetPath});
+        this.context.router.transitionTo('edit', {path: targetPath});
       }.bind(this));
   },
 
   cancelDelete: function(event) {
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
-    this.transitionTo('edit', {path: urlPath});
+    this.context.router.transitionTo('edit', {path: urlPath});
   },
 
   render: function() {

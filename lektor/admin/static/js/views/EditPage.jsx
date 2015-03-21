@@ -14,8 +14,6 @@ var {gettext} = utils;
 var EditPage = React.createClass({
   mixins: [
     RecordState,
-    Router.Navigation,
-    Router.State,
     NavigationConfirmationMixin
   ],
 
@@ -114,14 +112,14 @@ var EditPage = React.createClass({
         this.setState({
           hasPendingChanges: false
         }, function() {
-          this.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+          this.context.router.transitionTo('preview', {path: utils.fsToUrlPath(path)});
         });
       }.bind(this));
   },
 
   deleteRecord: function(event) {
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
-    this.transitionTo('delete', {path: urlPath});
+    this.context.router.transitionTo('delete', {path: urlPath});
   },
 
   getLabel: function() {

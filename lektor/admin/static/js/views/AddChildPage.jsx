@@ -22,8 +22,7 @@ function getGoodDefaultModel(models) {
 
 var AddChildPage = React.createClass({
   mixins: [
-    RecordState,
-    Router.Navigation
+    RecordState
   ],
 
   getInitialState: function() {
@@ -119,7 +118,7 @@ var AddChildPage = React.createClass({
                .replace('%s', id));
         } else {
           var urlPath = utils.fsToUrlPath(resp.path);
-          this.transitionTo('edit', {path: urlPath});
+          this.context.router.transitionTo('edit', {path: urlPath});
         }
       }.bind(this));
   },

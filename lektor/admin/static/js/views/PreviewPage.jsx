@@ -8,8 +8,7 @@ var RecordState = require('../mixins/RecordState');
 
 var PreviewPage = React.createClass({
   mixins: [
-    RecordState,
-    Router.Navigation
+    RecordState
   ],
 
   getInitialState: function() {
@@ -70,7 +69,7 @@ var PreviewPage = React.createClass({
       .then(function(resp) {
         if (resp.exists) {
           var urlPath = utils.fsToUrlPath(resp.path);
-          this.transitionTo('preview', {path: urlPath});
+          this.context.router.transitionTo('preview', {path: urlPath});
         }
       }.bind(this));
   },
