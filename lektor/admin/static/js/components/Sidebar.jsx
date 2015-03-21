@@ -40,7 +40,6 @@ var Sidebar = React.createClass({
   },
 
   onAttachmentsChanged: function(event) {
-    console.log(event);
     if (event.recordPath === this.getRecordPath()) {
       this._updateRecordInfo();
     }
