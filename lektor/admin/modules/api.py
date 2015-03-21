@@ -1,8 +1,9 @@
+import os
 import posixpath
 
 from flask import Blueprint, jsonify, request, g
 
-from lektor.utils import is_valid_id
+from lektor.utils import is_valid_id, secure_filename, atomic_open
 
 
 bp = Blueprint('api', __name__)
@@ -148,6 +149,39 @@ def get_new_record_info():
         'available_models': dict(
             (k, describe_model(v)) for k, v in pad.db.datamodels.iteritems()
             if not v.hidden or k == implied)
+    })
+
+
+@bp.route('/api/newattachment')
+def get_new_attachment_info():
+    pad = g.lektor_info.pad
+    ts = pad.edit(request.args['path'])
+    return jsonify({
+        'can_upload': ts.exists and not ts.is_attachment,
+        'label': ts.record and ts.record.record_label or ts.id,
+    })
+
+
+@bp.route('/api/newattachment', methods=['POST'])
+def upload_new_attachments():
+    ts = g.lektor_info.pad.edit(request.values['path'])
+    if not ts.exists or ts.is_attachment:
+        return jsonify({
+            'bad_upload': True
+        })
+
+    buckets = []
+
+    for file in request.files.getlist('file'):
+        buckets.append({
+            'original_filename': file.filename,
+            'stored_filename': ts.add_attachment(file.filename, file),
+        })
+
+    return jsonify({
+        'bad_upload': False,
+        'path': request.form['path'],
+        'buckets': buckets,
     })
 
 

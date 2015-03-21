@@ -117,6 +117,10 @@ class Environment(object):
     def asset_path(self):
         return os.path.join(self.root_path, 'assets')
 
+    @property
+    def temp_path(self):
+        return os.path.join(self.root_path, 'temp')
+
     def is_uninteresting_source_name(self, filename):
         """These files are always ignored when sources are built into
         artifacts.

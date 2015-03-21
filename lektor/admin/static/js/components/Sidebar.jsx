@@ -81,6 +81,13 @@ var Sidebar = React.createClass({
       );
     }
 
+    if (this.state.canHaveAttachments) {
+      links.push(
+        <li key='add-attachment'><Link to="add-attachment" params={linkParams
+          }>{gettext('Add Attachment')}</Link></li>
+      );
+    }
+
     return (
       <div key="actions" className="section">
         <h3>{gettext('Actions')}</h3>

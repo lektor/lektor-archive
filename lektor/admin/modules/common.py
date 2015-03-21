@@ -1,3 +1,4 @@
+import os
 import posixpath
 
 from flask import Blueprint, g, request, current_app
@@ -14,6 +15,16 @@ class LektorInfo(object):
     def __init__(self):
         self.admin_root = request.script_root
         self.site_root = posixpath.dirname(self.admin_root)
+
+    def get_temp_path(self, name=None):
+        if name is None:
+            name = os.urandom(20).encode('hex')
+        dirname = current_app.lektor_env.temp_path
+        try:
+            os.makedirs(dirname)
+        except OSError:
+            pass
+        return os.path.join(dirname, name)
 
     @cached_property
     def pad(self):

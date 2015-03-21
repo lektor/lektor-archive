@@ -28,6 +28,7 @@ is_windows = (os.name == 'nt')
 _slash_escape = '\\/' not in json.dumps('/')
 
 _slashes_re = re.compile(r'/+')
+_last_num_re = re.compile(r'^(.*)(\d+)(.*?)$')
 
 # Figure out our fs encoding, if it's ascii we upgrade to utf-8
 fs_enc = sys.getfilesystemencoding()
@@ -48,6 +49,60 @@ def to_os_path(path):
 
 def is_path(path):
     return os.path.sep in path or (os.path.altsep and os.path.altsep in path)
+
+
+def magic_split_ext(filename, ext_check=True):
+    """Splits a filename into base and extension.  If ext check is enabled
+    (which is the default) then it verifies the extension is at least
+    reasonable.
+    """
+    def bad_ext(ext):
+        if not ext_check:
+            return False
+        if not ext or ext.split() != [ext] or ext.strip():
+            return True
+        return False
+
+    parts = filename.rsplit('.', 2)
+    if len(parts) == 2 and not parts[0]:
+        return parts[0], ''
+    if len(parts) == 3 and len(parts[1]) < 5:
+        ext = '.'.join(parts[1:])
+        if not bad_ext(ext):
+            return parts[0], ext
+    ext = parts[-1]
+    if bad_ext(ext):
+        return filename, ''
+    basename = '.'.join(parts[:-1])
+    return basename, ext
+
+
+def secure_filename(filename, fallback_name='file'):
+    base = filename.replace('/', ' ').replace('\\', ' ')
+    basename, ext = magic_split_ext(base)
+    rv = slugify(basename).lstrip('.')
+    if not rv:
+        rv = fallback_name
+    if ext:
+        return rv + '.' + ext
+    return rv
+
+
+def increment_filename(filename):
+    directory, filename = os.path.split(filename)
+    basename, ext = magic_split_ext(filename, ext_check=False)
+
+    match = _last_num_re.match(basename)
+    if match is not None:
+        rv = match.group(1) + str(int(match.group(2)) + 1) + match.group(3)
+    else:
+        rv = basename + '2'
+
+    if ext:
+        rv += '.' + ext
+    if directory:
+        return os.path.join(directory, rv)
+    return rv
 
 
 def resolve_path(execute_file, cwd):
@@ -149,7 +204,8 @@ class WorkerPool(object):
 
 def slugify(value):
     # XXX: not good enough
-    return u'-'.join(value.strip().split()).lower()
+    return u'-'.join(value.strip().encode(
+        'ascii', 'ignore').strip().split()).lower()
 
 
 class Url(object):

@@ -26,6 +26,7 @@ var routes = (function() {
   var DeletePage = require('./views/DeletePage');
   var PreviewPage = require('./views/PreviewPage');
   var AddChildPage = require('./views/AddChildPage');
+  var AddAttachmentPage = require('./views/AddAttachmentPage');
 
   // route setup
   return (
@@ -34,6 +35,7 @@ var routes = (function() {
       <Route name="delete" path=":path/delete" handler={DeletePage}/>
       <Route name="preview" path=":path/preview" handler={PreviewPage}/>
       <Route name="add-child" path=":path/add-child" handler={AddChildPage}/>
+      <Route name="add-attachment" path=":path/upload" handler={AddAttachmentPage}/>
       <DefaultRoute handler={Dash}/>
       <NotFoundRoute handler={BadRoute}/>
     </Route>

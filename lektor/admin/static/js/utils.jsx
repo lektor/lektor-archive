@@ -209,11 +209,15 @@ var utils = {
     return fsPath.match(/^(.*?)\/([^\/]*)$/)[1];
   },
 
+  getApiUrl: function(url) {
+    return $LEKTOR_CONFIG.admin_root + '/api' + url;
+  },
+
   loadData: function(url, params, options) {
     options = options || {};
     return new Promise(function(resolve, reject) {
       jQuery.ajax({
-        url: $LEKTOR_CONFIG.admin_root + '/api' + url,
+        url: utils.getApiUrl(url),
         data: params,
         method: options.method || 'GET'
       })
@@ -228,7 +232,7 @@ var utils = {
 
   apiRequest: function(url, options) {
     options = options || {};
-    options.url = $LEKTOR_CONFIG.admin_root + '/api' + url;
+    options.url = utils.getApiUrl(url);
     if (options.json !== undefined) {
       options.data = JSON.stringify(options.json);
       options.contentType = 'application/json';

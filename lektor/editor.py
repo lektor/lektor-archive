@@ -5,7 +5,8 @@ import posixpath
 from collections import OrderedDict
 
 from lektor.metaformat import serialize
-from lektor.utils import atomic_open, is_valid_id
+from lektor.utils import atomic_open, is_valid_id, secure_filename, \
+     increment_filename
 
 
 implied_keys = set(['_id', '_path', '_gid', '_attachment_for'])
@@ -243,6 +244,26 @@ class EditorSession(object):
             return
         self._delete_this = True
         self._recursive_delete = recursive
+
+    def add_attachment(self, filename, fp):
+        """Stores a new attachment.  Returns `None` if the file already"""
+        if not self.exists:
+            raise BadEdit('Record does not exist.')
+        if self.is_attachment:
+            raise BadEdit('Cannot attach something to an attachment.')
+        directory = self.pad.db.to_fs_path(self.path)
+
+        safe_filename = secure_filename(filename)
+
+        while 1:
+            fn = os.path.join(directory, safe_filename)
+            if not os.path.isfile(fn):
+                break
+            safe_filename = increment_filename(fn)
+
+        with atomic_open(fn, 'w') as f:
+            shutil.copyfileobj(fp, f)
+        return safe_filename
 
     def _delete_impl(self):
         # If this is already an attachment, then we can just delete the
