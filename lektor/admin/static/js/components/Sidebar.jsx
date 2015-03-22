@@ -9,12 +9,16 @@ var utils = require('../utils');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
 var {gettext} = utils;
+var RecordComponent = require('../components/RecordComponent');
 
 
-var Sidebar = React.createClass({
-  mixins: [RecordState],
+class Sidebar extends RecordComponent {
 
-  getInitialState: function() {
+  constructor() {
+    this.state = this._getInitialState();
+  }
+
+  _getInitialState() {
     return {
       recordAttachments: [],
       recordChildren: [],
@@ -23,32 +27,32 @@ var Sidebar = React.createClass({
       isAttachment: false,
       recordExists: false
     };
-  },
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
     this._updateRecordInfo();
 
     hub.subscribe(AttachmentsChangedEvent, this.onAttachmentsChanged, this);
-  },
+  }
 
-  componentWillReceiveProps: function(nextProps) {
+  componentWillReceiveProps(nextProps) {
     this._updateRecordInfo();
-  },
+  }
 
-  componentWillUnmount: function() {
+  componentWillUnmount() {
     hub.unsubscribe(AttachmentsChangedEvent, this.onAttachmentsChanged, this);
-  },
+  }
 
-  onAttachmentsChanged: function(event) {
+  onAttachmentsChanged(event) {
     if (event.recordPath === this.getRecordPath()) {
       this._updateRecordInfo();
     }
-  },
+  }
 
-  _updateRecordInfo: function() {
+  _updateRecordInfo() {
     var path = this.getRecordPath();
     if (path === null) {
-      this.setState(this.getInitialState());
+      this.setState(this._getInitialState());
       return;
     }
 
@@ -63,9 +67,9 @@ var Sidebar = React.createClass({
           recordExists: resp.exists
         });
       }.bind(this));
-  },
+  }
 
-  renderPageActions: function() {
+  renderPageActions() {
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
     var links = [];
     var linkParams = {path: urlPath};
@@ -111,9 +115,9 @@ var Sidebar = React.createClass({
         </ul>
       </div>
     );
-  },
+  }
 
-  renderChildActions: function() {
+  renderChildActions() {
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
 
     var items = this.state.recordChildren.map(function(child) {
@@ -132,9 +136,9 @@ var Sidebar = React.createClass({
         </ul>
       </div>
     );
-  },
+  }
 
-  renderAttachmentActions: function() {
+  renderAttachmentActions() {
     var items = this.state.recordAttachments.map(function(atch) {
       var urlPath = utils.fsToUrlPath(atch.path);
       return (
@@ -151,9 +155,9 @@ var Sidebar = React.createClass({
         </ul>
       </div>
     );
-  },
+  }
 
-  render: function() {
+  render() {
     var sections = [];
 
     if (this.getRecordPath() !== null) {
@@ -170,6 +174,6 @@ var Sidebar = React.createClass({
 
     return <div>{sections}</div>;
   }
-});
+}
 
 module.exports = Sidebar;
