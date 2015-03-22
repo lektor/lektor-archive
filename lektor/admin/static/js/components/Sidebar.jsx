@@ -115,9 +115,9 @@ var Sidebar = React.createClass({
         </ul>
       </div>
     );
-  }
+  },
 
-  renderChildActions() {
+  renderChildActions: function() {
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
 
     var items = this.state.recordChildren.map(function(child) {
@@ -145,9 +145,9 @@ var Sidebar = React.createClass({
         </ul>
       </div>
     );
-  }
+  },
 
-  renderAttachmentActions() {
+  renderAttachmentActions: function() {
     var items = this.state.recordAttachments.map(function(atch) {
       var urlPath = utils.fsToUrlPath(atch.path);
       return (
