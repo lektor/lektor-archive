@@ -19,13 +19,15 @@ var RecordStateMixin = {
 
   /* this returns the current record path segments as array */
   getRecordPathSegments: function() {
-    return utils.urlPathToSegments(this.context.router.getCurrentParams().path);
+    var path = this.context.router.getCurrentParams().path;
+    return path ? utils.urlPathToSegments(path) : [];
   },
 
   /* this returns the path of the current record.  If the current page does
    * not have a path component then null is returned. */
   getRecordPath: function() {
-    return utils.urlToFsPath(this.context.router.getCurrentParams().path);
+    var path = this.context.router.getCurrentParams().path;
+    return path ? utils.urlToFsPath(path) : null;
   },
 
   /* returns the parent path if available */

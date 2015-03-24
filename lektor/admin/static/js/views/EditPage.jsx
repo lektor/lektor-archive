@@ -200,9 +200,13 @@ var EditPage = React.createClass({
       );
     }
 
+    var title = this.state.recordInfo.is_attachment
+      ? gettext('Edit Metadata of Attachment “%s”')
+      : gettext('Edit “%s”');
+
     return (
       <div className="edit-area">
-        <h2>{gettext('Edit “%s”').replace('%s', this.state.recordInfo.label)}</h2>
+        <h2>{title.replace('%s', this.state.recordInfo.label)}</h2>
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"

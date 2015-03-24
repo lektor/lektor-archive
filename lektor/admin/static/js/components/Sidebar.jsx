@@ -77,7 +77,7 @@ class Sidebar extends RecordComponent {
 
     links.push(
       <li key='edit'><Link to="edit" params={linkParams
-        }>{gettext('Edit')}</Link></li>
+        }>{this.state.isAttachment ? gettext('Edit Metadata') : gettext('Edit')}</Link></li>
     );
 
     if (urlPath !== 'root') {
@@ -106,9 +106,13 @@ class Sidebar extends RecordComponent {
       );
     }
 
+    var title = this.state.isAttachment
+      ? gettext("Attachment Actions")
+      : gettext("Record Actions");
+
     return (
       <div key="actions" className="section">
-        <h3>{gettext('Actions')}</h3>
+        <h3>{title}</h3>
         <ul className="nav">
           {links}
           {deleteLink}
@@ -123,11 +127,20 @@ class Sidebar extends RecordComponent {
     var items = this.state.recordChildren.map(function(child) {
       var urlPath = utils.fsToUrlPath(child.path);
       return (
-        <li key={child._id}>
+        <li key={child['_id']}>
           <Link to={target} params={{path: urlPath}}>{child.label}</Link>
         </li>
       )
     });
+
+    if (items.length == 0) {
+      items.push(
+        <li key="_missing">
+          <em>{gettext('No Children')}</em>
+        </li>
+      );
+    }
+
     return (
       <div key="children" className="section">
         <h3>{gettext('Children')}</h3>
@@ -142,11 +155,20 @@ class Sidebar extends RecordComponent {
     var items = this.state.recordAttachments.map(function(atch) {
       var urlPath = utils.fsToUrlPath(atch.path);
       return (
-        <li key={atch._id}>
-          <Link to="edit" params={{path: urlPath}}>{atch._id} ({atch.type})</Link>
+        <li key={atch['_id']}>
+          <Link to="edit" params={{path: urlPath}}>{atch['_id']} ({atch.type})</Link>
         </li>
       )
     });
+
+    if (items.length == 0) {
+      items.push(
+        <li key="_missing">
+          <em>{gettext('No Attachments')}</em>
+        </li>
+      );
+    }
+
     return (
       <div key="attachments" className="section">
         <h3>{gettext('Attachments')}</h3>
