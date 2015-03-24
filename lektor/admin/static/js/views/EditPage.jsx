@@ -4,42 +4,40 @@ var React = require('react');
 var Router = require('react-router');
 
 var ToggleGroup = require('../components/ToggleGroup');
-var RecordState = require('../mixins/RecordState');
-var NavigationConfirmationMixin = require('../mixins/NavigationConfirmationMixin');
+var RecordEditComponent = require('../components/RecordEditComponent');
 var utils = require('../utils');
 var widgets = require('../widgets');
 var {gettext} = utils;
 
 
-var EditPage = React.createClass({
-  mixins: [
-    RecordState,
-    NavigationConfirmationMixin
-  ],
+class EditPage extends RecordEditComponent {
 
-  getInitialState: function() {
-    return {
+  constructor() {
+    super();
+
+    this.state = {
       recordInitialData: null,
       recordData: null,
       recordDataModel: null,
       recordInfo: null,
       hasPendingChanges: false
-    }
-  },
+    };
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
+    super();
     this.syncEditor();
-  },
+  }
 
-  componentWillReceiveProps: function(nextProps) {
+  componentWillReceiveProps(nextProps) {
     this.syncEditor();
-  },
+  }
 
-  hasPendingChanges: function() {
+  hasPendingChanges() {
     return this.state.hasPendingChanges;
-  },
+  }
 
-  isIllegalField: function(field) {
+  isIllegalField(field) {
     switch (field.name) {
       case '_id':
       case '_path':
@@ -51,11 +49,11 @@ var EditPage = React.createClass({
         return !this.state.recordInfo.is_attachment;
     }
     return false;
-  },
+  }
 
-  syncEditor: function() {
+  syncEditor() {
     utils.loadData('/rawrecord', {path: this.getRecordPath()})
-      .then(function(resp) {
+    .then((resp) => {
         this.setState({
           recordInitialData: resp.data,
           recordData: {},
@@ -63,10 +61,10 @@ var EditPage = React.createClass({
           recordInfo: resp.record_info,
           hasPendingChanges: false
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  onValueChange: function(field, value) {
+  onValueChange(field, value) {
     var updates = {};
     updates[field.name] = {$set: value || ''};
     var rd = React.addons.update(this.state.recordData, updates);
@@ -74,11 +72,11 @@ var EditPage = React.createClass({
       recordData: rd,
       hasPendingChanges: true
     });
-  },
+  }
 
-  getValues: function() {
+  getValues() {
     var rv = {};
-    this.state.recordDataModel.fields.forEach(function(field) {
+    this.state.recordDataModel.fields.forEach((field) => {
       if (this.isIllegalField(field)) {
         return;
       }
@@ -98,31 +96,31 @@ var EditPage = React.createClass({
       }
 
       rv[field.name] = value;
-    }.bind(this));
+    });
 
     return rv;
-  },
+  }
 
-  saveChanges: function(event) {
+  saveChanges(event) {
     var path = this.getRecordPath();
     var newData = this.getValues();
     utils.apiRequest('/rawrecord', {json: {
         data: newData, path: path}, method: 'PUT'})
-      .then(function(resp) {
+      .then((resp) => {
         this.setState({
           hasPendingChanges: false
         }, function() {
           this.context.router.transitionTo('preview', {path: utils.fsToUrlPath(path)});
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  deleteRecord: function(event) {
+  deleteRecord(event) {
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
     this.context.router.transitionTo('delete', {path: urlPath});
-  },
+  }
 
-  getPlaceholderForField: function(field) {
+  getPlaceholderForField(field) {
     if (field.name == '_slug') {
       return this.state.recordInfo.slug_format;
     } else if (field.name == '_template') {
@@ -131,13 +129,13 @@ var EditPage = React.createClass({
       return this.state.recordInfo.implied_attachment_type;
     }
     return null;
-  },
+  }
 
-  renderFormFields: function() {
+  renderFormFields() {
     var fields = [];
     var systemFields = [];
     
-    this.state.recordDataModel.fields.forEach(function(field) {
+    this.state.recordDataModel.fields.forEach((field) => {
       if (this.isIllegalField(field)) {
         return;
       }
@@ -174,7 +172,7 @@ var EditPage = React.createClass({
         fields.push(rv);
       }
 
-    }.bind(this));
+    });
 
     return (
       <div>
@@ -184,9 +182,9 @@ var EditPage = React.createClass({
           defaultVisibility={false}>{systemFields}</ToggleGroup>
       </div>
     );
-  },
+  }
 
-  render: function() {
+  render() {
     // we have not loaded anything yet.
     if (this.state.recordInfo === null) {
       return null;
@@ -196,7 +194,7 @@ var EditPage = React.createClass({
     if (!this.isRootRecord()) {
       deleteButton = (
         <button type="submit" className="btn btn-default"
-          onClick={this.deleteRecord}>{gettext('Delete')}</button>
+          onClick={this.deleteRecord.bind(this)}>{gettext('Delete')}</button>
       );
     }
 
@@ -210,12 +208,13 @@ var EditPage = React.createClass({
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
-            onClick={this.saveChanges}>{gettext('Save changes')}</button>
+            onClick={this.saveChanges.bind(this)}>{
+              gettext('Save changes')}</button>
           {deleteButton}
         </div>
       </div>
     );
   }
-});
+}
 
 module.exports = EditPage;

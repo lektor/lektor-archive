@@ -9,13 +9,16 @@ var utils = require('../utils');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
 var {gettext} = utils;
-var RecordComponent = require('../components/RecordComponent');
+var RecordComponent = require('./RecordComponent');
 
 
 class Sidebar extends RecordComponent {
 
   constructor() {
+    super();
+
     this.state = this._getInitialState();
+    this.onAttachmentsChanged = this.onAttachmentsChanged.bind(this);
   }
 
   _getInitialState() {
@@ -32,7 +35,7 @@ class Sidebar extends RecordComponent {
   componentDidMount() {
     this._updateRecordInfo();
 
-    hub.subscribe(AttachmentsChangedEvent, this.onAttachmentsChanged, this);
+    hub.subscribe(AttachmentsChangedEvent, this.onAttachmentsChanged);
   }
 
   componentWillReceiveProps(nextProps) {
@@ -40,7 +43,7 @@ class Sidebar extends RecordComponent {
   }
 
   componentWillUnmount() {
-    hub.unsubscribe(AttachmentsChangedEvent, this.onAttachmentsChanged, this);
+    hub.unsubscribe(AttachmentsChangedEvent, this.onAttachmentsChanged);
   }
 
   onAttachmentsChanged(event) {
@@ -57,7 +60,7 @@ class Sidebar extends RecordComponent {
     }
 
     utils.loadData('/recordinfo', {path: path})
-      .then(function(resp) {
+      .then((resp) => {
         this.setState({
           recordAttachments: resp.attachments,
           recordChildren: resp.children,
@@ -66,7 +69,7 @@ class Sidebar extends RecordComponent {
           isAttachment: resp.is_attachment,
           recordExists: resp.exists
         });
-      }.bind(this));
+      });
   }
 
   renderPageActions() {

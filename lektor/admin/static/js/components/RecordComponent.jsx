@@ -1,12 +1,15 @@
+'use strict';
+
 var React = require('react');
 var Router = require('react-router');
 
+var Component = require('./Component');
 var utils = require('../utils');
 
 
 /* a react component baseclass that has some basic knowledge about
    the record it works with. */
-class RecordComponent extends Router.RouteHandler {
+class RecordComponent extends Component {
 
   /* checks if the record preview is active. */
   isRecordPreviewActive() {
@@ -58,5 +61,9 @@ class RecordComponent extends Router.RouteHandler {
     return rv;
   }
 }
+
+RecordComponent.contextTypes = {
+  router: React.PropTypes.func
+};
 
 module.exports = RecordComponent;
