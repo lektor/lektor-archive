@@ -1,19 +1,23 @@
 'use strict';
 
 var React = require('react');
+var Component = require('../components/Component');
 
-var Dash = React.createClass({
-  contextTypes: {
-    router: React.PropTypes.any.isRequired
-  },
 
-  componentDidMount: function() {
-    return this.context.router.transitionTo('preview', {'path': 'root'});
-  },
+class Dash extends Component {
 
-  render: function() {
+  componentDidMount() {
+    super();
+    this.context.router.transitionTo('preview', {'path': 'root'});
+  }
+
+  render() {
     return null;
   }
-});
+}
+
+Dash.contextTypes = {
+  router: React.PropTypes.any.isRequired
+};
 
 module.exports = Dash;
