@@ -10,8 +10,8 @@ var utils = require('../utils');
 
 class BreadCrumbs extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
     this.state = {
       recordPathInfo: null
     };

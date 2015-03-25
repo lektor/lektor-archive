@@ -24,8 +24,8 @@ function getGoodDefaultModel(models) {
 
 class AddAttachmentPage extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
     this.state = {
       newAttachmentInfo: null,
       currentFiles: [],

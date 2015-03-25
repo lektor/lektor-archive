@@ -13,8 +13,8 @@ var RecordComponent = require('./RecordComponent');
 
 class Sidebar extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
 
     this.state = this._getInitialState();
     this.onAttachmentsChanged = this.onAttachmentsChanged.bind(this);

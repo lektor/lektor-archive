@@ -11,8 +11,8 @@ var unloadMessage = gettext('You have unsaved information, ' +
 
 class RecordEditComponent extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
 
     this._beforeUnloadConfirmation = this._beforeUnloadConfirmation.bind(this);
   }

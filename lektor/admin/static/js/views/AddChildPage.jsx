@@ -22,8 +22,8 @@ function getGoodDefaultModel(models) {
 
 class AddChildPage extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
     this.state = {
       newChildInfo: null,
       id: undefined,

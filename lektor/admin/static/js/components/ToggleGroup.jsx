@@ -1,28 +1,26 @@
 'use strict';
 
 var React = require('react');
+var Component = require('./Component');
 
 
-var ToggleGroup = React.createClass({
-  propTypes: {
-    groupTitle: React.PropTypes.string,
-    defaultVisibility: React.PropTypes.bool
-  },
+class ToggleGroup extends Component {
 
-  getInitialState: function() {
-    return {
-      isVisible: this.props.defaultVisibility
+  constructor(props) {
+    super(props);
+    this.state = {
+      isVisible: props.defaultVisibility
     }
-  },
+  }
 
-  toggle: function(event) {
+  toggle(event) {
     event.preventDefault();
     this.setState({
       isVisible: !this.state.isVisible
     })
-  },
+  }
 
-  render: function() {
+  render() {
     var {className, groupTitle, children, ...otherProps} = this.props;
     className = (className || '') + ' toggle-group';
     if (this.state.isVisible) {
@@ -34,7 +32,8 @@ var ToggleGroup = React.createClass({
     return (
       <div className={className} {...otherProps}>
         <div className="header">
-          <h4 className="toggle" onClick={this.toggle}>{groupTitle}</h4>
+          <h4 className="toggle" onClick={
+            this.toggle.bind(this)}>{groupTitle}</h4>
         </div>
         <div className="children">
           {children}
@@ -42,6 +41,11 @@ var ToggleGroup = React.createClass({
       </div>
     )
   }
-});
+}
+
+ToggleGroup.propTypes = {
+  groupTitle: React.PropTypes.string,
+  defaultVisibility: React.PropTypes.bool
+};
 
 module.exports = ToggleGroup;

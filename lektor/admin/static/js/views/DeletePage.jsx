@@ -13,8 +13,8 @@ var {gettext, ngettext} = utils;
 
 class DeletePage extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
 
     this.state = {
       recordInfo: null

@@ -12,8 +12,8 @@ var {gettext} = utils;
 
 class EditPage extends RecordEditComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
 
     this.state = {
       recordInitialData: null,

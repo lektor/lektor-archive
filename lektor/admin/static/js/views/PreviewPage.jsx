@@ -9,8 +9,8 @@ var RecordComponent = require('../components/RecordComponent');
 
 class PreviewPage extends RecordComponent {
 
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
     this.state = {pageUrl: null};
   }
 

@@ -3,12 +3,14 @@
 var React = require('react');
 var Router = require("react-router");
 var {Route, DefaultRoute, NotFoundRoute} = Router;
+var Component = require('./components/Component');
 
 // polyfill for internet explorer
 require('native-promise-only');
 
-var BadRoute = React.createClass({
-  render: function() {
+class BadRoute extends Component {
+
+  render() {
     return (
       <div>
         <h2>Nothing to see here</h2>
@@ -16,7 +18,7 @@ var BadRoute = React.createClass({
       </div>
     );
   }
-});
+}
 
 var routes = (function() {
   // route targets
