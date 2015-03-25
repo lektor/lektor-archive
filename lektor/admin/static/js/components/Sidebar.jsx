@@ -4,7 +4,6 @@ var React = require('react');
 var Router = require("react-router");
 var {Link} = Router;
 
-var RecordState = require('../mixins/RecordState');
 var utils = require('../utils');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');

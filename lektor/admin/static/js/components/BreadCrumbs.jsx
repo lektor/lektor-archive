@@ -4,58 +4,60 @@ var React = require('react');
 var Router = require("react-router");
 var {Link, RouteHandler} = Router;
 
-var RecordState = require('../mixins/RecordState');
+var RecordComponent = require('./RecordComponent');
 var utils = require('../utils');
 
 
-var BreadCrumbs = React.createClass({
-  mixins: [RecordState],
+class BreadCrumbs extends RecordComponent {
 
-  getInitialState: function() {
-    return {
+  constructor() {
+    super();
+    this.state = {
       recordPathInfo: null
-    }
-  },
+    };
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
+    super();
     this.updateCrumbs();
-  },
+  }
 
-  componentWillReceiveProps: function(nextProps) {
+  componentWillReceiveProps(nextProps) {
+    super(nextProps);
     this.updateCrumbs();
-  },
+  }
 
-  updateCrumbs: function() {
+  updateCrumbs() {
     var path = this.getRecordPath();
     if (path === null) {
       return;
     }
 
     utils.loadData('/pathinfo', {path: path})
-      .then(function(resp) {
+      .then((resp) => {
         this.setState({
           recordPathInfo: {
             path: path,
             segments: resp.segments
           }
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  onCloseClick: function(e) {
+  onCloseClick(e) {
     var segs = this.state.recordPathInfo.segments;
     if (segs.length > 0) {
       window.location.href = utils.getCanonicalUrl(segs[segs.length - 1].url_path);
       e.preventDefault();
     }
-  },
+  }
 
-  render: function() {
+  render() {
     var crumbs = [];
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
 
     if (this.state.recordPathInfo != null) {
-      crumbs = this.state.recordPathInfo.segments.map(function(item) {
+      crumbs = this.state.recordPathInfo.segments.map((item) => {
         var urlPath = utils.fsToUrlPath(item.path);
         var label = item.label;
         var className = 'record-crumb';
@@ -76,12 +78,12 @@ var BreadCrumbs = React.createClass({
       <div className="breadcrumbs">
         <ul className="breadcrumb">
           {crumbs}
-          <li className="close"><a href="/" onClick={this.onCloseClick
-            }>Return to Website</a></li>
+          <li className="close"><a href="/" onClick={
+            this.onCloseClick.bind(this)}>Return to Website</a></li>
         </ul>
       </div>
     );
   }
-});
+}
 
 module.exports = BreadCrumbs;
