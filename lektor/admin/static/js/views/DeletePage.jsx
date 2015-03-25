@@ -4,42 +4,43 @@ var qs = require('querystring');
 var React = require('react');
 var Router = require('react-router');
 
-var RecordState = require('../mixins/RecordState');
+var RecordComponent = require('../components/RecordEditComponent');
 var utils = require('../utils');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
 var {gettext, ngettext} = utils;
 
 
-var DeletePage = React.createClass({
-  mixins: [
-    RecordState
-  ],
+class DeletePage extends RecordComponent {
 
-  getInitialState: function() {
-    return {
+  constructor() {
+    super();
+
+    this.state = {
       recordInfo: null
-    }
-  },
+    };
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
+    super();
     this.syncDialog();
-  },
+  }
 
-  componentWillReceiveProps: function(nextProps) {
+  componentWillReceiveProps(nextProps) {
+    super(nextProps);
     this.syncDialog();
-  },
+  }
 
-  syncDialog: function() {
+  syncDialog() {
     utils.loadData('/deleterecord', {path: this.getRecordPath()})
-      .then(function(resp) {
+      .then((resp) => {
         this.setState({
           recordInfo: resp.record_info
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  deleteRecord: function(event) {
+  deleteRecord(event) {
     var path = this.getRecordPath();
     var parent = utils.getParentFsPath(path);
     var targetPath;
@@ -50,7 +51,7 @@ var DeletePage = React.createClass({
     }
 
     utils.apiRequest('/deleterecord', {data: {path: path}, method: 'POST'})
-      .then(function(resp) {
+      .then((resp) => {
         if (this.state.recordInfo.is_attachment) {
           hub.emit(new AttachmentsChangedEvent({
             recordPath: this.getParentRecordPath(),
@@ -58,15 +59,15 @@ var DeletePage = React.createClass({
           }));
         }
         this.context.router.transitionTo('edit', {path: targetPath});
-      }.bind(this));
-  },
+      });
+  }
 
-  cancelDelete: function(event) {
+  cancelDelete(event) {
     var urlPath = utils.fsToUrlPath(this.getRecordPath());
     this.context.router.transitionTo('edit', {path: urlPath});
-  },
+  }
 
-  render: function() {
+  render() {
     var ri = this.state.recordInfo;
 
     if (!ri) {
@@ -134,13 +135,13 @@ var DeletePage = React.createClass({
         </div>
         <div className="actions">
           <button className="btn btn-primary"
-            onClick={this.deleteRecord}>{gettext('Yes, delete')}</button>
+            onClick={this.deleteRecord.bind(this)}>{gettext('Yes, delete')}</button>
           <button className="btn btn-default"
-            onClick={this.cancelDelete}>{gettext('No, cancel')}</button>
+            onClick={this.cancelDelete.bind(this)}>{gettext('No, cancel')}</button>
         </div>
       </div>
     );
   }
-});
+}
 
 module.exports = DeletePage;

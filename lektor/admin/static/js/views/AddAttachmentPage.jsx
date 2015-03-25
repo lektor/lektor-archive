@@ -4,7 +4,7 @@ var qs = require('querystring');
 var React = require('react');
 var Router = require('react-router');
 
-var RecordState = require('../mixins/RecordState');
+var RecordComponent = require('../components/RecordComponent');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
 var utils = require('../utils');
@@ -22,70 +22,68 @@ function getGoodDefaultModel(models) {
 }
 
 
-var AddAttachmentPage = React.createClass({
-  mixins: [
-    RecordState
-  ],
+class AddAttachmentPage extends RecordComponent {
 
-  getInitialState: function() {
-    return {
+  constructor() {
+    super();
+    this.state = {
       newAttachmentInfo: null,
       currentFiles: [],
       isUploading: false,
       currentProgress: 0
     }
-  },
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
     this.syncDialog();
-  },
+  }
 
-  componentWillReceiveProps: function(nextProps) {
+  componentWillReceiveProps(nextProps) {
     this.syncDialog();
-  },
+  }
 
-  syncDialog: function() {
+  syncDialog() {
     utils.loadData('/newattachment', {path: this.getRecordPath()})
-      .then(function(resp) {
+      .then((resp) => {
         this.setState({
           newAttachmentInfo: resp
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  uploadFile: function(event) {
-    this.refs.file.getDOMNode().click();
-  },
+  uploadFile(event) {
+    React.findDOMNode(this.refs.file).click();
+  }
 
-  onUploadProgress: function(event) {
+  onUploadProgress(event) {
     var newProgress = Math.round((event.loaded * 100) / event.total);
     if (newProgress != this.state.currentProgress) {
       this.setState({
         currentProgress: newProgress
       });
     }
-  },
+  }
 
-  onUploadComplete: function(resp, event) {
+  onUploadComplete(resp, event) {
     this.setState({
       isUploading: false,
       newProgress: 100
-    }, function() {
+    }, () => {
       hub.emit(new AttachmentsChangedEvent({
         recordPath: this.getRecordPath(),
-        attachmentsAdded: resp.buckets.map(function(bucket) {
+        attachmentsAdded: resp.buckets.map((bucket) => {
           return bucket.stored_filename;
         })
       }));
-    }.bind(this));
-  },
+    });
+  }
 
-  onFileSelected: function(event) {
+  onFileSelected(event) {
     if (this.state.isUploading) {
       return;
     }
 
-    var files = this.refs.file.getDOMNode().files;
+    var files = React.findDOMNode(this.refs.file).files;
     this.setState({
       currentFiles: Array.prototype.slice.call(files, 0),
       isUploading: true
@@ -100,25 +98,25 @@ var AddAttachmentPage = React.createClass({
 
     var xhr = new XMLHttpRequest();
     xhr.open('POST', utils.getApiUrl('/newattachment'));
-    xhr.onload = function(event) {
+    xhr.onload = (event) => {
       this.onUploadComplete(JSON.parse(xhr.responseText), event);
-    }.bind(this);
-    xhr.upload.onprogress = function(event) {
+    };
+    xhr.upload.onprogress = (event) => {
       this.onUploadProgress(event);
-    }.bind(this);
+    };
     xhr.send(formData);
-  },
+  }
 
-  renderCurrentFiles: function() {
-    var files = this.state.currentFiles.map(function(file) {
+  renderCurrentFiles() {
+    var files = this.state.currentFiles.map((file) => {
       return (
         <li key={file.name}>{file.name} ({file.type})</li>
       );
     });
     return <ul>{files}</ul>;
-  },
+  }
 
-  render: function() {
+  render() {
     var nai = this.state.newAttachmentInfo;
 
     if (!nai) {
@@ -133,14 +131,14 @@ var AddAttachmentPage = React.createClass({
         {this.renderCurrentFiles()}
         <p>Progress: {this.state.currentProgress}%</p>
         <input type="file" ref="file" multiple={true}
-          style={{display: 'none'}} onChange={this.onFileSelected} />
+          style={{display: 'none'}} onChange={this.onFileSelected.bind(this)} />
         <div className="actions">
-          <button className="btn btn-primary" onClick={this.uploadFile}>{
+          <button className="btn btn-primary" onClick={this.uploadFile.bind(this)}>{
             gettext('Upload')}</button>
         </div>
       </div>
     );
   }
-});
+}
 
 module.exports = AddAttachmentPage;

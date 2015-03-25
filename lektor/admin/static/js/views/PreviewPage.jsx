@@ -4,28 +4,27 @@ var React = require('react');
 var Router = require('react-router');
 
 var utils = require('../utils');
-var RecordState = require('../mixins/RecordState');
+var RecordComponent = require('../components/RecordComponent');
 
-var PreviewPage = React.createClass({
-  mixins: [
-    RecordState
-  ],
 
-  getInitialState: function() {
-    return {
-      pageUrl: null
-    }
-  },
+class PreviewPage extends RecordComponent {
 
-  componentWillReceiveProps: function() {
+  constructor() {
+    super();
+    this.state = {pageUrl: null};
+  }
+
+  componentWillReceiveProps(nextProps) {
+    super(nextProps);
     this.syncState();
-  },
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
+    super();
     this.syncState();
-  },
+  }
 
-  syncState: function() {
+  syncState() {
     var path = this.getRecordPath();
     if (path === null) {
       this.setState(this.getInitialState());
@@ -33,15 +32,15 @@ var PreviewPage = React.createClass({
     }
 
     utils.loadData('/previewinfo', {path: path})
-      .then(function(resp) {
+      .then((resp) => {
         this.setState({
           pageUrl: resp.url
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  componentDidUpdate: function() {
-    var frame = this.refs.iframe.getDOMNode();
+  componentDidUpdate() {
+    var frame = React.findDOMNode(this.refs.iframe);
     var intendedPath = this.getRecordPath();
     var framePath = this.getFramePath();
 
@@ -49,38 +48,38 @@ var PreviewPage = React.createClass({
       frame.src = utils.getCanonicalUrl(intendedPath);
     }
 
-    frame.onload = function(event) {
+    frame.onload = (event) => {
       this.onFrameNavigated();
-    }.bind(this);
-  },
+    };
+  }
 
-  getFramePath: function() {
-    var frame = this.refs.iframe.getDOMNode();
+  getFramePath() {
+    var frame = React.findDOMNode(this.refs.iframe);
     return utils.fsPathFromAdminObservedPath(
       frame.contentWindow.location.pathname);
-  },
+  }
 
-  onFrameNavigated: function() {
+  onFrameNavigated() {
     var fsPath = this.getFramePath();
     if (fsPath === null) {
       return;
     }
     utils.loadData('/matchurl', {url_path: fsPath})
-      .then(function(resp) {
+      .then((resp) => {
         if (resp.exists) {
           var urlPath = utils.fsToUrlPath(resp.path);
           this.context.router.transitionTo('preview', {path: urlPath});
         }
-      }.bind(this));
-  },
+      });
+  }
 
-  render: function() {
+  render() {
     return (
       <div className="preview">
         <iframe ref="iframe"></iframe>
       </div>
     );
   }
-});
+}
 
 module.exports = PreviewPage;

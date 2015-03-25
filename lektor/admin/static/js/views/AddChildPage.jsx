@@ -4,7 +4,7 @@ var qs = require('querystring');
 var React = require('react');
 var Router = require('react-router');
 
-var RecordState = require('../mixins/RecordState');
+var RecordComponent = require('../components/RecordComponent');
 var utils = require('../utils');
 var widgets = require('../widgets');
 var {gettext, ngettext} = utils;
@@ -20,30 +20,30 @@ function getGoodDefaultModel(models) {
 }
 
 
-var AddChildPage = React.createClass({
-  mixins: [
-    RecordState
-  ],
+class AddChildPage extends RecordComponent {
 
-  getInitialState: function() {
-    return {
+  constructor() {
+    super();
+    this.state = {
       newChildInfo: null,
       id: undefined,
       selectedModel: null
     }
-  },
+  }
 
-  componentDidMount: function() {
+  componentDidMount() {
+    super();
     this.syncDialog();
-  },
+  }
 
-  componentWillReceiveProps: function(nextProps) {
+  componentWillReceiveProps(nextProps) {
+    super(nextProps);
     this.syncDialog();
-  },
+  }
 
-  syncDialog: function() {
+  syncDialog() {
     utils.loadData('/newrecord', {path: this.getRecordPath()})
-      .then(function(resp) {
+      .then((resp) => {
         var selectedModel = resp.implied_model;
         if (!selectedModel) {
           selectedModel = getGoodDefaultModel(resp.available_models);
@@ -55,43 +55,43 @@ var AddChildPage = React.createClass({
           primary: undefined,
           selectedModel: selectedModel
         });
-      }.bind(this));
-  },
+      });
+  }
 
-  onValueChange: function(id, value) {
+  onValueChange(id, value) {
     var obj = {};
     obj[id] = value;
     this.setState(obj);
-  },
+  }
 
-  getAvailableModels: function() {
+  getAvailableModels() {
     var rv = [];
     for (var key in this.state.newChildInfo.available_models) {
       var model = this.state.newChildInfo.available_models[key];
       rv.push(model);
     }
-    rv.sort(function(a, b) {
+    rv.sort((a, b) => {
       return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
     return rv;
-  },
+  }
 
-  onModelSelected: function(event) {
+  onModelSelected(event) {
     this.setState({
       selectedModel: event.target.value
     });
-  },
+  }
 
-  getImpliedId: function() {
+  getImpliedId() {
     return utils.slugify(this.state.primary || '').toLowerCase();
-  },
+  }
 
-  getPrimaryField: function() {
+  getPrimaryField() {
     return this.state.newChildInfo.available_models[
       this.state.selectedModel].primary_field;
-  },
+  }
 
-  createRecord: function() {
+  createRecord() {
     var id = this.state.id || this.getImpliedId();
     if (!id) {
       alert(gettext('Error: No ID provided :('));
@@ -109,7 +109,7 @@ var AddChildPage = React.createClass({
     }
 
     utils.apiRequest('/newrecord', {json: params, method: 'POST'})
-      .then(function(resp) {
+      .then((resp) => {
         if (resp.exists) {
           alert(gettext('Error: Record with this ID (%s) exists already.')
                .replace('%s', id));
@@ -120,14 +120,14 @@ var AddChildPage = React.createClass({
           var urlPath = utils.fsToUrlPath(resp.path);
           this.context.router.transitionTo('edit', {path: urlPath});
         }
-      }.bind(this));
-  },
+      });
+  }
 
-  renderFields: function() {
+  renderFields() {
     var fields = [];
 
     if (!this.state.newChildInfo.implied_model) {
-      var choices = this.getAvailableModels().map(function(model) {
+      var choices = this.getAvailableModels().map((model) => {
         return (
           <option value={model.id} key={model.id}>{model.name}</option>
         );
@@ -144,7 +144,7 @@ var AddChildPage = React.createClass({
       );
     }
 
-    var addField = function(id, field, placeholder) {
+    var addField = (id, field, placeholder) => {
       var value = this.state[id];
       var Widget = widgets.getWidgetComponentWithFallback(field.type);
       if (Widget.deserializeValue) {
@@ -161,7 +161,7 @@ var AddChildPage = React.createClass({
           /></dd>
         </dl>
       );
-    }.bind(this);
+    };
 
     var primaryField = this.getPrimaryField();
     if (primaryField) {
@@ -175,9 +175,9 @@ var AddChildPage = React.createClass({
     }, this.getImpliedId());
 
     return fields;
-  },
+  }
 
-  render: function() {
+  render() {
     var nci = this.state.newChildInfo;
 
     if (!nci) {
@@ -192,12 +192,12 @@ var AddChildPage = React.createClass({
                     'the model or ID cannot be easily changed afterwards.')}</p>
         {this.renderFields()}
         <div className="actions">
-          <button className="btn btn-primary" onClick={this.createRecord}>{
-            gettext('Create Page')}</button>
+          <button className="btn btn-primary" onClick={
+            this.createRecord.bind(this)}>{gettext('Create Page')}</button>
         </div>
       </div>
     );
   }
-});
+}
 
 module.exports = AddChildPage;

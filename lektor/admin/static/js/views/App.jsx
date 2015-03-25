@@ -2,13 +2,16 @@
 
 var React = require('react');
 var Router = require("react-router");
-var {Link, RouteHandler} = Router;
+var {RouteHandler} = Router;
 
 var BreadCrumbs = require('../components/BreadCrumbs');
 var Sidebar = require('../components/Sidebar');
+var Component = require('../components/Component');
 
-var App = React.createClass({
-  render: function() {
+
+class App extends Component {
+
+  render() {
     return (
       <div className="application">
         <header>
@@ -25,6 +28,6 @@ var App = React.createClass({
       </div>
     );
   }
-});
+}
 
 module.exports = App;
