@@ -1,9 +1,8 @@
-import os
 import posixpath
 
 from flask import Blueprint, jsonify, request, g
 
-from lektor.utils import is_valid_id, secure_filename, atomic_open
+from lektor.utils import is_valid_id
 
 
 bp = Blueprint('api', __name__)
@@ -32,7 +31,8 @@ def get_path_info():
             'path': record['_path'],
             'url_path': record.url_path,
             'label': record.record_label,
-            'exists': True
+            'exists': True,
+            'can_have_children': hasattr(record, 'real_children'),
         }
 
     if record is not None:
@@ -43,6 +43,7 @@ def get_path_info():
             'path': path,
             'label': None,
             'exists': False,
+            'can_have_children': False,
         })
 
     while parent is not None:

@@ -17,7 +17,7 @@ class App extends Component {
         <header>
           <BreadCrumbs/>
         </header>
-        <div className="editor">
+        <div className="editor container">
           <div className="sidebar">
             <Sidebar/>
           </div>

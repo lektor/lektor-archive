@@ -4,21 +4,55 @@ html, body {
   height: 100%;
 }
 
+html {
+  overflow-y: scroll;
+}
+
+
+#dash {
+  height: 100%;
+}
 
 div.application {
   height: 100%;
+  position: relative;
+  margin: 0 auto;
 
   header {
-    margin: 0;
+    margin: 0 auto;
     padding: 0;
     background: #eee;
 
     ul.breadcrumb {
-      margin: 0;
+      background: transparent;
+      margin: 0 auto;
       height: 34px;
+      border-radius: 0;
+      z-index: 9000;
 
       li.missing-record-crumb a {
         color: #888;
+      }
+
+      li.new-record-crumb {
+        a {
+          background: white;
+          padding: 1px 5px;
+          font-weight: bold;
+          border: 1px solid #aaa;
+          color: #444;
+          border-radius: 4px;
+
+          &:hover {
+            color: @brand-primary;
+            border-color: @brand-primary;
+            text-decoration: none;
+          }
+        }
+
+        &:before {
+          content: "";
+        }
       }
 
       li.close {
@@ -45,12 +79,14 @@ div.application {
 
     div.sidebar {
       width: 200px;
-      padding: 10px 15px;
+      padding: 10px 0;
       float: left;
 
       h3 {
         margin: 0;
         padding: 0;
+        font-weight: bold;
+        font-size: 15px;
       }
 
       ul.nav {
@@ -73,7 +109,7 @@ div.application {
       position: relative;
       height: 100%;
       margin-left: 200px;
-      padding: 10px 15px;
+      padding: 10px 0;
 
       h2 {
         margin: 0;

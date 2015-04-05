@@ -55,6 +55,7 @@ class BreadCrumbs extends RecordComponent {
   render() {
     var crumbs = [];
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
+    var lastItem = null;
 
     if (this.state.recordPathInfo != null) {
       crumbs = this.state.recordPathInfo.segments.map((item) => {
@@ -66,6 +67,7 @@ class BreadCrumbs extends RecordComponent {
           label = item.id;
           className += ' missing-record-crumb';
         }
+        lastItem = item;
 
         return (
           <li key={item.path} className={className}>
@@ -74,10 +76,18 @@ class BreadCrumbs extends RecordComponent {
         );
       });
     }
+
     return (
       <div className="breadcrumbs">
-        <ul className="breadcrumb">
+        <ul className="breadcrumb container">
           {crumbs}
+          {lastItem && lastItem.can_have_children ? (
+            <li className="new-record-crumb">
+              <Link to="add-child" params={{path: utils.fsToUrlPath(
+                lastItem.path)}}>+</Link>
+            </li>
+          ) : null}
+          {' ' /* this space is needed for chrome ... */}
           <li className="close"><a href="/" onClick={
             this.onCloseClick.bind(this)}>Return to Website</a></li>
         </ul>
