@@ -8,7 +8,6 @@ html {
   overflow-y: scroll;
 }
 
-
 #dash {
   height: 100%;
 }
@@ -22,6 +21,38 @@ div.application {
     margin: 0 auto;
     padding: 0;
     background: #eee;
+
+    /* sidebar toggle button */
+    .navbar-toggle {
+      float: right;
+      margin: 0;
+      padding: 4px;
+      z-index: 999999;
+      border: 1px solid #888;
+      background: white;
+      margin-left: 10px;
+      height: 20px!important;
+      width: 20px!important;
+
+      &:hover {
+        border-color: #aaa;
+      }
+
+      &.active {
+        background: #ccc;
+        .icon-list {
+          background: white;
+        }
+      }
+
+      .icon-list {
+        display: block;
+        height: 2px;
+        width: 100%;
+        background: #c00;
+        margin: 0 0 2px 0;
+      }
+    }
 
     ul.breadcrumb {
       background: transparent;
@@ -77,14 +108,22 @@ div.application {
       }
     }
 
-    div.sidebar {
-      width: 200px;
-      padding: 10px 0;
-      float: left;
+    div.sidebar-block {
+      height: 100%;
+    }
+
+    nav.sidebar {
+      padding: 0 10px 0 0;
+      height: 100%;
+
+      .sidebar-wrapper {
+        background-image: linear-gradient(to left, #eee 0px, #FFF 8px);
+        padding: 10px 0 40px 0;
+        height: 100%;
+      }
 
       h3 {
         margin: 0;
-        padding: 0;
         font-weight: bold;
         font-size: 15px;
       }
@@ -97,6 +136,24 @@ div.application {
         li {
           margin: 0;
           padding: 0;
+          border-bottom: 1px solid #eee;
+
+          &:first-child {
+            border-top: 1px solid #eee;
+          }
+
+          a, > em {
+            display: block;
+            padding: 5px 10px;
+
+            &.active {
+              font-weight: 500;
+              color: #555;
+              background: #f4f4f4;
+              background-image: linear-gradient(to left, #eee 0px, #f4f4f4 8px);
+              outline: none;
+            }
+          }
         }
       }
 
@@ -108,7 +165,6 @@ div.application {
     div.view {
       position: relative;
       height: 100%;
-      margin-left: 200px;
       padding: 10px 0;
 
       h2 {

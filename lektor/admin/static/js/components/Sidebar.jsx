@@ -196,7 +196,7 @@ class Sidebar extends RecordComponent {
       sections.push(this.renderAttachmentActions());
     }
 
-    return <div>{sections}</div>;
+    return <div className="sidebar-wrapper">{sections}</div>;
   }
 }
 

@@ -9,6 +9,7 @@ module.exports = {
       'jquery',
       'native-promise-only',
       'querystring',
+      'bootstrap',
       'react',
       'react-router',
       'react/addons'

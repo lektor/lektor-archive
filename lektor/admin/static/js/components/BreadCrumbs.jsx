@@ -80,6 +80,7 @@ class BreadCrumbs extends RecordComponent {
     return (
       <div className="breadcrumbs">
         <ul className="breadcrumb container">
+          {this.props.children}
           {crumbs}
           {lastItem && lastItem.can_have_children ? (
             <li className="new-record-crumb">

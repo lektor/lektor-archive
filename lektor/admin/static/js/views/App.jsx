@@ -15,14 +15,25 @@ class App extends Component {
     return (
       <div className="application">
         <header>
-          <BreadCrumbs/>
+          <BreadCrumbs>
+            <button type="button" className="navbar-toggle"
+                data-toggle="offcanvas"
+                data-target=".sidebar-block">
+              <span className="sr-only">Toggle navigation</span>
+              <span className="icon-list"></span>
+              <span className="icon-list"></span>
+              <span className="icon-list"></span>
+            </button>
+          </BreadCrumbs>
         </header>
         <div className="editor container">
-          <div className="sidebar">
-            <Sidebar/>
-          </div>
-          <div className="view">
-            <RouteHandler/>
+          <div className="sidebar-block block-offcanvas block-offcanvas-left">
+            <nav className="sidebar col-md-2 col-sm-3 sidebar-offcanvas">
+              <Sidebar/>
+            </nav>
+            <div className="view col-md-10 col-sm-9">
+              <RouteHandler/>
+            </div>
           </div>
         </div>
       </div>

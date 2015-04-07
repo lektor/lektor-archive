@@ -11,8 +11,11 @@
 @import "~bootstrap/less/grid";
 @import "~bootstrap/less/forms";
 @import "~bootstrap/less/buttons";
+@import "~bootstrap/less/navs";
+@import "~bootstrap/less/navbar";
 
 // Components
+@import "~bootstrap/less/component-animations";
 @import "~bootstrap/less/input-groups";
 @import "~bootstrap/less/breadcrumbs";
 @import "~bootstrap/less/responsive-embed";
@@ -30,13 +33,13 @@
 @brand-primary: #dd0000;
 
 // Sizes
-@screen-sm-min: 992px;
-@screen-md-min: 1200px;
-@screen-lg-min: 1440px;
+@screen-sm-min: 768px;
+@screen-md-min: 1024px;
+@screen-lg-min: 1366px;
 
-@container-sm: (940px + @grid-gutter-width);
-@container-md: (1140px + @grid-gutter-width);
-@container-lg: (1400px + @grid-gutter-width);
+@container-sm: (720px + @grid-gutter-width);
+@container-md: (970px + @grid-gutter-width);
+@container-lg: (1320px + @grid-gutter-width);
 
 
 // Fix up breadcrumbs
@@ -52,5 +55,31 @@
   [class*="col-"] {
     padding-left: 5px!important;
     padding-right: 5px!important;
+  }
+}
+
+/* collapsed sidebar styles */
+@media screen and (max-width: (@screen-sm-min - 1)) {
+  .block-offcanvas {
+    position: relative;
+  }
+
+  .block-offcanvas, .sidebar-offcanvas {
+    -webkit-transition: all 0.25s ease-out;
+    -moz-transition: all 0.25s ease-out;
+    transition: all 0.25s ease-out;
+    left: 0;
+  }
+
+  .block-offcanvas-left .sidebar-offcanvas {
+    left: -50%;
+  }
+  .block-offcanvas-left.active {
+    left: 50%;
+  }
+  .sidebar-offcanvas {
+    position: absolute;
+    top: 0;
+    width: 50%;
   }
 }

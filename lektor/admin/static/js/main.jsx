@@ -5,6 +5,9 @@ var Router = require("react-router");
 var {Route, DefaultRoute, NotFoundRoute} = Router;
 var Component = require('./components/Component');
 
+require('bootstrap');
+require('./bootstrap-extras');
+
 // polyfill for internet explorer
 require('native-promise-only');
 
