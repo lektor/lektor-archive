@@ -72,14 +72,29 @@
   }
 
   .block-offcanvas-left .sidebar-offcanvas {
-    left: -50%;
+    left: -45%;
   }
   .block-offcanvas-left.active {
-    left: 50%;
+    left: 45%;
   }
+
+  /* this really should not go here, it's the wrong place but oh well */
+  .block-offcanvas div.view {
+    padding-left: 0!important;
+  }
+  .block-offcanvas.active div.view {
+    padding-left: 10px!important;
+  }
+  .block-offcanvas nav {
+    opacity: 0!important;
+  }
+  .block-offcanvas.active nav {
+    opacity: 1.0!important;
+  }
+
   .sidebar-offcanvas {
     position: absolute;
     top: 0;
-    width: 50%;
+    width: 45%;
   }
 }
