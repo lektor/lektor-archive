@@ -61,9 +61,9 @@ def resolve_path(execute_file, cwd):
 
     extensions = ['']
     path_var = os.environ.get('PATH', '').split(os.pathsep)
-    path_ext_var = os.environ.get('PATHEXT', '').split(';')
+    path_ext_var = [x.upper() for x in os.environ.get('PATHEXT', '').split(';')]
 
-    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
+    ext_existing = os.path.splitext(execute_file)[1].upper() in path_ext_var
     if not ext_existing:
         extensions = path_ext_var
 
@@ -244,7 +244,7 @@ def portable_popen(cmd, *args, **kwargs):
         cmd[0] = resolve_path(cmd[0], kwargs['cwd'])
     else:
         cmd[0] = resolve_path(cmd[0], os.getcwd())
-
+        
     return subprocess.Popen(cmd, *args, **kwargs)
 
 
