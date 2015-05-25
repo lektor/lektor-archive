@@ -42,6 +42,10 @@ def cleanup_path(path):
     return '/' + _slashes_re.sub('/', path.strip('/'))
 
 
+def to_posix_path(path):
+    return path.replace('\\', '/').decode(fs_enc, 'replace')
+
+
 def to_os_path(path):
     return path.strip('/').replace('/', os.path.sep).decode(fs_enc, 'replace')
 
