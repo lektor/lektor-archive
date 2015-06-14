@@ -53,10 +53,23 @@ function parseFlowFormat(value) {
 }
 
 function serializeFlowFormat(blocks) {
-  return blocks.map(function(block) {
+  var rv = [];
+  blocks.forEach(function(block) {
     var [blockName, lines] = block;
-    return '#### ' + blockName + ' ####\n' + lines.join('');
-  }).join('\n');
+    rv.push('#### ' + blockName + '####\n');
+    rv.push.apply(rv, lines);
+  });
+
+  rv = rv.join('');
+
+  /* we need to chop of the last newline if it exists because this would
+     otherwise add a newline to the last block.  This is just a side effect
+     of how we serialize the meta format internally */
+  if (rv[rv.length - 1] === '\n') {
+    rv = rv.substr(0, rv.length - 1);
+  }
+
+  return rv;
 }
 
 function deserializeFlowBlock(flowBlockModel, lines, localId) {

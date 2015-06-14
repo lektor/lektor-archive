@@ -87,12 +87,15 @@ function serialize(blocks) {
     if (value.match(/([\r\n]|(^[\t ])|([\t ]$))/m)) {
       rv.push(key + ':\n');
       rv.push('\n');
-      value.split(/\n/).forEach(function(line, idx, arr) {
+      var lines = value.split(/\n/);
+      if (lines[lines.length - 1] === '') {
+        lines.pop();
+      }
+      lines.forEach(function(line, idx, arr) {
         if (lineIsDashes(line)) {
           line = '-' + line;
         }
-        rv.push(line + (idx < arr.length - 1 ||
-                        value.match(/\n$/) ? '\n' : ''));
+        rv.push(line + '\n');
       });
     } else {
       rv.push(key + ': ' + value + '\n');
