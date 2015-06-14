@@ -1,5 +1,6 @@
 import os
 import errno
+import hashlib
 import operator
 import functools
 import posixpath
@@ -761,6 +762,7 @@ class Database(object):
                 rv = {}
             rv['_path'] = path
             rv['_id'] = posixpath.basename(path)
+            rv['_gid'] = hashlib.md5(path.encode('utf-8')).hexdigest()
             if is_attachment:
                 rv['_attachment_for'] = posixpath.dirname(path)
             return rv

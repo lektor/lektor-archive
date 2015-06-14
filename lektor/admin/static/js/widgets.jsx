@@ -18,6 +18,7 @@ var widgetComponents = {
   'html': primitiveWidgets.MultiLineTextInputWidget,
   'markdown': primitiveWidgets.MultiLineTextInputWidget,
   'flow': flowWidget.FlowWidget,
+  'sortkey': primitiveWidgets.IntegerInputWidget,
   'checkboxes': multiWidgets.CheckboxesInputWidget
 }
 

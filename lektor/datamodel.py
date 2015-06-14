@@ -521,6 +521,9 @@ add_system_field('_path', type='string')
 # The local ID (within a folder) of the record
 add_system_field('_id', type='string')
 
+# The global ID (within a folder) of the record
+add_system_field('_gid', type='string')
+
 # the model that defines the data of the record
 add_system_field('_model', type='string')
 
