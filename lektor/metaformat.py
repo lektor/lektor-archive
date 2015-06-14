@@ -91,9 +91,10 @@ def serialize(iterable, encoding=None):
         return item
 
     for idx, (key, value) in enumerate(iterable):
+        value = value.replace('\r\n', '\n').replace('\r', '\n')
         if idx > 0:
             yield '---\n'
-        if '\n' in value or '\r' in value or value.strip('\t ') != value:
+        if '\n' in value or value.strip('\t ') != value:
             yield _produce(key + ':\n')
             yield _produce('\n')
             for line in value.splitlines(True):
