@@ -214,9 +214,9 @@ var FlowWidget = React.createClass({
       return (
         <div key={blockInfo.localId} className="flow-block">
           <ul className="actions">
-            <li><a href="#" onClick={this.moveBlock.bind(this, idx, -1)}>Up</a></li>
-            <li><a href="#" onClick={this.moveBlock.bind(this, idx, 1)}>Down</a></li>
-            <li><a href="#" onClick={this.removeBlock.bind(this, idx)}>Remove</a></li>
+            <li><a href="#" onClick={this.moveBlock.bind(this, idx, -1)}>{i18n.trans('UP')}</a></li>
+            <li><a href="#" onClick={this.moveBlock.bind(this, idx, 1)}>{i18n.trans('DOWN')}</a></li>
+            <li><a href="#" onClick={this.removeBlock.bind(this, idx)}>{i18n.trans('REMOVE')}</a></li>
           </ul>
           <h4 className="block-name">{blockInfo.flowBlockModel.name}</h4>
           {fields}

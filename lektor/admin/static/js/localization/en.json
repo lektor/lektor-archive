@@ -39,5 +39,8 @@
   "SAVE_CHANGES": "Save Changes",
   "REMOVE_FLOWBLOCK_PROMPT": "Do you really want to remove this block?",
   "ADD_FLOWBLOCK": "Add Block",
-  "INVALID_INPUT": "Invalid Input"
+  "INVALID_INPUT": "Invalid Input",
+  "UP": "Up",
+  "DOWN": "Down",
+  "REMOVE": "Remove"
 }
