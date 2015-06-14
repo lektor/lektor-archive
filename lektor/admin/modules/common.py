@@ -28,7 +28,7 @@ class LektorInfo(object):
 
     @cached_property
     def pad(self):
-        db = Database(current_app.lektor_env)
+        db = Database(current_app.lektor_env, lang='de')
         return db.new_pad()
 
 

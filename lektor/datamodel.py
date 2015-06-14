@@ -282,14 +282,38 @@ class FlowBlockModel(object):
         )
 
 
-def fielddata_from_ini(inifile):
+def get_i18n(inifile, key, lang, default=None):
+    rv = inifile.get('%s[%s]' % (key, lang))
+    if rv is None:
+        rv = inifile.get(key, default=default)
+    return rv
+
+
+def resolve_i18n_for_dict(dict, lang):
+    rv = {}
+    rv_lang = {}
+
+    lang_suffix = '[%s]' % lang
+
+    for key, value in dict.iteritems():
+        if '[' in key:
+            if key.endswith(lang_suffix):
+                rv_lang[key[:-len(lang_suffix)]] = value
+        else:
+            rv[key] = value
+
+    rv.update(rv_lang)
+    return rv
+
+
+def fielddata_from_ini(inifile, lang):
     return [(
         sect.split('.', 1)[1],
-        inifile.section_as_dict(sect)
+        resolve_i18n_for_dict(inifile.section_as_dict(sect), lang)
     ) for sect in inifile.sections() if sect.startswith('fields.')]
 
 
-def datamodel_data_from_ini(id, inifile):
+def datamodel_data_from_ini(id, inifile, lang='en'):
     def _parse_order(value):
         value = (value or '').strip()
         if not value:
@@ -300,8 +324,8 @@ def datamodel_data_from_ini(id, inifile):
         filename=inifile.filename,
         id=id,
         parent=inifile.get('model.inherits'),
-        name=inifile.get('model.name', id.title().replace('_', ' ')),
-        label=inifile.get('model.label'),
+        name=get_i18n(inifile, 'model.name', lang) or id.title().replace('_', ' '),
+        label=get_i18n(inifile, 'model.label', lang),
         primary_field=inifile.get('model.primary_field'),
         hidden=inifile.get_bool('model.hidden', default=None),
         expose=inifile.get_bool('model.expose', default=None),
@@ -322,16 +346,16 @@ def datamodel_data_from_ini(id, inifile):
             per_page=inifile.get_int('pagination.per_page'),
             url_suffix=inifile.get('pagination.url_suffix'),
         ),
-        fields=fielddata_from_ini(inifile),
+        fields=fielddata_from_ini(inifile, lang),
     )
 
 
-def flowblock_data_from_ini(id, inifile):
+def flowblock_data_from_ini(id, inifile, lang):
     return dict(
         filename=inifile.filename,
         id=id,
-        name=inifile.get('block.name', id.title().replace('_', ' ')),
-        fields=fielddata_from_ini(inifile),
+        name=get_i18n(inifile, 'block.name', lang) or id.title().replace('_', ' '),
+        fields=fielddata_from_ini(inifile, lang),
     )
 
 
@@ -433,13 +457,13 @@ def iter_inis(path):
             raise
 
 
-def load_datamodels(env):
+def load_datamodels(env, lang='en'):
     """Loads the datamodels for a specific environment."""
     path = os.path.join(env.root_path, 'models')
     data = {}
 
     for model_id, inifile in iter_inis(path):
-        data[model_id] = datamodel_data_from_ini(model_id, inifile)
+        data[model_id] = datamodel_data_from_ini(model_id, inifile, lang)
 
     rv = {}
 
@@ -471,14 +495,14 @@ def load_datamodels(env):
     return rv
 
 
-def load_flowblocks(env):
+def load_flowblocks(env, lang='en'):
     """Loads all the flow blocks for a specific environment."""
     path = os.path.join(env.root_path, 'flowblocks')
     rv = {}
 
     for flowblock_id, inifile in iter_inis(path):
         rv[flowblock_id] = flowblock_from_data(env,
-            flowblock_data_from_ini(flowblock_id, inifile))
+            flowblock_data_from_ini(flowblock_id, inifile, lang))
 
     return rv
 
