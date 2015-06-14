@@ -6,6 +6,7 @@ var Router = require('react-router');
 var ToggleGroup = require('../components/ToggleGroup');
 var RecordEditComponent = require('../components/RecordEditComponent');
 var utils = require('../utils');
+var i18n = require('../i18n');
 var widgets = require('../widgets');
 var {gettext} = utils;
 
@@ -178,7 +179,7 @@ class EditPage extends RecordEditComponent {
       <div>
         {fields}
         <ToggleGroup
-          groupTitle={gettext('System fields')}
+          groupTitle={i18n.trans('SYSTEM_FIELDS')}
           defaultVisibility={false}>{systemFields}</ToggleGroup>
       </div>
     );
@@ -194,13 +195,13 @@ class EditPage extends RecordEditComponent {
     if (!this.isRootRecord()) {
       deleteButton = (
         <button type="submit" className="btn btn-default"
-          onClick={this.deleteRecord.bind(this)}>{gettext('Delete')}</button>
+          onClick={this.deleteRecord.bind(this)}>{i18n.trans('DELETE')}</button>
       );
     }
 
     var title = this.state.recordInfo.is_attachment
-      ? gettext('Edit Metadata of Attachment “%s”')
-      : gettext('Edit “%s”');
+      ? i18n.trans('EDIT_ATTACHMENT_METADATA_OF')
+      : i18n.trans('EDIT_PAGE_NAME');
 
     return (
       <div className="edit-area">
@@ -208,8 +209,7 @@ class EditPage extends RecordEditComponent {
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
-            onClick={this.saveChanges.bind(this)}>{
-              gettext('Save changes')}</button>
+            onClick={this.saveChanges.bind(this)}>{i18n.trans('SAVE_CHANGES')}</button>
           {deleteButton}
         </div>
       </div>

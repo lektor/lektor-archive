@@ -8,8 +8,8 @@ var RecordComponent = require('../components/RecordComponent');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
 var utils = require('../utils');
+var i18n = require('../i18n');
 var widgets = require('../widgets');
-var {gettext, ngettext} = utils;
 
 
 function getGoodDefaultModel(models) {
@@ -125,16 +125,15 @@ class AddAttachmentPage extends RecordComponent {
 
     return (
       <div>
-        <h2>{gettext('Add Attachment to “%s”').replace(
-          '%s', nai.label)}</h2>
-        <p>{gettext('You can upload a new attachment here.')}</p>
+        <h2>{i18n.trans('ADD_ATTACHMENT_TO').replace('%s', nai.label)}</h2>
+        <p>{i18n.trans('ADD_ATTACHMENT_NOTE')}</p>
         {this.renderCurrentFiles()}
-        <p>Progress: {this.state.currentProgress}%</p>
+        <p>{i18n.trans('PROGRESS')}: {this.state.currentProgress}%</p>
         <input type="file" ref="file" multiple={true}
           style={{display: 'none'}} onChange={this.onFileSelected.bind(this)} />
         <div className="actions">
           <button className="btn btn-primary" onClick={this.uploadFile.bind(this)}>{
-            gettext('Upload')}</button>
+            i18n.trans('UPLOAD')}</button>
         </div>
       </div>
     );

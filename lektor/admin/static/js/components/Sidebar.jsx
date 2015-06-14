@@ -5,9 +5,9 @@ var Router = require("react-router");
 var {Link} = Router;
 
 var utils = require('../utils');
+var i18n = require('../i18n');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
-var {gettext} = utils;
 var RecordComponent = require('./RecordComponent');
 
 
@@ -79,38 +79,40 @@ class Sidebar extends RecordComponent {
 
     links.push(
       <li key='edit'><Link to="edit" params={linkParams
-        }>{this.state.isAttachment ? gettext('Edit Metadata') : gettext('Edit')}</Link></li>
+        }>{this.state.isAttachment ?
+          i18n.trans('EDIT_METADATA') :
+          i18n.trans('EDIT')}</Link></li>
     );
 
     if (urlPath !== 'root') {
       links.push(
         <li key='delete'><Link to="delete" params={
-          linkParams}>{gettext('Delete')}</Link></li>
+          linkParams}>{i18n.trans('DELETE')}</Link></li>
       );
     }
 
     links.push(
       <li key='preview'><Link to="preview" params={linkParams
-        }>{gettext('Preview')}</Link></li>
+        }>{i18n.trans('PREVIEW')}</Link></li>
     );
 
     if (this.state.canHaveChildren) {
       links.push(
         <li key='add-child'><Link to="add-child" params={linkParams
-          }>{gettext('Add Child')}</Link></li>
+          }>{i18n.trans('ADD_CHILD_PAGE')}</Link></li>
       );
     }
 
     if (this.state.canHaveAttachments) {
       links.push(
         <li key='add-attachment'><Link to="add-attachment" params={linkParams
-          }>{gettext('Add Attachment')}</Link></li>
+          }>{i18n.trans('ADD_ATTACHMENT')}</Link></li>
       );
     }
 
     var title = this.state.isAttachment
-      ? gettext("Attachment Actions")
-      : gettext("Record Actions");
+      ? i18n.trans('ATTACHMENT_ACTIONS')
+      : i18n.trans('PAGE_ACTIONS');
 
     return (
       <div key="actions" className="section">
@@ -138,14 +140,14 @@ class Sidebar extends RecordComponent {
     if (items.length == 0) {
       items.push(
         <li key="_missing">
-          <em>{gettext('No Children')}</em>
+          <em>{i18n.trans('NO_CHILD_PAGES')}</em>
         </li>
       );
     }
 
     return (
       <div key="children" className="section">
-        <h3>{gettext('Children')}</h3>
+        <h3>{i18n.trans('CHILD_PAGES')}</h3>
         <ul className="nav record-children">
           {items}
         </ul>
@@ -166,14 +168,14 @@ class Sidebar extends RecordComponent {
     if (items.length == 0) {
       items.push(
         <li key="_missing">
-          <em>{gettext('No Attachments')}</em>
+          <em>{i18n.trans('NO_ATTACHMENTS')}</em>
         </li>
       );
     }
 
     return (
       <div key="attachments" className="section">
-        <h3>{gettext('Attachments')}</h3>
+        <h3>{i18n.trans('ATTACHMENTS')}</h3>
         <ul className="nav record-attachments">
           {items}
         </ul>

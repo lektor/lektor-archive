@@ -6,6 +6,7 @@ var {Link, RouteHandler} = Router;
 
 var RecordComponent = require('./RecordComponent');
 var utils = require('../utils');
+var i18n = require('../i18n');
 
 
 class BreadCrumbs extends RecordComponent {
@@ -90,7 +91,7 @@ class BreadCrumbs extends RecordComponent {
           ) : null}
           {' ' /* this space is needed for chrome ... */}
           <li className="close"><a href="/" onClick={
-            this.onCloseClick.bind(this)}>Return to Website</a></li>
+            this.onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a></li>
         </ul>
       </div>
     );

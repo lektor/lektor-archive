@@ -5,9 +5,9 @@ var React = require('react');
 var Router = require('react-router');
 
 var RecordComponent = require('../components/RecordComponent');
+var i18n = require('../i18n');
 var utils = require('../utils');
 var widgets = require('../widgets');
-var {gettext, ngettext} = utils;
 
 
 function getGoodDefaultModel(models) {
@@ -92,9 +92,13 @@ class AddChildPage extends RecordComponent {
   }
 
   createRecord() {
+    function errMsg(text) {
+      alert(i18n.trans('ERROR_PREFIX') + text);
+    }
+
     var id = this.state.id || this.getImpliedId();
     if (!id) {
-      alert(gettext('Error: No ID provided :('));
+      errMsg(i18n.trans('ERROR_NO_ID_PROVIDED'));
       return;
     }
 
@@ -111,11 +115,9 @@ class AddChildPage extends RecordComponent {
     utils.apiRequest('/newrecord', {json: params, method: 'POST'})
       .then((resp) => {
         if (resp.exists) {
-          alert(gettext('Error: Record with this ID (%s) exists already.')
-               .replace('%s', id));
+          errMsg(i18n.trans('ERROR_PAGE_ID_DUPLICATE').replace('%s', id));
         } else if (!resp.valid_id) {
-          alert(gettext('Error: The ID provided (%s) is not allowed.')
-               .replace('%s', id));
+          errMsg(i18n.trans('ERROR_INVALID_ID').replace('%s', id));
         } else {
           var urlPath = utils.fsToUrlPath(resp.path);
           this.context.router.transitionTo('edit', {path: urlPath});
@@ -134,7 +136,7 @@ class AddChildPage extends RecordComponent {
       });
       fields.push(
         <dl key="_model">
-          <dt>{gettext('Model')}</dt>
+          <dt>{i18n.trans('MODEL')}</dt>
           <dd><select value={this.state.selectedModel}
               className="form-control"
               onChange={this.onModelSelected}>
@@ -186,14 +188,13 @@ class AddChildPage extends RecordComponent {
 
     return (
       <div>
-        <h2>{gettext('Add Child to “%s”').replace(
+        <h2>{i18n.trans('ADD_CHILD_PAGE_TO').replace(
           '%s', this.state.newChildInfo.label)}</h2>
-        <p>{gettext('You can add a new child to the page here.  Note that ' +
-                    'the model or ID cannot be easily changed afterwards.')}</p>
+        <p>{i18n.trans('ADD_CHILD_PAGE_NOTE')}</p>
         {this.renderFields()}
         <div className="actions">
           <button className="btn btn-primary" onClick={
-            this.createRecord.bind(this)}>{gettext('Create Page')}</button>
+            this.createRecord.bind(this)}>{i18n.trans('CREATE_CHILD_PAGE')}</button>
         </div>
       </div>
     );

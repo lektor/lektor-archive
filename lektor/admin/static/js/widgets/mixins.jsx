@@ -1,11 +1,10 @@
 var React = require('react');
 
-var utils = require('../utils');
-var {gettext} = utils;
+var i18n = require('../i18n');
 
 
 function ValidationFailure(options) {
-  this.message = options.message || gettext('Invalid input');
+  this.message = options.message || i18n.trans('INVALID_INPUT');
   this.type = options.type || 'error';
 }
 

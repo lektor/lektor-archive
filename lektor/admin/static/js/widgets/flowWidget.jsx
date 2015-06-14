@@ -1,8 +1,7 @@
 'use strict';
 
 var React = require('react');
-var utils = require('../utils');
-var {gettext} = utils;
+var i18n = require('../i18n');
 var metaformat = require('../metaformat');
 var {BasicWidgetMixin} = require('./mixins');
 
@@ -159,7 +158,7 @@ var FlowWidget = React.createClass({
   removeBlock: function(idx, event) {
     event.preventDefault();
 
-    if (confirm(gettext('Do you really want to remove this block?'))) {
+    if (confirm(i18n.trans('REMOVE_FLOWBLOCK_PROMPT'))) {
       this.props.value.splice(idx, 1);
       if (this.props.onChange) {
         this.props.onChange(this.props.value);
@@ -252,7 +251,7 @@ var FlowWidget = React.createClass({
           </div>
           <div className="col-md-4">
             <button className="btn btn-default"
-              onClick={this.addNewBlock}>{gettext('Add Block')}</button>
+              onClick={this.addNewBlock}>{i18n.trans('ADD_FLOWBLOCK')}</button>
           </div>
         </div>
       </div>

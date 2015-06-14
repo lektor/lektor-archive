@@ -6,9 +6,9 @@ var Router = require('react-router');
 
 var RecordComponent = require('../components/RecordEditComponent');
 var utils = require('../utils');
+var i18n = require('../i18n');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
-var {gettext, ngettext} = utils;
 
 
 class DeletePage extends RecordComponent {
@@ -81,22 +81,19 @@ class DeletePage extends RecordComponent {
     if (ri.is_attachment) {
       elements.push(
         <p key="attachment">
-          {gettext('Do you really want to delete this attachment?')}
+          {i18n.trans('DELETE_ATTACHMENT_PROMPT')}
         </p>
       );
     } else {
       elements.push(
         <p key="child-info">
-          {gettext('Do you really want to delete this page and all ' +
-                   'of its attachments?')}
+          {i18n.trans('DELETE_PAGE_PROMPT')}
         </p>
       );
       if (ri.child_count > 0) {
         elements.push(
           <p key="page">
-            {ngettext('This will also delete its %d child.',
-                      'This will also delete its %d children.',
-                      ri.child_count).replace('%d', ri.child_count)}
+            {i18n.trans('DELETE_PAGE_CHILDREN_WARNING')}
           </p>
         );
 
@@ -119,25 +116,25 @@ class DeletePage extends RecordComponent {
     
     return (
       <div>
-        <h2>{gettext('Delete “%s”').replace('%s', this.state.recordInfo.label)}</h2>
+        <h2>{i18n.trans('DELETE_RECORD').replace('%s', this.state.recordInfo.label)}</h2>
         {elements}
         <div style={{display: children.length > 0 ? 'block' : 'none'}}>
-          <h4>{gettext('Children to be deleted:')}</h4>
+          <h4>{i18n.trans('CHILD_PAGES_TO_BE_DELETED')}</h4>
           <ul>
             {children}
           </ul>
         </div>
         <div style={{display: attachments.length > 0 ? 'block' : 'none'}}>
-          <h4>{gettext('Attachments to be deleted:')}</h4>
+          <h4>{i18n.trans('ATTACHMENTS_TO_BE_DELETED')}</h4>
           <ul>
             {attachments}
           </ul>
         </div>
         <div className="actions">
           <button className="btn btn-primary"
-            onClick={this.deleteRecord.bind(this)}>{gettext('Yes, delete')}</button>
+            onClick={this.deleteRecord.bind(this)}>{i18n.trans('YES_DELETE')}</button>
           <button className="btn btn-default"
-            onClick={this.cancelDelete.bind(this)}>{gettext('No, cancel')}</button>
+            onClick={this.cancelDelete.bind(this)}>{i18n.trans('NO_CANCEL')}</button>
         </div>
       </div>
     );

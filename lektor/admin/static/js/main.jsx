@@ -4,12 +4,16 @@ var React = require('react');
 var Router = require("react-router");
 var {Route, DefaultRoute, NotFoundRoute} = Router;
 var Component = require('./components/Component');
+var i18n = require('./i18n');
 
 require('bootstrap');
 require('./bootstrap-extras');
 
 // polyfill for internet explorer
 require('native-promise-only');
+
+// XXX: configurable!
+i18n.currentLanguage = 'de';
 
 class BadRoute extends Component {
 

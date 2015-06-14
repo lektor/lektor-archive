@@ -1,12 +1,7 @@
 'use strict';
 
 var RecordComponent = require('./RecordComponent');
-var utils = require('../utils');
-var {gettext} = utils;
-
-
-var unloadMessage = gettext('You have unsaved information, ' +
-  'are you sure you want to leave this page?');
+var i18n = require('../i18n');
 
 
 class RecordEditComponent extends RecordComponent {
@@ -33,6 +28,7 @@ class RecordEditComponent extends RecordComponent {
 
   _beforeUnloadConfirmation(event) {
     if (this.hasPendingChanges()) {
+      var unloadMessage = i18n.trans('UNLOAD_ACTIVE_TAB');
       (event || window.event).returnValue = unloadMessage;
       return unloadMessage;
     }
@@ -41,6 +37,7 @@ class RecordEditComponent extends RecordComponent {
 
 RecordEditComponent.willTransitionFrom = function(transition, component) {
   if (component.hasPendingChanges()) {
+    var unloadMessage = i18n.trans('UNLOAD_ACTIVE_TAB');
     if (!confirm(unloadMessage)) {
       transition.abort();
     }
