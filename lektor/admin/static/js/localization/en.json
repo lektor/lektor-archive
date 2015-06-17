@@ -42,5 +42,6 @@
   "INVALID_INPUT": "Invalid Input",
   "UP": "Up",
   "DOWN": "Down",
-  "REMOVE": "Remove"
+  "REMOVE": "Remove",
+  "ID": "ID"
 }

@@ -37,6 +37,8 @@ class PaginationConfig(object):
             enabled = True
         self.enabled = enabled
         self.per_page = per_page
+        if url_suffix is None:
+            url_suffix = 'page'
         self.url_suffix = url_suffix
 
     def to_json(self):
@@ -109,7 +111,7 @@ def _iter_all_fields(obj):
 class DataModel(object):
 
     def __init__(self, env, id, name, label=None,
-                 filename=None, hidden=None,
+                 filename=None, hidden=None, protected=None,
                  expose=None, child_config=None, attachment_config=None,
                  pagination_config=None, fields=None,
                  primary_field=None, parent=None):
@@ -121,6 +123,9 @@ class DataModel(object):
         if hidden is None:
             hidden = False
         self.hidden = hidden
+        if protected is None:
+            protected = False
+        self.protected = protected
         if expose is None:
             expose = True
         self.expose = expose
@@ -161,6 +166,7 @@ class DataModel(object):
             'primary_field': self.primary_field,
             'label': self.label,
             'hidden': self.hidden,
+            'protected': self.protected,
             'expose': self.expose,
             'child_config': self.child_config.to_json(),
             'attachment_config': self.attachment_config.to_json(),
@@ -328,6 +334,7 @@ def datamodel_data_from_ini(id, inifile, lang='en'):
         label=get_i18n(inifile, 'model.label', lang),
         primary_field=inifile.get('model.primary_field'),
         hidden=inifile.get_bool('model.hidden', default=None),
+        protected=inifile.get_bool('model.protected', default=None),
         expose=inifile.get_bool('model.expose', default=None),
         child_config=dict(
             enabled=inifile.get_bool('children.enabled', default=None),
@@ -410,6 +417,7 @@ def datamodel_from_data(env, model_data, parent=None):
         # direct data that can inherit
         label=get_value('label'),
         hidden=get_value('hidden'),
+        protected=get_value('protected'),
         expose=get_value('expose'),
         child_config=ChildConfig(
             enabled=get_value('child_config.enabled'),

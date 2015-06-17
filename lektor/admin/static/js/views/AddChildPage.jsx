@@ -105,7 +105,7 @@ class AddChildPage extends RecordComponent {
     var data = {};
     var params = {id: id, path: this.getRecordPath(), data: data};
     if (!this.state.newChildInfo.implied_model) {
-      data._model = this.state.selectedModel;
+      data['_model'] = this.state.selectedModel;
     }
     var primaryField = this.getPrimaryField();
     if (primaryField) {

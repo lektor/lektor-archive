@@ -60,6 +60,7 @@ def get_record_info():
 
     children = []
     attachments = []
+    can_be_deleted = False
 
     if record is None:
         can_have_children = False
@@ -69,6 +70,7 @@ def get_record_info():
         can_have_children = hasattr(record, 'real_children')
         can_have_attachments = hasattr(record, 'attachments')
         is_attachment = record.is_attachment
+        can_be_deleted = parent is not None and not record.datamodel.protected
 
         if can_have_children:
             children = [{
@@ -90,6 +92,7 @@ def get_record_info():
                    children=children,
                    can_have_children=can_have_children,
                    is_attachment=is_attachment,
+                   can_be_deleted=can_be_deleted,
                    exists=record is not None)
 
 
@@ -222,7 +225,7 @@ def get_delete_info():
         is_attachment = False
         label = posixpath.basename(path)
     else:
-        can_be_deleted = record['_path'] != '/'
+        can_be_deleted = record['_path'] != '/' and not record.datamodel.protected
         is_attachment = record.is_attachment
         label = record.record_label
         if not is_attachment:

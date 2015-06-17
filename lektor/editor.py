@@ -75,6 +75,7 @@ class EditorSession(object):
         self.exists = exists
         self.original_data = original_data
         self.datamodel = datamodel
+        self.is_root = path.strip('/') == ''
 
         slug_format = None
         parent_name = posixpath.dirname(path)
@@ -105,6 +106,7 @@ class EditorSession(object):
             url_path = self.record.url_path
         else:
             label = self.id
+        can_be_deleted = not self.datamodel.protected and not self.is_root
         return {
             'data': dict(self.iteritems()),
             'record_info': {
@@ -114,6 +116,7 @@ class EditorSession(object):
                 'label': label,
                 'url_path': url_path,
                 'is_attachment': self.is_attachment,
+                'can_be_deleted': can_be_deleted,
                 'slug_format': self.slug_format,
                 'implied_attachment_type': self.implied_attachment_type,
                 'default_template': self.datamodel.get_default_template_name(),

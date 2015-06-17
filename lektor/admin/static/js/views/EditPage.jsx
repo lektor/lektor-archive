@@ -192,7 +192,7 @@ class EditPage extends RecordEditComponent {
     }
 
     var deleteButton = null;
-    if (!this.isRootRecord()) {
+    if (this.state.recordInfo.can_be_deleted) {
       deleteButton = (
         <button type="submit" className="btn btn-default"
           onClick={this.deleteRecord.bind(this)}>{i18n.trans('DELETE')}</button>

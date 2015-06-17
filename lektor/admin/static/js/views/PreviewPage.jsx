@@ -11,7 +11,10 @@ class PreviewPage extends RecordComponent {
 
   constructor(props) {
     super(props);
-    this.state = {pageUrl: null};
+    this.state = {
+      pageUrl: null,
+      pageUrlFor: null
+    };
   }
 
   componentWillReceiveProps(nextProps) {
@@ -34,23 +37,33 @@ class PreviewPage extends RecordComponent {
     utils.loadData('/previewinfo', {path: path})
       .then((resp) => {
         this.setState({
-          pageUrl: resp.url
+          pageUrl: resp.url,
+          pageUrlFor: path
         });
       });
   }
 
+  getIntendedPath() {
+    if (this.state.pageUrlFor == this.getRecordPath()) {
+      return this.state.pageUrl;
+    }
+    return null;
+  }
+
   componentDidUpdate() {
     var frame = React.findDOMNode(this.refs.iframe);
-    var intendedPath = this.getRecordPath();
-    var framePath = this.getFramePath();
+    var intendedPath = this.getIntendedPath();
+    if (intendedPath !== null) {
+      var framePath = this.getFramePath();
 
-    if (!utils.urlPathsConsideredEqual(intendedPath, framePath)) {
-      frame.src = utils.getCanonicalUrl(intendedPath);
+      if (!utils.urlPathsConsideredEqual(intendedPath, framePath)) {
+        frame.src = utils.getCanonicalUrl(intendedPath);
+      }
+
+      frame.onload = (event) => {
+        this.onFrameNavigated();
+      };
     }
-
-    frame.onload = (event) => {
-      this.onFrameNavigated();
-    };
   }
 
   getFramePath() {

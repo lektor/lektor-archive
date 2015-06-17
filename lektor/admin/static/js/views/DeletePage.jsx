@@ -70,7 +70,7 @@ class DeletePage extends RecordComponent {
   render() {
     var ri = this.state.recordInfo;
 
-    if (!ri) {
+    if (!ri || !ri.can_be_deleted) {
       return null;
     }
 

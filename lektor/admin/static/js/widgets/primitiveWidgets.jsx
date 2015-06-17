@@ -176,6 +176,7 @@ var MultiLineTextInputWidget = React.createClass({
       diff = 0;
     }
 
+    var updateScrollPosition = jQuery(node).is(':focus');
     var wasAtBottom = utils.scrolledToBottom();
     var oldScrollTop = document.body.scrollTop;
     var oldHeight = jQuery(node).outerHeight();
@@ -184,8 +185,10 @@ var MultiLineTextInputWidget = React.createClass({
     var newHeight = (node.scrollHeight - diff);
     node.style.height = newHeight + 'px';
 
-    window.scrollTo(
-      document.body.scrollLeft, oldScrollTop + (newHeight - oldHeight));
+    if (updateScrollPosition) {
+      window.scrollTo(
+        document.body.scrollLeft, oldScrollTop + (newHeight - oldHeight));
+    }
   },
 
   render: function() {

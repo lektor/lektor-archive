@@ -203,11 +203,13 @@ class BuildState(object):
                 filename = filename.lstrip(os.path.altsep)
         return filename.replace(os.path.sep, '/')
 
-    def new_artifact(self, artifact_name, sources=None, source_obj=None):
+    def new_artifact(self, artifact_name, sources=None, source_obj=None,
+                     extra=None):
         """Creates a new artifact and returns it."""
         dst_filename = self.get_destination_filename(artifact_name)
         key = self.artifact_name_from_destination_filename(dst_filename)
-        return Artifact(self, key, dst_filename, sources, source_obj=source_obj)
+        return Artifact(self, key, dst_filename, sources, source_obj=source_obj,
+                        extra=extra)
 
     def artifact_exists(self, artifact_name):
         """Given an artifact name this checks if it was already produced."""
@@ -448,7 +450,7 @@ class Artifact(object):
     """This class represents a build artifact."""
 
     def __init__(self, build_state, artifact_name, dst_filename, sources,
-                 source_obj=None):
+                 source_obj=None, extra=None):
         self.build_state = build_state
         self.artifact_name = artifact_name
         self.dst_filename = dst_filename
@@ -456,6 +458,7 @@ class Artifact(object):
         self.in_update_block = False
         self.updated = False
         self.source_obj = source_obj
+        self.extra = extra
 
         self._update_con = None
         self._new_artifact_file = None

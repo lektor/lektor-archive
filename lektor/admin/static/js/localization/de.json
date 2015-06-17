@@ -42,5 +42,6 @@
   "INVALID_INPUT": "Ungültige Eingabe",
   "UP": "Nach Open",
   "DOWN": "Nach Unten",
-  "REMOVE": "Entfernen"
+  "REMOVE": "Entfernen",
+  "ID": "ID"
 }

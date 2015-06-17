@@ -94,7 +94,8 @@ class BuildProgram(object):
         self.artifacts.append(self.build_state.new_artifact(
             artifact_name=artifact_name,
             sources=sources,
-            source_obj=self.source
+            source_obj=self.source,
+            extra=extra,
         ))
 
     def build_artifact(self, artifact):

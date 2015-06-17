@@ -27,6 +27,7 @@ class Sidebar extends RecordComponent {
       canHaveAttachments: false,
       canHaveChildren: false,
       isAttachment: false,
+      canBeDeleted: false,
       recordExists: false
     };
   }
@@ -66,6 +67,7 @@ class Sidebar extends RecordComponent {
           canHaveAttachments: resp.can_have_attachments,
           canHaveChildren: resp.can_have_children,
           isAttachment: resp.is_attachment,
+          canBeDeleted: resp.can_be_deleted,
           recordExists: resp.exists
         });
       });
@@ -84,7 +86,7 @@ class Sidebar extends RecordComponent {
           i18n.trans('EDIT')}</Link></li>
     );
 
-    if (urlPath !== 'root') {
+    if (this.state.canBeDeleted) {
       links.push(
         <li key='delete'><Link to="delete" params={
           linkParams}>{i18n.trans('DELETE')}</Link></li>
