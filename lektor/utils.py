@@ -270,6 +270,7 @@ def atomic_open(filename, mode='r'):
     if 'r' not in mode:
         fd, tmp_filename = tempfile.mkstemp(
             dir=os.path.dirname(filename), prefix='.__atomic-write')
+        os.chmod(tmp_filename, 0644)
         f = os.fdopen(fd, mode)
     else:
         f = open(filename, mode)

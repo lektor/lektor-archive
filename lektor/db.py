@@ -70,9 +70,12 @@ class _CmpHelper(object):
 
     def __lt__(self, other):
         a, b = self.coerce(self.value, other.value)
-        if self.reverse:
-            return b < a
-        return a < b
+        try:
+            if self.reverse:
+                return b < a
+            return a < b
+        except TypeError:
+            return False
 
 
 def _auto_wrap_expr(value):
@@ -553,9 +556,19 @@ class Query(object):
 
     def _iterate(self):
         """Low level record iteration."""
-        ctx = get_ctx()
-        if ctx is not None:
-            ctx.record_dependency(self.pad.db.to_fs_path(self.path))
+        # If we iterate over children we also need to track those
+        # dependencies.  There are two ways in which we track them.  The
+        # first is through the start record of the query.  If that does
+        # not work for whatever reason (because it does not exist for
+        # instance), then we fall back to manually recording the path we
+        # thing it has.
+        self_record = self.pad.get(self.path)
+        if self_record is not None:
+            self.pad.db.track_record_dependency(self_record)
+        else:
+            ctx = get_ctx()
+            if ctx is not None:
+                ctx.record_dependency(self.pad.db.to_fs_path(self.path))
 
         for name, is_attachment in self.pad.db.iter_items(self.path):
             if not ((is_attachment == self._include_attachments) or
@@ -817,6 +830,19 @@ class Database(object):
         return self.get_implied_datamodel(path, is_attachment, pad,
                                           datamodel=datamodel)
 
+    def iter_dependent_models(self, datamodel):
+        if datamodel.parent is not None:
+            yield datamodel.parent
+            for dep in self.iter_dependent_models(datamodel.parent):
+                yield dep
+        for related_dm_name in (datamodel.child_config.model,
+                                datamodel.attachment_config.model):
+            dm = self.datamodels.get(related_dm_name)
+            if dm is not None:
+                yield dm
+                for dep in self.iter_dependent_models(dm):
+                    yield dep
+
     def get_implied_datamodel(self, path, is_attachment=False, pad=None,
                               datamodel=None):
         """Looks up a datamodel based on the information about the parent
@@ -862,6 +888,9 @@ class Database(object):
                 ctx.record_dependency(filename)
             if record.datamodel.filename:
                 ctx.record_dependency(record.datamodel.filename)
+                for dep_model in self.iter_dependent_models(record.datamodel):
+                    if dep_model.filename:
+                        ctx.record_dependency(dep_model.filename)
         return record
 
     def get_default_slug(self, data, pad):

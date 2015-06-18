@@ -545,6 +545,7 @@ class Artifact(object):
         if self._new_artifact_file is None:
             fd, tmp_filename = tempfile.mkstemp(
                 dir=os.path.dirname(self.dst_filename), prefix='.__trans')
+            os.chmod(tmp_filename, 0644)
             self._new_artifact_file = tmp_filename
             return os.fdopen(fd, mode)
         return open(self._new_artifact_file, mode)

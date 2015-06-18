@@ -2,7 +2,6 @@ import os
 import sys
 import exifread
 import posixpath
-import subprocess
 
 from datetime import datetime
 from jinja2 import Undefined
@@ -143,10 +142,18 @@ def get_thumbnail_ext(source_filename):
     return '.jpeg'
 
 
+def get_quality(source_filename):
+    ext = source_filename.rsplit('.', 1)[-1].lower()
+    if ext.lower() == 'png':
+        return 75
+    return 85
+
+
 def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
     suffix = get_suffix(width, height)
     dst_url_path = get_dependent_url(source_url_path, suffix,
                                      ext=get_thumbnail_ext(source_image))
+    quality = get_quality(source_image)
 
     im = find_imagemagick(ctx.env)
 
@@ -158,7 +165,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
         artifact.ensure_dir()
 
         cmdline = [im, source_image, '-resize', resize_key,
-                   artifact.dst_filename]
+                   '-quality', str(quality), artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
         portable_popen(cmdline).wait()

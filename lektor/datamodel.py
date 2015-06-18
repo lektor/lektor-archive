@@ -187,7 +187,11 @@ class DataModel(object):
                 FormatExpression(self.env, label)
             )
 
-        return self._label_tmpl[1].evaluate(record.pad, this=record)
+        try:
+            return self._label_tmpl[1].evaluate(record.pad, this=record)
+        except Exception:
+            # XXX: log
+            return None
 
     def get_default_child_slug(self, pad, data):
         """Formats out the child slug."""
@@ -202,8 +206,12 @@ class DataModel(object):
                 FormatExpression(self.env, slug_format)
             )
 
-        return '_'.join(self._child_slug_tmpl[1].evaluate(
-            pad, this=data).strip().split()).strip('/')
+        try:
+            return '_'.join(self._child_slug_tmpl[1].evaluate(
+                pad, this=data).strip().split()).strip('/')
+        except Exception:
+            # XXX: log
+            return 'temp-' + slugify(data['_id'])
 
     def get_default_template_name(self):
         return self.id + '.html'

@@ -130,7 +130,7 @@ class PageBuildProgram(BuildProgram):
                     this=self.source)
             except Exception:
                 rv = self.render_failure(sys.exc_info())
-                self.build_state.mark_artifact_sources_dirty([artifact])
+                self.build_state.mark_artifact_sources_dirty(self.artifacts)
             f.write(rv.encode('utf-8') + b'\n')
 
     def iter_child_sources(self):
