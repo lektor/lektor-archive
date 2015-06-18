@@ -75,7 +75,7 @@ class _CmpHelper(object):
                 return b < a
             return a < b
         except TypeError:
-            return False
+            return NotImplemented
 
 
 def _auto_wrap_expr(value):
@@ -560,15 +560,15 @@ class Query(object):
         # dependencies.  There are two ways in which we track them.  The
         # first is through the start record of the query.  If that does
         # not work for whatever reason (because it does not exist for
-        # instance), then we fall back to manually recording the path we
-        # thing it has.
+        # instance).
         self_record = self.pad.get(self.path)
         if self_record is not None:
             self.pad.db.track_record_dependency(self_record)
-        else:
-            ctx = get_ctx()
-            if ctx is not None:
-                ctx.record_dependency(self.pad.db.to_fs_path(self.path))
+
+        # We also always want to record the path itself as dependency.
+        ctx = get_ctx()
+        if ctx is not None:
+            ctx.record_dependency(self.pad.db.to_fs_path(self.path))
 
         for name, is_attachment in self.pad.db.iter_items(self.path):
             if not ((is_attachment == self._include_attachments) or
