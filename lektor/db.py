@@ -831,17 +831,22 @@ class Database(object):
                                           datamodel=datamodel)
 
     def iter_dependent_models(self, datamodel):
-        if datamodel.parent is not None:
-            yield datamodel.parent
-            for dep in self.iter_dependent_models(datamodel.parent):
-                yield dep
-        for related_dm_name in (datamodel.child_config.model,
-                                datamodel.attachment_config.model):
-            dm = self.datamodels.get(related_dm_name)
-            if dm is not None:
-                yield dm
-                for dep in self.iter_dependent_models(dm):
-                    yield dep
+        seen = set()
+        def deep_find(datamodel):
+            seen.add(datamodel)
+
+            if datamodel.parent is not None and datamodel.parent not in seen:
+                deep_find(datamodel.parent)
+
+            for related_dm_name in (datamodel.child_config.model,
+                                    datamodel.attachment_config.model):
+                dm = self.datamodels.get(related_dm_name)
+                if dm is not None and dm not in seen:
+                    deep_find(dm)
+
+        deep_find(datamodel)
+        seen.discard(datamodel)
+        return iter(seen)
 
     def get_implied_datamodel(self, path, is_attachment=False, pad=None,
                               datamodel=None):
