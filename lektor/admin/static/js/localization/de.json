@@ -51,7 +51,7 @@
   "CURRENTLY_PUBLISHING": "Veröffentlichung …",
   "STATE": "Status",
   "PUBLISH_DONE": "Veröffentlicht",
-  "PUBLISH_STATE_BUILDING": "Änderungen werden gebaut …",
-  "PUBLISH_STATE_PUBLISH": "Änderungen werden publiziert …",
+  "PUBLISH_STATE_BUILDING": "Änderungen werden gebaut ...",
+  "PUBLISH_STATE_PUBLISH": "Änderungen werden publiziert ...",
   "PUBLISH_STATE_DONE": "Veröffentlichung fertiggestellt."
 }

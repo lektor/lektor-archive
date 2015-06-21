@@ -49,4 +49,8 @@
   "PUBLISH_NOTE": "From here you can publish the current version of the website.",
   "PUBLISH_SERVER": "Target Server",
   "CURRENTLY_PUBLISHING": "Publishing …"
+  "PUBLISH_DONE": "Published",
+  "PUBLISH_STATE_BUILDING": "Changes are being build ...",
+  "PUBLISH_STATE_PUBLISH": "Changes are being published ...",
+  "PUBLISH_STATE_DONE": "Publishing done."
 }
