@@ -5,6 +5,7 @@
   "dependencies": {},
   "devDependencies": {
     "native-promise-only": "^0.7.6-a",
+    "event-source-polyfill": "^0.0.5",
     "bootstrap": "~3.3.0",
     "css-loader": "^0.9.1",
     "extract-text-webpack-plugin": "^0.3.8",

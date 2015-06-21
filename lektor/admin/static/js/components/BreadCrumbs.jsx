@@ -31,6 +31,9 @@ class BreadCrumbs extends RecordComponent {
   updateCrumbs() {
     var path = this.getRecordPath();
     if (path === null) {
+      this.setState({
+        recordPathInfo: null
+      });
       return;
     }
 
@@ -76,6 +79,10 @@ class BreadCrumbs extends RecordComponent {
           </li>
         );
       });
+    } else {
+      crumbs = (
+        <li><Link to={'edit'} params={{path: 'root'}}>{i18n.trans('BACK_TO_OVERVIEW')}</Link></li>
+      )
     }
 
     return (
@@ -90,8 +97,11 @@ class BreadCrumbs extends RecordComponent {
             </li>
           ) : null}
           {' ' /* this space is needed for chrome ... */}
-          <li className="close"><a href="/" onClick={
-            this.onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a></li>
+          <li className="meta">
+            <Link to="publish">{i18n.trans('PUBLISH')}</Link>
+            <a href="/" onClick={
+              this.onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a>
+          </li>
         </ul>
       </div>
     );

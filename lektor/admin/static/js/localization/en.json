@@ -43,5 +43,10 @@
   "UP": "Up",
   "DOWN": "Down",
   "REMOVE": "Remove",
-  "ID": "ID"
+  "ID": "ID",
+  "BACK_TO_OVERVIEW": "Back to Overview",
+  "PUBLISH": "Publish",
+  "PUBLISH_NOTE": "From here you can publish the current version of the website.",
+  "PUBLISH_SERVER": "Target Server",
+  "CURRENTLY_PUBLISHING": "Publishing …"
 }

@@ -1,8 +1,6 @@
 import os
 import sys
 import stat
-import gzip
-import errno
 import sqlite3
 import hashlib
 import tempfile
@@ -13,7 +11,7 @@ from itertools import chain
 from lektor.context import Context
 from lektor.build_programs import get_build_program
 from lektor.reporter import reporter
-from lektor.utils import prune_file_and_folder, atomic_open
+from lektor.utils import prune_file_and_folder
 
 from werkzeug.posixemulation import rename
 
@@ -41,62 +39,6 @@ def create_tables(con):
         con.close()
 
 
-class ArtifactListing(object):
-    """This is used by the artifact listing generator to calculate the
-    checksum of all artifacts.
-    """
-
-    def __init__(self, build_state, filename):
-        self.build_state = build_state
-        self.filename = filename
-        self.artifacts = {}
-
-        try:
-            with open(filename, 'rb') as f:
-                f = gzip.GzipFile(fileobj=f)
-                for line in f:
-                    line = line.decode('utf-8').strip().split('\t')
-                    self.artifacts[line[0]] = FileInfo(
-                        build_state.env,
-                        filename=build_state.get_destination_filename(line[0]),
-                        mtime=int(line[1]),
-                        size=int(line[2]),
-                        checksum=line[3],
-                    )
-        except IOError as e:
-            if e.errno != errno.ENOENT:
-                raise
-
-    def update(self, iterable):
-        changed = False
-        old_artifacts = set(self.artifacts)
-
-        for artifact_name, info in iterable:
-            old_info = self.artifacts.get(artifact_name)
-            if old_info != info:
-                self.artifacts[artifact_name] = info
-                changed = True
-            old_artifacts.discard(artifact_name)
-
-        if old_artifacts:
-            changed = True
-            for artifact_name in old_artifacts:
-                self.artifacts.pop(artifact_name, None)
-
-        return changed
-
-    def save(self):
-        with atomic_open(self.filename, 'wb') as f:
-            with gzip.GzipFile(fileobj=f) as f:
-                for artifact_name, info in sorted(self.artifacts.items()):
-                    f.write('\t'.join((
-                        artifact_name.encode('utf-8'),
-                        str(info.mtime),
-                        str(info.size),
-                        str(info.checksum),
-                    )) + '\n')
-
-
 class BuildState(object):
 
     def __init__(self, generator, database_filename):
@@ -117,6 +59,11 @@ class BuildState(object):
     def env(self):
         """The environment backing this buildstate."""
         return self.builder.env
+
+    @property
+    def config(self):
+        """The config for this buildstate."""
+        return self.builder.pad.db.config
 
     def __enter__(self):
         return self
@@ -742,14 +689,3 @@ class Builder(object):
                 source = to_build.pop()
                 prog = self.build(source)
                 to_build.extend(prog.iter_child_sources())
-
-    def update_listing_file(self):
-        """This updates the artifact listing file in the build meta folder.
-        This can be used for synchronization tools.
-        """
-        with self.new_build_state() as build_state:
-            filename = os.path.join(self.meta_path, 'artifacts.gz')
-
-            listing = ArtifactListing(build_state, filename)
-            if listing.update(build_state.iter_artifacts()):
-                listing.save()

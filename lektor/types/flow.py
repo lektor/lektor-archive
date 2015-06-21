@@ -91,6 +91,9 @@ class Flow(object):
     def __html__(self):
         return Markup(u'\n\n'.join(x.__html__() for x in self.blocks))
 
+    def __nonzero__(self):
+        return bool(self.blocks)
+
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,

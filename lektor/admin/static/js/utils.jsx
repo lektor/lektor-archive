@@ -220,13 +220,11 @@ var utils = {
         url: utils.getApiUrl(url),
         data: params,
         method: options.method || 'GET'
-      })
-        .done(function(data) {
-          resolve(data);
-        })
-        .fail(function() {
-          reject(new Error('Loading of data failed'));
-        });
+      }).done(function(data) {
+        resolve(data);
+      }).fail(function() {
+        reject(new Error('Loading of data failed'));
+      });
     });
   },
 

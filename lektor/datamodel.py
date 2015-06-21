@@ -4,7 +4,7 @@ import errno
 from inifile import IniFile
 
 from lektor import types
-from lektor.utils import slugify
+from lektor.utils import slugify, get_i18n, resolve_i18n_for_dict
 from lektor.environment import Expression, FormatExpression
 
 
@@ -294,30 +294,6 @@ class FlowBlockModel(object):
             self.__class__.__name__,
             self.id,
         )
-
-
-def get_i18n(inifile, key, lang, default=None):
-    rv = inifile.get('%s[%s]' % (key, lang))
-    if rv is None:
-        rv = inifile.get(key, default=default)
-    return rv
-
-
-def resolve_i18n_for_dict(dict, lang):
-    rv = {}
-    rv_lang = {}
-
-    lang_suffix = '[%s]' % lang
-
-    for key, value in dict.iteritems():
-        if '[' in key:
-            if key.endswith(lang_suffix):
-                rv_lang[key[:-len(lang_suffix)]] = value
-        else:
-            rv[key] = value
-
-    rv.update(rv_lang)
-    return rv
 
 
 def fielddata_from_ini(inifile, lang):

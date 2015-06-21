@@ -4,7 +4,6 @@ import mimetypes
 import posixpath
 import traceback
 import threading
-import subprocess
 from StringIO import StringIO
 from zlib import adler32
 
@@ -136,14 +135,17 @@ def safe_join(directory, filename):
 
 class WsgiApp(object):
 
-    def __init__(self, env, output_path, verbosity=0, debug=False):
+    def __init__(self, env, output_path, verbosity=0, debug=False,
+                 lang='en'):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
-        self.admin = WebAdmin(env, debug=debug)
+        self.admin = WebAdmin(env, debug=debug, lang=lang,
+                              output_path=output_path)
+        self.lang = lang
 
     def get_pad(self):
-        db = Database(self.env)
+        db = Database(self.env, lang=self.lang)
         pad = db.new_pad()
         return pad
 
@@ -195,7 +197,7 @@ class WsgiApp(object):
 
 class BackgroundBuilder(threading.Thread):
 
-    def __init__(self, env, output_path, verbosity=0):
+    def __init__(self, env, output_path, verbosity=0, lang='en'):
         threading.Thread.__init__(self)
         watcher = Watcher(env, output_path)
         watcher.observer.start()
@@ -203,11 +205,12 @@ class BackgroundBuilder(threading.Thread):
         self.watcher = watcher
         self.output_path = output_path
         self.verbosity = verbosity
+        self.lang = lang
         self.last_build = time.time()
 
     def build(self):
         try:
-            db = Database(self.env)
+            db = Database(self.env, lang=self.lang)
             builder = Builder(db.new_pad(), self.output_path)
             builder.build_all()
         except Exception:
@@ -235,7 +238,7 @@ class DevTools(object):
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
         portable_popen(['npm', 'install', '.'], cwd=admin).wait()
-        self.watcher = portable_popen(['../node_modules/.bin/webpack',                      
+        self.watcher = portable_popen(['../node_modules/.bin/webpack',
                                        '--watch'],
                                       cwd=os.path.join(admin, 'static'))
 
@@ -247,7 +250,8 @@ class DevTools(object):
         self.watcher = None
 
 
-def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False):
+def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
+               lang='en'):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
@@ -255,10 +259,11 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False):
     save_for_bg = not lektor_dev or wz_as_main
 
     if save_for_bg:
-        background_builder = BackgroundBuilder(env, output_path, verbosity)
+        background_builder = BackgroundBuilder(env, output_path, verbosity,
+                                               lang=lang)
         background_builder.setDaemon(True)
         background_builder.start()
-    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev)
+    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev, lang=lang)
 
     dt = None
     if lektor_dev and not wz_as_main:

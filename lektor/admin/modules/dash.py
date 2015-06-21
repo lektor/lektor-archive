@@ -9,6 +9,7 @@ bp = Blueprint('dash', __name__)
 
 endpoints = [
     ('/', 'index'),
+    ('/publish', 'publish'),
     ('/<path>/edit', 'edit'),
     ('/<path>/delete', 'delete'),
     ('/<path>/preview', 'preview'),
@@ -20,7 +21,7 @@ endpoints = [
 @bp.route('/edit')
 def edit_redirect():
     # XXX: the path here only works if the website is on the root.
-    record = g.lektor_info.pad.resolve_url_path(request.args.get('path', '/'))
+    record = g.admin_context.pad.resolve_url_path(request.args.get('path', '/'))
     if record is None:
         abort(404)
     return redirect(url_for('dash.edit', path=fs_path_to_url_path(record.url_path)))

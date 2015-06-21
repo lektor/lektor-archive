@@ -11,9 +11,9 @@ require('./bootstrap-extras');
 
 // polyfill for internet explorer
 require('native-promise-only');
+require('event-source-polyfill');
 
-// XXX: configurable!
-i18n.currentLanguage = 'de';
+i18n.currentLanguage = $LEKTOR_CONFIG.lang;
 
 class BadRoute extends Component {
 
@@ -36,10 +36,12 @@ var routes = (function() {
   var PreviewPage = require('./views/PreviewPage');
   var AddChildPage = require('./views/AddChildPage');
   var AddAttachmentPage = require('./views/AddAttachmentPage');
+  var Publish = require('./views/Publish');
 
   // route setup
   return (
     <Route name="dash" path={$LEKTOR_CONFIG.admin_root} handler={App}>
+      <Route name="publish" path="publish" handler={Publish}/>
       <Route name="edit" path=":path/edit" handler={EditPage}/>
       <Route name="delete" path=":path/delete" handler={DeletePage}/>
       <Route name="preview" path=":path/preview" handler={PreviewPage}/>

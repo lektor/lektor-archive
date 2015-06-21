@@ -1,8 +1,12 @@
 import os
+import re
+import copy
 
 import jinja2
 
-from lektor.utils import tojson_filter
+from inifile import IniFile
+
+from lektor.utils import tojson_filter, resolve_i18n_for_dict
 from lektor.context import url_to, site_proxy, get_ctx
 
 
@@ -36,7 +40,40 @@ DEFAULT_CONFIG = {
         '.txt': 'text',
         '.log': 'text',
     },
+    'SITE': {
+        'name': None
+    },
+    'SERVERS': {}
 }
+
+
+def update_config_from_ini(config, inifile):
+    def set_simple(target, source_path):
+        rv = config.get(source_path)
+        if rv is not None:
+            config[target] = rv
+
+    set_simple(target='IMAGEMAGICK_EXECUTABLE',
+               source_path='env.imagemagick_executable')
+    set_simple(target='LESSC_EXECUTABLE',
+               source_path='env.lessc_executable')
+
+    config['ATTACHMENT_TYPES'].update(
+        (k.encode('ascii', 'replace'), v.encode('ascii', 'replace'))
+        for k, v in inifile.section_as_dict('attachment_types'))
+
+    config['SITE'].update(inifile.section_as_dict('site'))
+
+    for sect in inifile.sections():
+        if not sect.startswith('servers.'):
+            continue
+        server_id = sect.split('.')[1]
+        config['SERVERS'][server_id] = {
+            'name': inifile.get(sect + '.name') or server_id,
+            'target': inifile.get(sect + '.target'),
+            'enabled': inifile.get_bool(sect + '.enabled', default=True),
+        }
+
 
 # Special files that should always be ignored.
 IGNORED_FILES = ['thumbs.db', 'desktop.ini']
@@ -45,6 +82,32 @@ IGNORED_FILES = ['thumbs.db', 'desktop.ini']
 # they are built even though they start with dots.
 SPECIAL_SOURCES = ['_htaccess', '_htpasswd']
 SPECIAL_ARTIFACTS = ['.htaccess', '.htpasswd']
+
+
+class ServerInfo(object):
+
+    def __init__(self, id, name, target, enabled=True):
+        self.id = id
+        self.name = name
+        self.target = target
+        self.enabled = enabled
+
+    @property
+    def short_target(self):
+        match = re.match(r'([a-z]+)://([^/]+)', self.target)
+        if match is not None:
+            protocol, server = match.groups()
+            return '%s via %s' % (server, protocol)
+        return self.target
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'target': self.target,
+            'short_target': self.short_target,
+            'enabled': self.enabled,
+        }
 
 
 class Expression(object):
@@ -85,13 +148,55 @@ class CustomJinjaEnvironment(jinja2.Environment):
         return rv
 
 
+class Config(object):
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.values = copy.deepcopy(DEFAULT_CONFIG)
+
+        if os.path.isfile(filename):
+            inifile = IniFile(filename)
+            update_config_from_ini(self.values, inifile)
+
+    def __getitem__(self, name):
+        return self.values[name]
+
+    def get_servers(self, lang='en'):
+        """Returns a list of servers (data translated to the given
+        language).
+        """
+        rv = {}
+        for server in self.values['SERVERS']:
+            server_info = self.get_server(server, lang=lang)
+            if server_info is None:
+                continue
+            rv[server] = server_info
+        return rv
+
+    def get_server(self, name, lang='en'):
+        """Looks up a server info by name."""
+        info = self.values['SERVERS'].get(name)
+        if info is None:
+            return None
+        info = resolve_i18n_for_dict(info, lang)
+        target = info.get('target')
+        if target is None:
+            return None
+        return ServerInfo(
+            id=name,
+            name=info['name'],
+            target=target,
+            enabled=info['enabled'],
+        )
+
+
 class Environment(object):
 
-    def __init__(self, root_path, config=None):
+    def __init__(self, root_path):
         self.root_path = os.path.abspath(root_path)
-        if config is None:
-            config = DEFAULT_CONFIG.copy()
-        self.config = config
+
+        self.config_filename = os.path.join(self.root_path, 'site.ini')
+
         self.jinja_env = CustomJinjaEnvironment(
             autoescape=self.select_jinja_autoescape,
             extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'],
@@ -120,6 +225,10 @@ class Environment(object):
     @property
     def temp_path(self):
         return os.path.join(self.root_path, 'temp')
+
+    def load_config(self):
+        """Loads the current config."""
+        return Config(self.config_filename)
 
     def is_uninteresting_source_name(self, filename):
         """These files are always ignored when sources are built into

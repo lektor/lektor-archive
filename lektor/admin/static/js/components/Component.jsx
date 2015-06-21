@@ -11,6 +11,9 @@ class Component extends React.Component {
   componentWillUnmount() {
   }
 
+  componentDidUpdate() {
+  }
+
   componentWillReceiveProps(nextProps) {
   }
 }

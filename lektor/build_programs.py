@@ -189,7 +189,7 @@ class LessFileAssetBuildProgram(BuildProgram):
         map_out = self.build_state.make_named_temporary('less-sourcemap')
         here = os.path.dirname(self.source.source_filename)
 
-        exe = self.build_state.env.config['LESSC_EXECUTABLE']
+        exe = self.build_state.config['LESSC_EXECUTABLE']
         if exe is None:
             exe = 'lessc'
 

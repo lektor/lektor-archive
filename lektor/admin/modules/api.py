@@ -1,15 +1,17 @@
 import posixpath
 
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 
 from lektor.utils import is_valid_id
+from lektor.admin.utils import eventstream
+from lektor.publisher import publish
 
 
 bp = Blueprint('api', __name__)
 
 
 def get_record_and_parent(path):
-    pad = g.lektor_info.pad
+    pad = g.admin_context.pad
     record = pad.get(path)
     if record is None:
         parent = pad.get(posixpath.dirname(path))
@@ -98,7 +100,7 @@ def get_record_info():
 
 @bp.route('/api/previewinfo')
 def get_preview_info():
-    record = g.lektor_info.pad.get(request.args['path'])
+    record = g.admin_context.pad.get(request.args['path'])
     if record is None:
         return jsonify(exists=False, url=None, is_hidden=True)
     return jsonify(
@@ -110,7 +112,7 @@ def get_preview_info():
 
 @bp.route('/api/matchurl')
 def match_url():
-    record = g.lektor_info.pad.resolve_url_path(request.args['url_path'])
+    record = g.admin_context.pad.resolve_url_path(request.args['url_path'])
     if record is None:
         return jsonify(exists=False, path=None)
     return jsonify(exists=True, path=record['_path'])
@@ -118,13 +120,13 @@ def match_url():
 
 @bp.route('/api/rawrecord')
 def get_raw_record():
-    ts = g.lektor_info.pad.edit(request.args['path'])
+    ts = g.admin_context.pad.edit(request.args['path'])
     return jsonify(ts.to_json())
 
 
 @bp.route('/api/newrecord')
 def get_new_record_info():
-    pad = g.lektor_info.pad
+    pad = g.admin_context.pad
     ts = pad.edit(request.args['path'])
     if ts.is_attachment:
         can_have_children = False
@@ -158,7 +160,7 @@ def get_new_record_info():
 
 @bp.route('/api/newattachment')
 def get_new_attachment_info():
-    pad = g.lektor_info.pad
+    pad = g.admin_context.pad
     ts = pad.edit(request.args['path'])
     return jsonify({
         'can_upload': ts.exists and not ts.is_attachment,
@@ -168,7 +170,7 @@ def get_new_attachment_info():
 
 @bp.route('/api/newattachment', methods=['POST'])
 def upload_new_attachments():
-    ts = g.lektor_info.pad.edit(request.values['path'])
+    ts = g.admin_context.pad.edit(request.values['path'])
     if not ts.exists or ts.is_attachment:
         return jsonify({
             'bad_upload': True
@@ -199,7 +201,7 @@ def add_new_record():
 
     path = posixpath.join(values['path'], values['id'])
 
-    ts = g.lektor_info.pad.edit(path, datamodel=values.get('model'))
+    ts = g.admin_context.pad.edit(path, datamodel=values.get('model'))
     with ts:
         if ts.exists:
             exists = True
@@ -216,7 +218,7 @@ def add_new_record():
 @bp.route('/api/deleterecord')
 def get_delete_info():
     path = request.args['path']
-    record = g.lektor_info.pad.get(path)
+    record = g.admin_context.pad.get(path)
     children = []
     child_count = 0
 
@@ -256,7 +258,7 @@ def get_delete_info():
 @bp.route('/api/deleterecord', methods=['POST'])
 def delete_record():
     if request.values['path'] != '/':
-        ts = g.lektor_info.pad.edit(request.values['path'])
+        ts = g.admin_context.pad.edit(request.values['path'])
         with ts:
             ts.delete()
     return jsonify(okay=True)
@@ -266,7 +268,35 @@ def delete_record():
 def update_raw_record():
     values = request.get_json()
     data = values['data']
-    ts = g.lektor_info.pad.edit(values['path'])
+    ts = g.admin_context.pad.edit(values['path'])
     with ts:
         ts.update(data)
     return jsonify(path=ts.path)
+
+
+@bp.route('/api/servers')
+def get_servers():
+    db = g.admin_context.pad.db
+    config = db.env.load_config()
+    servers = config.get_servers(lang=db.lang)
+    return jsonify(servers=sorted([x.to_json() for x in servers.values()],
+                                  key=lambda x: x['name'].lower()))
+
+
+@bp.route('/api/build', methods=['POST'])
+def trigger_build():
+    builder = current_app.lektor_info.get_builder()
+    builder.build_all()
+    return jsonify(okay=True)
+
+
+@bp.route('/api/publish')
+def publish_build():
+    target = request.values['target']
+    info = current_app.lektor_info
+    @eventstream
+    def generator():
+        event_iter = publish(info.env, target, info.output_path) or ()
+        for event in event_iter:
+            yield {'msg': event}
+    return generator()

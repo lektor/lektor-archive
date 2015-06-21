@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 
 _reporter_stack = LocalStack()
+_build_buffer_stack = LocalStack()
 
 
 def describe_build_func(func):

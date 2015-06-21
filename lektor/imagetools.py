@@ -125,8 +125,7 @@ def find_default_imagemagick():
     return 'convert.exe'
 
 
-def find_imagemagick(env):
-    im = env.config['IMAGEMAGICK_EXECUTABLE']
+def find_imagemagick(im):
     if im is None:
         return find_default_imagemagick()
     return im
@@ -155,7 +154,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                                      ext=get_thumbnail_ext(source_image))
     quality = get_quality(source_image)
 
-    im = find_imagemagick(ctx.env)
+    im = find_imagemagick(ctx.build_state.config['IMAGEMAGICK_EXECUTABLE'])
 
     @ctx.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
     def build_thumbnail_artifact(artifact):

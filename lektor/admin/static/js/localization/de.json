@@ -43,5 +43,15 @@
   "UP": "Nach Open",
   "DOWN": "Nach Unten",
   "REMOVE": "Entfernen",
-  "ID": "ID"
+  "ID": "ID",
+  "BACK_TO_OVERVIEW": "Zurück zur Übersicht",
+  "PUBLISH": "Veröffentlichen",
+  "PUBLISH_NOTE": "Von hier aus kann der aktuelle Stand der Webseite publiziert werden.",
+  "PUBLISH_SERVER": "Ziel Server",
+  "CURRENTLY_PUBLISHING": "Veröffentlichung …",
+  "STATE": "Status",
+  "PUBLISH_DONE": "Veröffentlicht",
+  "PUBLISH_STATE_BUILDING": "Änderungen werden gebaut …",
+  "PUBLISH_STATE_PUBLISH": "Änderungen werden publiziert …",
+  "PUBLISH_STATE_DONE": "Veröffentlichung fertiggestellt."
 }

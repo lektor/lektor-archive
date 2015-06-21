@@ -122,6 +122,38 @@ def clean_cmd(ctx, output_path, verbosity):
         builder.prune(all=True)
 
 
+@cli.command('deploy', short_help='Deploy the website.')
+@click.argument('server', default='development')
+@click.option('-O', '--output-path', type=click.Path(), default=None,
+              help='The output path.')
+@pass_context
+def deploy_cmd(ctx, server, output_path):
+    from lektor.publisher import publish
+
+    if output_path is None:
+        output_path = ctx.get_default_output_path()
+
+    env = ctx.get_env()
+    config = env.load_config()
+
+    server_info = config.get_server(server)
+    if server_info is None:
+        raise click.BadParameter('Server "%s" does not exist.' % server,
+                                 param_hint='server')
+
+    event_iter = publish(env, server_info.target, output_path)
+    if event_iter is None:
+        raise click.UsageError('Server "%s" is not configured for a valid '
+                               'publishing method.' % server)
+
+    click.echo('Deploying to %s' % server_info.name)
+    click.echo('  Build cache: %s' % output_path)
+    click.echo('  Target: %s' % server_info.target)
+    for line in event_iter:
+        click.echo('  %s' % click.style(line, fg='cyan'))
+    click.echo('Done!')
+
+
 @cli.command('devserver', short_help='Launch a local development server.')
 @click.option('-h', '--host', default='127.0.0.1',
               help='The network interface to bind to.  The default is the '
@@ -150,21 +182,9 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity,
-               lektor_dev=os.environ.get('LEKTOR_DEV') == '1')
-
-
-@cli.command('sync', short_help='Synchronizes stuff to a host.')
-@click.option('-O', '--output-path', type=click.Path(), default=None,
-              help='The dev server will build into the same folder as '
-              'the build command by default.')
-@pass_context
-def sync_cmd(ctx, output_path):
-    """This commands syncs to a server."""
-    from lektor.builder import Builder
-    if output_path is None:
-        output_path = ctx.get_default_output_path()
-    builder = Builder(ctx.new_pad(), output_path)
-    builder.update_listing_file()
+               lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
+               # XXX: configurable
+               lang='de')
 
 
 main = cli

@@ -12,6 +12,10 @@ html {
   height: 100%;
 }
 
+a.active {
+  font-weight: 500;
+}
+
 div.application {
   height: 100%;
   position: relative;
@@ -86,8 +90,11 @@ div.application {
         }
       }
 
-      li.close {
+      li.meta {
         float: right;
+        a {
+          margin-left: 10px;
+        }
         &:before {
           content: "";
         }
@@ -331,4 +338,9 @@ div.actions {
   > * {
     margin-right: 5px;
   }
+}
+
+pre.build-log {
+  overflow: auto;
+  max-height: 200px;
 }

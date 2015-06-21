@@ -741,8 +741,11 @@ def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
 
 class Database(object):
 
-    def __init__(self, env, lang='en'):
+    def __init__(self, env, lang='en', config=None):
         self.env = env
+        if config is None:
+            config = env.load_config()
+        self.config = config
         self.lang = lang
         self.datamodels = load_datamodels(env, lang=lang)
         self.flowblocks = load_flowblocks(env, lang=lang)
@@ -883,7 +886,7 @@ class Database(object):
 
     def get_attachment_type(self, path):
         """Gets the attachment type for a path."""
-        return self.env.config['ATTACHMENT_TYPES'].get(
+        return self.config['ATTACHMENT_TYPES'].get(
             posixpath.splitext(path)[1])
 
     def track_record_dependency(self, record):
@@ -943,7 +946,7 @@ class Pad(object):
 
     def __init__(self, db):
         self.db = db
-        self.cache = RecordCache(db.env.config['EPHEMERAL_RECORD_CACHE_SIZE'])
+        self.cache = RecordCache(db.config['EPHEMERAL_RECORD_CACHE_SIZE'])
 
     def resolve_url_path(self, url_path, include_invisible=False,
                          include_assets=True):
