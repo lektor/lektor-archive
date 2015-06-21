@@ -135,6 +135,7 @@ class Publish extends Component {
         </dl>
         <div className="actions">
           <button type="submit" className="btn btn-primary"
+            disabled={!this.isSaveToPublish()}
             onClick={this.doPublish.bind(this)}>{i18n.trans('PUBLISH')}</button>
         </div>
         {progress}
