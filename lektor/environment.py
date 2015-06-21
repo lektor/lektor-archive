@@ -69,11 +69,7 @@ def update_config_from_ini(config, inifile):
         if not sect.startswith('servers.'):
             continue
         server_id = sect.split('.')[1]
-        config['SERVERS'][server_id] = {
-            'name': inifile.get(sect + '.name') or server_id,
-            'target': inifile.get(sect + '.target'),
-            'enabled': inifile.get_bool(sect + '.enabled', default=True),
-        }
+        config['SERVERS'][server_id] = inifile.section_as_dict(sect)
 
 
 # Special files that should always be ignored.
@@ -192,7 +188,7 @@ class Config(object):
             id=name,
             name=info['name'],
             target=target,
-            enabled=info['enabled'],
+            enabled=info.get('enabled', 'true').lower() in ('true', 'yes', '1'),
         )
 
 
