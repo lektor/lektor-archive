@@ -1,6 +1,7 @@
 import os
 import time
 import click
+import hashlib
 
 
 class Context(object):
@@ -24,7 +25,12 @@ class Context(object):
         raise click.UsageError('Could not find tree')
 
     def get_default_output_path(self):
-        return os.path.join(self.get_tree(), 'build')
+        tree = self.get_tree()
+        if isinstance(tree, unicode):
+            tree = tree.encode('utf-8')
+        hash = hashlib.md5(tree)
+        return os.path.join(click.get_app_dir('Lektor'),
+                            'build-cache', hash.hexdigest())
 
     def get_env(self):
         if self._env is not None:
@@ -166,8 +172,9 @@ def deploy_cmd(ctx, server, output_path):
               'the build command by default.')
 @click.option('-v', '--verbose', 'verbosity', count=True,
               help='Increases the verbosity of the logging.')
+@click.option('--browse', is_flag=True)
 @pass_context
-def devserver_cmd(ctx, host, port, output_path, verbosity):
+def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
     """The devserver command will launch a local server for development.
 
     Lektor's developemnt server will automatically build all files into
@@ -182,4 +189,8 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity,
-               lektor_dev=os.environ.get('LEKTOR_DEV') == '1')
+               lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
+               browse=browse)
+
+
+main = cli

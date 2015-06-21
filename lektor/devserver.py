@@ -250,8 +250,18 @@ class DevTools(object):
         self.watcher = None
 
 
+def browse_to_address(addr):
+    import webbrowser
+    def browse():
+        time.sleep(1)
+        webbrowser.open('http://%s:%s' % addr)
+    t = threading.Thread(target=browse)
+    t.setDaemon(True)
+    t.start()
+
+
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
-               lang=None):
+               lang=None, browse=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
@@ -271,6 +281,9 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
     if lektor_dev and not wz_as_main:
         dt = DevTools()
         dt.start()
+
+    if browse:
+        browse_to_address(bindaddr)
 
     try:
         return run_simple(bindaddr[0], bindaddr[1], app,
