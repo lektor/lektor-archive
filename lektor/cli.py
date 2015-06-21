@@ -183,6 +183,3 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity,
                lektor_dev=os.environ.get('LEKTOR_DEV') == '1')
-
-
-main = cli
