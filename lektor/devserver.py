@@ -251,10 +251,12 @@ class DevTools(object):
 
 
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
-               lang='en'):
+               lang=None):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
+    if lang is None:
+        lang = env.load_config().site_language
     wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
     save_for_bg = not lektor_dev or wz_as_main
 

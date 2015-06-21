@@ -741,10 +741,12 @@ def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
 
 class Database(object):
 
-    def __init__(self, env, lang='en', config=None):
+    def __init__(self, env, lang=None, config=None):
         self.env = env
         if config is None:
             config = env.load_config()
+        if lang is None:
+            lang = config.site_language
         self.config = config
         self.lang = lang
         self.datamodels = load_datamodels(env, lang=lang)

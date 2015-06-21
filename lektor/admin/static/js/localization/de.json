@@ -1,5 +1,5 @@
 {
-  "RETURN_TO_WEBSITE": "Zurück zur Webseite",
+  "RETURN_TO_WEBSITE": "Zur Webseite",
   "UNLOAD_ACTIVE_TAB": "Du hast ungespeicherte Änderungen, willst du die Seite verlassen?",
   "EDIT_METADATA": "Metadaten Bearbeiten",
   "EDIT": "Bearbeiten",
@@ -44,7 +44,7 @@
   "DOWN": "Nach Unten",
   "REMOVE": "Entfernen",
   "ID": "ID",
-  "BACK_TO_OVERVIEW": "Zurück zur Übersicht",
+  "BACK_TO_OVERVIEW": "Übersicht",
   "PUBLISH": "Veröffentlichen",
   "PUBLISH_NOTE": "Von hier aus kann der aktuelle Stand der Webseite publiziert werden.",
   "PUBLISH_SERVER": "Ziel Server",

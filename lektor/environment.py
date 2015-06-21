@@ -41,7 +41,8 @@ DEFAULT_CONFIG = {
         '.log': 'text',
     },
     'SITE': {
-        'name': None
+        'name': None,
+        'language': 'en',
     },
     'SERVERS': {}
 }
@@ -160,6 +161,11 @@ class Config(object):
 
     def __getitem__(self, name):
         return self.values[name]
+
+    @property
+    def site_language(self):
+        """The language of this site."""
+        return self.values['SITE']['language']
 
     def get_servers(self, lang='en'):
         """Returns a list of servers (data translated to the given

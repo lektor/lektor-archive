@@ -123,7 +123,7 @@ def clean_cmd(ctx, output_path, verbosity):
 
 
 @cli.command('deploy', short_help='Deploy the website.')
-@click.argument('server', default='development')
+@click.argument('server', default='staging')
 @click.option('-O', '--output-path', type=click.Path(), default=None,
               help='The output path.')
 @pass_context
@@ -182,9 +182,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity):
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity,
-               lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
-               # XXX: configurable
-               lang='de')
+               lektor_dev=os.environ.get('LEKTOR_DEV') == '1')
 
 
 main = cli
