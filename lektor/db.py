@@ -2,7 +2,6 @@ import os
 import errno
 import hashlib
 import operator
-import functools
 import posixpath
 
 from itertools import islice
@@ -33,7 +32,6 @@ def _require_ctx(record):
     return ctx
 
 
-@functools.total_ordering
 class _CmpHelper(object):
 
     def __init__(self, value, reverse):
@@ -76,6 +74,15 @@ class _CmpHelper(object):
             return a < b
         except TypeError:
             return NotImplemented
+
+    def __gt__(self, other):
+        return not (self.__lt__(other) or self.__eq__(other))
+
+    def __le__(self, other):
+        return self.__lt__(other) or self.__eq__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
 
 
 def _auto_wrap_expr(value):
