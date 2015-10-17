@@ -654,11 +654,11 @@ class Query(object):
         return rv
 
     def get(self, id):
-        """Gets something by the local path.  This ignores all other
-        filtering that might be applied on the query.
-        """
+        """Gets something by the local path."""
+        # If we're not pristine, we need to query here
         if not self._pristine:
-            raise RuntimeError('The query object is not pristine')
+            return self.filter(F._id == id).first()
+        # otherwise we can load it directly.
         return self._get(id)
 
     def __nonzero__(self):
