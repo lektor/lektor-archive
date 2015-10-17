@@ -34,7 +34,7 @@ def get_path_info():
             'url_path': record.url_path,
             'label': record.record_label,
             'exists': True,
-            'can_have_children': hasattr(record, 'real_children'),
+            'can_have_children': record.datamodel.has_own_children,
         }
 
     if record is not None:
@@ -69,8 +69,8 @@ def get_record_info():
         can_have_attachments = False
         is_attachment = False
     else:
-        can_have_children = hasattr(record, 'real_children')
-        can_have_attachments = hasattr(record, 'attachments')
+        can_have_children = record.datamodel.has_own_children
+        can_have_attachments = record.datamodel.has_own_attachments
         is_attachment = record.is_attachment
         can_be_deleted = parent is not None and not record.datamodel.protected
 
