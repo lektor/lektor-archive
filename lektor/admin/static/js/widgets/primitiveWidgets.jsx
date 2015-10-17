@@ -3,9 +3,23 @@
 var React = require('react');
 var {BasicWidgetMixin, ValidationFailure} = require('./mixins');
 var utils = require('../utils');
+var i18n = require('../i18n');
 
 function isTrue(value) {
   return value == 'true' || value == 'yes' || value == '1';
+}
+
+function isValidDate(year, month, day) {
+  var year = parseInt(year, 10);
+  var month = parseInt(month, 10);
+  var day = parseInt(day, 10);
+  var date = new Date(year, month - 1, day);
+  if (date.getFullYear() == year &&
+      date.getMonth() == month - 1 &&
+      date.getDate() == day) {
+    return true;
+  }
+  return false;
 }
 
 
@@ -102,6 +116,50 @@ var IntegerInputWidget = React.createClass({
 
   getInputAddon: function() {
     return <span className="input-group-addon">0</span>;
+  }
+});
+
+var DateInputWidget = React.createClass({
+  mixins: [InputWidgetMixin],
+
+  postprocessValue: function(value) {
+    var value = value.match(/^\s*(.*?)\s*$/)[1];
+    var match = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s*$/);
+    var day, month, year;
+    if (match) {
+      day = parseInt(match[1], 10);
+      month = parseInt(match[2], 10);
+      year = parseInt(match[3], 10);
+      return (
+        year + '-' +
+        (month < 10 ? '0' : '') + month + '-' +
+        (day < 10 ? '0' : '') + day
+      );
+    }
+    return value;
+  },
+
+  getValidationFailureImpl: function() {
+    if (!this.props.value) {
+      return null;
+    }
+
+    var match = this.props.value.match(/^\s*(\d{4})-(\d{1,2})-(\d{1,2})\s*$/);
+    if (match && isValidDate(match[1], match[2], match[3])) {
+      return null;
+    }
+
+    return new ValidationFailure({
+      message: i18n.trans('ERROR_INVALID_DATE')
+    });
+  },
+
+  getInputType: function() {
+    return 'text';
+  },
+
+  getInputAddon: function() {
+    return <span className="input-group-addon">date</span>;
   }
 });
 
@@ -244,6 +302,7 @@ module.exports = {
   SingleLineTextInputWidget: SingleLineTextInputWidget,
   SlugInputWidget: SlugInputWidget,
   IntegerInputWidget: IntegerInputWidget,
+  DateInputWidget: DateInputWidget,
   UrlInputWidget: UrlInputWidget,
   MultiLineTextInputWidget: MultiLineTextInputWidget,
   BooleanInputWidget: BooleanInputWidget

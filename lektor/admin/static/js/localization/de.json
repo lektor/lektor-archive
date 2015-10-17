@@ -21,6 +21,7 @@
   "ERROR_NO_ID_PROVIDED": "Es wurde keine ID eingegeben.",
   "ERROR_PAGE_ID_DUPLICATE": "Eine Seite mit dieser ID (%s) existiert bereits.",
   "ERROR_INVALID_ID": "Ungültige ID",
+  "ERROR_INVALID_DATE": "Ungültiges Datum",
   "MODEL": "Modell",
   "ADD_CHILD_PAGE_TO": "Unterseite zu “%s” hinzufügen",
   "ADD_CHILD_PAGE_NOTE": "Du kannst hier eine neue Unterseite hinzufügen.  Beachte, dass die ID und as Modell später nicht mehr verändert werden kann.",

@@ -21,6 +21,7 @@
   "ERROR_NO_ID_PROVIDED": "Error: No ID provided.",
   "ERROR_PAGE_ID_DUPLICATE": "A page with this ID (%s) exists already.",
   "ERROR_INVALID_ID": "Invalid ID",
+  "ERROR_INVALID_DATE": "Ungültiges Datum",
   "MODEL": "Model",
   "ADD_CHILD_PAGE_TO": "Add Subpage to “%s”",
   "ADD_CHILD_PAGE_NOTE": "You can add a new subpage to the page here.  Note that the model or ID cannot be easily changed afterwards.",
