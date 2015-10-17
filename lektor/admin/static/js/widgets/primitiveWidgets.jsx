@@ -104,7 +104,7 @@ var IntegerInputWidget = React.createClass({
   getValidationFailureImpl: function() {
     if (this.props.value && !this.props.value.match(/^\d+$/)) {
       return new ValidationFailure({
-        message: 'Not a valid number'
+        message: i18n.trans('ERROR_INVALID_NUMBER')
       });
     }
     return null;
@@ -169,7 +169,7 @@ var UrlInputWidget = React.createClass({
   getValidationFailureImpl: function() {
     if (this.props.value && !utils.isValidUrl(this.props.value)) {
       return new ValidationFailure({
-        message: 'Not a valid URL'
+        message: i18n.trans('ERROR_INVALID_URL')
       });
     }
     return null;

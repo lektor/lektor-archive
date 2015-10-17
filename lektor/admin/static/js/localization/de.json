@@ -22,6 +22,8 @@
   "ERROR_PAGE_ID_DUPLICATE": "Eine Seite mit dieser ID (%s) existiert bereits.",
   "ERROR_INVALID_ID": "Ungültige ID",
   "ERROR_INVALID_DATE": "Ungültiges Datum",
+  "ERROR_INVALID_NUMBER": "Ungültige Zahl",
+  "ERROR_INVALID_URL": "Ungültige URL",
   "MODEL": "Modell",
   "ADD_CHILD_PAGE_TO": "Unterseite zu “%s” hinzufügen",
   "ADD_CHILD_PAGE_NOTE": "Du kannst hier eine neue Unterseite hinzufügen.  Beachte, dass die ID und as Modell später nicht mehr verändert werden kann.",
