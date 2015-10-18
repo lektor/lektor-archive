@@ -278,7 +278,7 @@ def update_raw_record():
 def get_servers():
     db = g.admin_context.pad.db
     config = db.env.load_config()
-    servers = config.get_servers(lang=db.lang)
+    servers = config.get_servers(lang=db.ui_lang)
     return jsonify(servers=sorted([x.to_json() for x in servers.values()],
                                   key=lambda x: x['name'].lower()))
 

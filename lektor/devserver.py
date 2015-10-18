@@ -136,16 +136,16 @@ def safe_join(directory, filename):
 class WsgiApp(object):
 
     def __init__(self, env, output_path, verbosity=0, debug=False,
-                 lang='en'):
+                 ui_lang='en'):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
-        self.admin = WebAdmin(env, debug=debug, lang=lang,
+        self.admin = WebAdmin(env, debug=debug, ui_lang=ui_lang,
                               output_path=output_path)
-        self.lang = lang
+        self.ui_lang = ui_lang
 
     def get_pad(self):
-        db = Database(self.env, lang=self.lang)
+        db = Database(self.env, ui_lang=self.ui_lang)
         pad = db.new_pad()
         return pad
 
@@ -197,7 +197,7 @@ class WsgiApp(object):
 
 class BackgroundBuilder(threading.Thread):
 
-    def __init__(self, env, output_path, verbosity=0, lang='en'):
+    def __init__(self, env, output_path, verbosity=0, ui_lang='en'):
         threading.Thread.__init__(self)
         watcher = Watcher(env, output_path)
         watcher.observer.start()
@@ -205,12 +205,12 @@ class BackgroundBuilder(threading.Thread):
         self.watcher = watcher
         self.output_path = output_path
         self.verbosity = verbosity
-        self.lang = lang
+        self.ui_lang = ui_lang
         self.last_build = time.time()
 
     def build(self):
         try:
-            db = Database(self.env, lang=self.lang)
+            db = Database(self.env, ui_lang=self.ui_lang)
             builder = Builder(db.new_pad(), self.output_path)
             builder.build_all()
         except Exception:
@@ -261,21 +261,22 @@ def browse_to_address(addr):
 
 
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
-               lang=None, browse=False):
+               ui_lang=None, browse=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
-    if lang is None:
-        lang = env.load_config().site_language
+    if ui_lang is None:
+        ui_lang = env.load_config().site_language
     wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
     save_for_bg = not lektor_dev or wz_as_main
 
     if save_for_bg:
         background_builder = BackgroundBuilder(env, output_path, verbosity,
-                                               lang=lang)
+                                               ui_lang=ui_lang)
         background_builder.setDaemon(True)
         background_builder.start()
-    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev, lang=lang)
+    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev,
+                  ui_lang=ui_lang)
 
     dt = None
     if lektor_dev and not wz_as_main:

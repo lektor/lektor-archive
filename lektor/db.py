@@ -748,16 +748,16 @@ def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
 
 class Database(object):
 
-    def __init__(self, env, lang=None, config=None):
+    def __init__(self, env, ui_lang=None, config=None):
         self.env = env
         if config is None:
             config = env.load_config()
-        if lang is None:
-            lang = config.site_language
+        if ui_lang is None:
+            ui_lang = config.site_language
         self.config = config
-        self.lang = lang
-        self.datamodels = load_datamodels(env, lang=lang)
-        self.flowblocks = load_flowblocks(env, lang=lang)
+        self.ui_lang = ui_lang
+        self.datamodels = load_datamodels(env, lang=ui_lang)
+        self.flowblocks = load_flowblocks(env, lang=ui_lang)
 
     def to_fs_path(self, path):
         """Convenience function to convert a path into an file system path."""
