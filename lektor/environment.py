@@ -44,6 +44,8 @@ DEFAULT_CONFIG = {
         'name': None,
         'language': 'en',
     },
+    'ALTERNATIVES': {},
+    'PRIMARY_ALTERNATIVE': None,
     'SERVERS': {}
 }
 
@@ -66,10 +68,24 @@ def update_config_from_ini(config, inifile):
     config['SITE'].update(inifile.section_as_dict('site'))
 
     for sect in inifile.sections():
-        if not sect.startswith('servers.'):
-            continue
-        server_id = sect.split('.')[1]
-        config['SERVERS'][server_id] = inifile.section_as_dict(sect)
+        if sect.startswith('servers.'):
+            server_id = sect.split('.')[1]
+            config['SERVERS'][server_id] = inifile.section_as_dict(sect)
+        elif sect.startswith('alternatives.'):
+            alt = sect.split('.')[1]
+            config['ALTERNATIVES'][alt] = {
+                'name': get_i18n_block(inifile, 'alternatives.%s.name' % alt),
+                'url_prefix': inifile.get('alternatives.%s.url_prefix' % alt),
+                'primary': inifile.get_bool('alternatives.%s.primary' % alt),
+            }
+
+    for alt, alt_data in config['ALTERNATIVES'].iteritems():
+        if alt_data['primary']:
+            config['PRIMARY_ALTERNATIVE'] = alt
+            break
+    else:
+        if config['ALTERNATIVES']:
+            raise RuntimeError('Alternatives defined but no primary set.')
 
 
 # Special files that should always be ignored.
@@ -193,6 +209,13 @@ class Config(object):
             target=target,
             enabled=info.get('enabled', 'true').lower() in ('true', 'yes', '1'),
         )
+
+    def list_alternatives(self):
+        return sorted(self.values['ALTERNATIVES'])
+
+    @property
+    def primary_alternative(self):
+        return self.values['PRIMARY_ALTERNATIVE']
 
 
 class Environment(object):
