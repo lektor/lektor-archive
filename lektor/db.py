@@ -1028,21 +1028,21 @@ class Pad(object):
         clean_path = cleanup_path(url_path).strip('/')
 
         # Split off the alt and if no alt was found, point it to the
-        # primary alternative.
+        # primary alternative.  If the clean path comes back as `None`
+        # then the config does not include a rooted alternative and we
+        # have to skip handling of regular records.
         alt, clean_path = _split_alt_from_url(self.db.config, clean_path)
-        if clean_path is None:
-            return None
+        if clean_path is not None:
+            alt = alt or self.db.config.primary_alternative
+            node = self.get_root(alt=alt)
 
-        alt = alt or self.db.config.primary_alternative
-        node = self.get_root(alt=alt)
+            pieces = clean_path.split('/')
+            if pieces == ['']:
+                pieces = []
 
-        pieces = clean_path.split('/')
-        if pieces == ['']:
-            pieces = []
-
-        rv = node.resolve_url_path(pieces)
-        if rv is not None and (include_invisible or rv.is_visible):
-            return rv
+            rv = node.resolve_url_path(pieces)
+            if rv is not None and (include_invisible or rv.is_visible):
+                return rv
 
         if include_assets:
             return self.asset_root.resolve_url_path(pieces)
