@@ -63,7 +63,7 @@ class BreadCrumbs extends RecordComponent {
 
     if (this.state.recordPathInfo != null) {
       crumbs = this.state.recordPathInfo.segments.map((item) => {
-        var urlPath = utils.fsToUrlPath(item.path);
+        var urlPath = this.getUrlRecordPathWithAlt(item.path);
         var label = item.label;
         var className = 'record-crumb';
 
@@ -92,7 +92,7 @@ class BreadCrumbs extends RecordComponent {
           {crumbs}
           {lastItem && lastItem.can_have_children ? (
             <li className="new-record-crumb">
-              <Link to="add-child" params={{path: utils.fsToUrlPath(
+              <Link to="add-child" params={{path: this.getUrlRecordPathWithAlt(
                 lastItem.path)}}>+</Link>
             </li>
           ) : null}

@@ -23,11 +23,42 @@ class RecordComponent extends Component {
     return path ? utils.urlPathToSegments(path) : [];
   }
 
+  _getRecordPathAndAlt() {
+    var path = this.context.router.getCurrentParams().path;
+    if (!path) {
+      return [null, null];
+    }
+    var items = path.split(/\+/, 2);
+    return [utils.urlToFsPath(items[0]), items[1]];
+  }
+
   /* this returns the path of the current record.  If the current page does
    * not have a path component then null is returned. */
   getRecordPath() {
-    var path = this.context.router.getCurrentParams().path;
-    return path ? utils.urlToFsPath(path) : null;
+    var [path, _] = this._getRecordPathAndAlt();
+    return path;
+  }
+
+  /* returns the current alt */
+  getRecordAlt() {
+    var [_, alt] = this._getRecordPathAndAlt();
+    return !alt ? '_primary' : alt;
+  }
+
+  /* return the url path for the current record path (or a modified one)
+     by preserving or overriding the alt */
+  getUrlRecordPathWithAlt(newPath, newAlt) {
+    if (newPath === undefined || newPath === null) {
+      newPath = this.getRecordPath();
+    }
+    if (newAlt === undefined || newAlt === null) {
+      newAlt = this.getRecordAlt();
+    }
+    var rv = utils.fsToUrlPath(newPath);
+    if (newAlt !== '_primary') {
+      rv += '+' + newAlt;
+    }
+    return rv;
   }
 
   /* returns the parent path if available */

@@ -54,7 +54,10 @@ class EditPage extends RecordEditComponent {
   }
 
   syncEditor() {
-    utils.loadData('/rawrecord', {path: this.getRecordPath()})
+    utils.loadData('/rawrecord', {
+      path: this.getRecordPath(),
+      alt: this.getRecordAlt()
+    })
     .then((resp) => {
         this.setState({
           recordInitialData: resp.data,
@@ -105,21 +108,25 @@ class EditPage extends RecordEditComponent {
 
   saveChanges(event) {
     var path = this.getRecordPath();
+    var alt = this.getRecordAlt();
     var newData = this.getValues();
     utils.apiRequest('/rawrecord', {json: {
-        data: newData, path: path}, method: 'PUT'})
+        data: newData, path: path, alt: alt}, method: 'PUT'})
       .then((resp) => {
         this.setState({
           hasPendingChanges: false
         }, function() {
-          this.context.router.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+          this.context.router.transitionTo('preview', {
+            path: this.getUrlRecordPathWithAlt(path)
+          });
         });
       });
   }
 
   deleteRecord(event) {
-    var urlPath = utils.fsToUrlPath(this.getRecordPath());
-    this.context.router.transitionTo('delete', {path: urlPath});
+    this.context.router.transitionTo('delete', {
+      path: this.getUrlRecordPathWithAlt()
+    });
   }
 
   getPlaceholderForField(field) {

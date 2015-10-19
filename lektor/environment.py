@@ -10,6 +10,8 @@ from lektor.utils import tojson_filter, get_i18n_block
 from lektor.context import url_to, site_proxy, get_ctx
 
 
+# Special value that identifies a target to the primary alt
+PRIMARY_ALT = '_primary'
 DEFAULT_CONFIG = {
     'IMAGEMAGICK_EXECUTABLE': None,
     'LESSC_EXECUTABLE': None,
@@ -213,11 +215,19 @@ class Config(object):
 
     def is_valid_alternative(self, alt):
         """Checks if an alternative ID is known."""
+        if alt == PRIMARY_ALT:
+            return True
         return alt in self.values['ALTERNATIVES']
 
     def list_alternatives(self):
         """Returns a sorted list of alternative IDs."""
         return sorted(self.values['ALTERNATIVES'])
+
+    def get_alternative(self, alt):
+        """Returns the config setting of the given alt."""
+        if alt == PRIMARY_ALT:
+            alt = self.primary_alternative
+        return self.values['ALTERNATIVES'].get(alt)
 
     def get_alternative_url_prefixes(self):
         """Returns a list of alternative url prefixes by length."""
@@ -234,6 +244,15 @@ class Config(object):
                  if v['url_suffix']]
         items.sort(key=lambda x: -len(x[0]))
         return items
+
+    def get_alternative_url_span(self, alt=PRIMARY_ALT):
+        """Returns the URL span (prefix, suffix) for an alt."""
+        if alt == PRIMARY_ALT:
+            alt = self.primary_alternative
+        cfg = self.values['ALTERNATIVES'].get(alt)
+        if cfg is not None:
+            return cfg['url_prefix'] or '', cfg['url_suffix'] or ''
+        return '', ''
 
     @property
     def primary_alternative_is_rooted(self):

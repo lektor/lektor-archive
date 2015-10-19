@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request, g, current_app
 from lektor.utils import is_valid_id
 from lektor.admin.utils import eventstream
 from lektor.publisher import publish
+from lektor.environment import PRIMARY_ALT
 
 
 bp = Blueprint('api', __name__)
@@ -62,6 +63,7 @@ def get_record_info():
 
     children = []
     attachments = []
+    alts = []
     can_be_deleted = False
 
     if record is None:
@@ -73,6 +75,7 @@ def get_record_info():
         can_have_attachments = record.datamodel.has_own_attachments
         is_attachment = record.is_attachment
         can_be_deleted = parent is not None and not record.datamodel.protected
+        alts = g.admin_context.pad.describe_alternatives(request.args['path'])
 
         if can_have_children:
             children = [{
@@ -92,6 +95,7 @@ def get_record_info():
     return jsonify(attachments=attachments,
                    can_have_attachments=can_have_attachments,
                    children=children,
+                   alts=alts,
                    can_have_children=can_have_children,
                    is_attachment=is_attachment,
                    can_be_deleted=can_be_deleted,
@@ -120,14 +124,16 @@ def match_url():
 
 @bp.route('/api/rawrecord')
 def get_raw_record():
-    ts = g.admin_context.pad.edit(request.args['path'])
+    alt = request.args.get('alt') or PRIMARY_ALT
+    ts = g.admin_context.pad.edit(request.args['path'], alt=alt)
     return jsonify(ts.to_json())
 
 
 @bp.route('/api/newrecord')
 def get_new_record_info():
     pad = g.admin_context.pad
-    ts = pad.edit(request.args['path'])
+    alt = request.args.get('alt') or PRIMARY_ALT
+    ts = pad.edit(request.args['path'], alt=alt)
     if ts.is_attachment:
         can_have_children = False
     elif ts.datamodel.child_config.replaced_with is not None:
@@ -170,7 +176,8 @@ def get_new_attachment_info():
 
 @bp.route('/api/newattachment', methods=['POST'])
 def upload_new_attachments():
-    ts = g.admin_context.pad.edit(request.values['path'])
+    alt = request.values.get('alt') or PRIMARY_ALT
+    ts = g.admin_context.pad.edit(request.values['path'], alt=alt)
     if not ts.exists or ts.is_attachment:
         return jsonify({
             'bad_upload': True
@@ -194,6 +201,7 @@ def upload_new_attachments():
 @bp.route('/api/newrecord', methods=['POST'])
 def add_new_record():
     values = request.get_json()
+    alt = values.get('alt') or PRIMARY_ALT
     exists = False
 
     if not is_valid_id(values['id']):
@@ -201,7 +209,8 @@ def add_new_record():
 
     path = posixpath.join(values['path'], values['id'])
 
-    ts = g.admin_context.pad.edit(path, datamodel=values.get('model'))
+    ts = g.admin_context.pad.edit(path, datamodel=values.get('model'),
+                                  alt=alt)
     with ts:
         if ts.exists:
             exists = True
@@ -218,7 +227,8 @@ def add_new_record():
 @bp.route('/api/deleterecord')
 def get_delete_info():
     path = request.args['path']
-    record = g.admin_context.pad.get(path)
+    alt = request.get('alt') or PRIMARY_ALT
+    record = g.admin_context.pad.get(path, alt=alt)
     children = []
     child_count = 0
 
@@ -241,6 +251,7 @@ def get_delete_info():
         record_info={
             'id': posixpath.basename(path),
             'path': path,
+            'alt': alt,
             'exists': record is not None,
             'label': label,
             'can_be_deleted': can_be_deleted,
@@ -257,8 +268,9 @@ def get_delete_info():
 
 @bp.route('/api/deleterecord', methods=['POST'])
 def delete_record():
+    alt = request.values.get('alt') or PRIMARY_ALT
     if request.values['path'] != '/':
-        ts = g.admin_context.pad.edit(request.values['path'])
+        ts = g.admin_context.pad.edit(request.values['path'], alt=alt)
         with ts:
             ts.delete()
     return jsonify(okay=True)
@@ -268,7 +280,8 @@ def delete_record():
 def update_raw_record():
     values = request.get_json()
     data = values['data']
-    ts = g.admin_context.pad.edit(values['path'])
+    alt = values.get('alt') or PRIMARY_ALT
+    ts = g.admin_context.pad.edit(values['path'], alt=alt)
     with ts:
         ts.update(data)
     return jsonify(path=ts.path)

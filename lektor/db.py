@@ -18,7 +18,8 @@ from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
-from lektor.editor import make_editor_session, PRIMARY_ALT
+from lektor.editor import make_editor_session
+from lektor.environment import PRIMARY_ALT
 
 
 def _require_ctx(record):
@@ -271,13 +272,21 @@ class Record(SourceObject):
     @property
     def url_path(self):
         """The target path where the record should end up."""
+        prefix, suffix = self.pad.db.config.get_alternative_url_span(
+            self['_alt'])
         bits = []
         node = self
         while node is not None:
             bits.append(node['_slug'])
             node = node.parent
         bits.reverse()
-        return '/' + '/'.join(bits).strip('/')
+
+        clean_path = '/'.join(bits).strip('/')
+        if prefix:
+            clean_path = prefix + clean_path
+        if suffix:
+            clean_path += suffix
+        return '/' + clean_path.strip('/')
 
     def get_sort_key(self, fields):
         """Returns a sort key for the given field specifications specific
@@ -350,11 +359,17 @@ class Page(Record):
 
     @property
     def source_filename(self):
+        if self['_alt'] != PRIMARY_ALT:
+            return posixpath.join(self.pad.db.to_fs_path(self['_path']),
+                                  'contents+%s.lr' % self['_alt'])
         return posixpath.join(self.pad.db.to_fs_path(self['_path']),
                               'contents.lr')
 
     def _iter_dependent_filenames(self):
         yield self.source_filename
+        if self['_alt'] != PRIMARY_ALT:
+            yield posixpath.join(self.pad.db.to_fs_path(self['_path']),
+                                 'contents.lr')
 
     @property
     def url_path(self):
@@ -1092,6 +1107,27 @@ class Pad(object):
         path = cleanup_path(path)
         return make_editor_session(self, path, is_attachment=is_attachment,
                                    alt=alt, datamodel=datamodel)
+
+    def describe_alternatives(self, path):
+        """Returns a list of alternatives and their status."""
+        alts = self.db.config.list_alternatives()
+        primary = self.db.config.primary_alternative
+
+        def _describe_alt(alt):
+            cfg = self.db.config.get_alternative(alt)
+            record = self.get(path, alt=alt)
+            return {
+                'alt': alt,
+                'is_primary': alt == PRIMARY_ALT,
+                'primary_overlay': alt == primary,
+                'name_i18n': cfg['name'],
+                'exists': os.path.isfile(record.source_filename),
+            }
+
+        rv = [_describe_alt('_primary')]
+        for key in alts:
+            rv.append(_describe_alt(key))
+        return rv
 
     def query(self, path=None, alt=PRIMARY_ALT):
         """Queries the database either at root level or below a certain

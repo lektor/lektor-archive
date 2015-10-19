@@ -7,10 +7,7 @@ from collections import OrderedDict
 from lektor.metaformat import serialize
 from lektor.utils import atomic_open, is_valid_id, secure_filename, \
      increment_filename
-
-
-# Special value that identifies a target to the primary alt
-PRIMARY_ALT = '_primary'
+from lektor.environment import PRIMARY_ALT
 
 
 implied_keys = set(['_id', '_path', '_gid', '_alt', '_attachment_for'])
@@ -295,11 +292,18 @@ class EditorSession(object):
                     pass
             return
 
-        directory = os.path.dirname(self.fs_path)
         try:
             os.unlink(self.fs_path)
         except OSError:
             pass
+
+        # If we're not deleting the primary alt, we just want to delete
+        # the contents file (which happened above) and then bail for the
+        # rest.
+        if self.alt != PRIMARY_ALT:
+            return
+
+        directory = os.path.dirname(self.fs_path)
 
         # Recursive deletes are done through shutil.rmtree, in that case
         # we just bail entirely.
@@ -341,8 +345,9 @@ class EditorSession(object):
                 f.write(chunk)
 
     def __repr__(self):
-        return '<%s %r%s>' % (
+        return '<%s %r%s%s>' % (
             self.__class__.__name__,
             self.path,
+            self.alt != PRIMARY_ALT and ' alt=%r' % self.alt or '',
             not self.exists and ' new' or '',
         )
