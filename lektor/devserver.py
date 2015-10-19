@@ -12,6 +12,7 @@ from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.wsgi import wrap_file, pop_path_info
+from werkzeug.utils import append_slash_redirect
 
 from lektor.db import Database
 from lektor.builder import Builder
@@ -163,6 +164,15 @@ class WsgiApp(object):
         # primary
         source = pad.resolve_url_path(request.path)
         if source is not None:
+            # If the request path does not end with a slash but we
+            # requested a URL that actually wants a trailing slash, we
+            # append it.  This is consistent with what apache and nginx do
+            # and it ensures our relative urls work.
+            if not request.path.endswith('/') and \
+               source.url_path != '/' and \
+               source.url_path.endswith('/'):
+                return append_slash_redirect(request.environ)
+
             with CliReporter(self.env, verbosity=self.verbosity):
                 builder = self.get_builder(pad)
                 prog = builder.build(source)
