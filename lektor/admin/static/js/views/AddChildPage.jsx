@@ -119,7 +119,7 @@ class AddChildPage extends RecordComponent {
         } else if (!resp.valid_id) {
           errMsg(i18n.trans('ERROR_INVALID_ID').replace('%s', id));
         } else {
-          var urlPath = utils.fsToUrlPath(resp.path);
+          var urlPath = this.getUrlRecordPathWithAlt(resp.path);
           this.context.router.transitionTo('edit', {path: urlPath});
         }
       });

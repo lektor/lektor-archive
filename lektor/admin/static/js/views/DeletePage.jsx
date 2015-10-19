@@ -47,7 +47,7 @@ class DeletePage extends RecordComponent {
     if (parent === null) {
       targetPath = 'root';
     } else {
-      targetPath = utils.fsToUrlPath(parent);
+      targetPath = this.getUrlRecordPathWithAlt(parent);
     }
 
     utils.apiRequest('/deleterecord', {data: {path: path}, method: 'POST'})
@@ -63,7 +63,7 @@ class DeletePage extends RecordComponent {
   }
 
   cancelDelete(event) {
-    var urlPath = utils.fsToUrlPath(this.getRecordPath());
+    var urlPath = this.getUrlRecordPathWithAlt();
     this.context.router.transitionTo('edit', {path: urlPath});
   }
 
