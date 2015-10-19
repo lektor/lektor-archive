@@ -229,7 +229,7 @@ def add_new_record():
 @bp.route('/api/deleterecord')
 def get_delete_info():
     path = request.args['path']
-    alt = request.get('alt') or PRIMARY_ALT
+    alt = request.args.get('alt') or PRIMARY_ALT
     record = g.admin_context.pad.get(path, alt=alt)
     children = []
     child_count = 0

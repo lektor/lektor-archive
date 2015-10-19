@@ -147,10 +147,16 @@ class Sidebar extends RecordComponent {
       if (!item.exists) {
         className += ' alt-missing';
       }
+      var routes = this.context.router.getCurrentRoutes();
+      var action = routes.length > 0 && routes[routes.length - 1].name || 'edit';
       return (
-        <li key={item.alt} className={className}><Link to="edit" params={
-          {path: this.getUrlRecordPathWithAlt(null, item.alt)}
-        }>{title}</Link></li>
+        <li key={item.alt} className={className}>
+          <Link
+            to={action}
+            params={{path: this.getUrlRecordPathWithAlt(null, item.alt)}}>
+              {title}
+          </Link>
+        </li>
       );
     });
 
