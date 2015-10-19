@@ -684,7 +684,7 @@ class Builder(object):
     def build_all(self):
         """Builds the entire tree."""
         with reporter.build('build', self):
-            to_build = [self.pad.root, self.pad.asset_root]
+            to_build = self.pad.get_all_roots()
             while to_build:
                 source = to_build.pop()
                 prog = self.build(source)
