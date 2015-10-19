@@ -76,6 +76,7 @@ def update_config_from_ini(config, inifile):
             config['ALTERNATIVES'][alt] = {
                 'name': get_i18n_block(inifile, 'alternatives.%s.name' % alt),
                 'url_prefix': inifile.get('alternatives.%s.url_prefix' % alt),
+                'url_suffix': inifile.get('alternatives.%s.url_suffix' % alt),
                 'primary': inifile.get_bool('alternatives.%s.primary' % alt),
             }
 
@@ -210,11 +211,49 @@ class Config(object):
             enabled=info.get('enabled', 'true').lower() in ('true', 'yes', '1'),
         )
 
+    def is_valid_alternative(self, alt):
+        """Checks if an alternative ID is known."""
+        return alt in self.values['ALTERNATIVES']
+
     def list_alternatives(self):
+        """Returns a sorted list of alternative IDs."""
         return sorted(self.values['ALTERNATIVES'])
+
+    def get_alternative_url_prefixes(self):
+        """Returns a list of alternative url prefixes by length."""
+        items = [(v['url_prefix'].lstrip('/'), k)
+                 for k, v in self.values['ALTERNATIVES'].iteritems()
+                 if v['url_prefix']]
+        items.sort(key=lambda x: -len(x[0]))
+        return items
+
+    def get_alternative_url_suffixes(self):
+        """Returns a list of alternative url suffixes by length."""
+        items = [(v['url_suffix'].rstrip('/'), k)
+                 for k, v in self.values['ALTERNATIVES'].iteritems()
+                 if v['url_suffix']]
+        items.sort(key=lambda x: -len(x[0]))
+        return items
+
+    @property
+    def primary_alternative_is_rooted(self):
+        """`True` if the primary alternative is sitting at the root of
+        the URL handler.
+        """
+        primary = self.primary_alternative
+        if primary is None:
+            return True
+
+        cfg = self.values['ALTERNATIVES'].get(primary)
+        if not (cfg['url_prefix'] or '').lstrip('/') and \
+           not (cfg['url_suffix'] or '').rstrip('/'):
+            return True
+
+        return False
 
     @property
     def primary_alternative(self):
+        """The identifier that acts as primary alternative."""
         return self.values['PRIMARY_ALTERNATIVE']
 
 

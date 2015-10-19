@@ -43,6 +43,7 @@ class EditPage extends RecordEditComponent {
       case '_id':
       case '_path':
       case '_gid':
+      case '_alt':
       case '_model':
       case '_attachment_for':
         return true;

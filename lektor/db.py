@@ -18,7 +18,7 @@ from lektor.context import get_ctx
 from lektor.datamodel import load_datamodels, load_flowblocks
 from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
-from lektor.editor import make_editor_session
+from lektor.editor import make_editor_session, PRIMARY_ALT
 
 
 def _require_ctx(record):
@@ -30,6 +30,14 @@ def _require_ctx(record):
         raise RuntimeError('The context on the stack does not match the '
                            'pad of the record.')
     return ctx
+
+
+def _is_content_file(filename, alt=PRIMARY_ALT):
+    if filename == 'contents.lr':
+        return True
+    if alt != PRIMARY_ALT and filename == 'contents+%s.lr' % alt:
+        return True
+    return False
 
 
 class _CmpHelper(object):
@@ -219,7 +227,6 @@ class Record(SourceObject):
     def __init__(self, pad, data):
         SourceObject.__init__(self, pad)
         self._data = data
-        self._fast_source_hash = None
 
     @property
     def datamodel(self):
@@ -329,10 +336,11 @@ class Record(SourceObject):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '<%s model=%r path=%r>' % (
+        return '<%s model=%r path=%r%s>' % (
             self.__class__.__name__,
             self['_model'],
             self['_path'],
+            self['_alt'] != PRIMARY_ALT and ' alt=%r' % self['_alt'] or '',
         )
 
 
@@ -391,7 +399,7 @@ class Page(Record):
         repl_query = self.datamodel.get_child_replacements(self)
         if repl_query is not None:
             return repl_query
-        return Query(path=self['_path'], pad=self.pad)
+        return Query(path=self['_path'], pad=self.pad, alt=self['_alt'])
 
     @property
     def children(self):
@@ -407,7 +415,8 @@ class Page(Record):
         hidden.
         """
         if self.datamodel.child_config.replaced_with is not None:
-            return EmptyQuery(path=self['_path'], pad=self.pad)
+            return EmptyQuery(path=self['_path'], pad=self.pad,
+                              alt=self['_alt'])
         return self.all_children
 
     def find_page(self, path):
@@ -417,7 +426,8 @@ class Page(Record):
     @property
     def attachments(self):
         """Returns a query for the attachments of this record."""
-        return AttachmentsQuery(path=self['_path'], pad=self.pad)
+        return AttachmentsQuery(path=self['_path'], pad=self.pad,
+                                alt=self['_alt'])
 
 
 class Attachment(Record):
@@ -532,9 +542,10 @@ class Query(object):
     only finds pages.
     """
 
-    def __init__(self, path, pad):
+    def __init__(self, path, pad, alt=PRIMARY_ALT):
         self.path = path
         self.pad = pad
+        self.alt = alt
         self._include_pages = True
         self._include_attachments = False
         self._order_by = None
@@ -547,7 +558,7 @@ class Query(object):
     @property
     def self(self):
         """Returns the object this query starts out from."""
-        return self.pad.get(self.path)
+        return self.pad.get(self.path, alt=self.alt)
 
     def _clone(self, mark_dirty=False):
         """Makes a flat copy but keeps the other data on it shared."""
@@ -559,7 +570,8 @@ class Query(object):
 
     def _get(self, id, persist=True):
         """Low level record access."""
-        return self.pad.get('%s/%s' % (self.path, id), persist=persist)
+        return self.pad.get('%s/%s' % (self.path, id), persist=persist,
+                            alt=self.alt)
 
     def _iterate(self):
         """Low level record iteration."""
@@ -568,7 +580,7 @@ class Query(object):
         # first is through the start record of the query.  If that does
         # not work for whatever reason (because it does not exist for
         # instance).
-        self_record = self.pad.get(self.path)
+        self_record = self.pad.get(self.path, alt=self.alt)
         if self_record is not None:
             self.pad.db.track_record_dependency(self_record)
 
@@ -577,7 +589,8 @@ class Query(object):
         if ctx is not None:
             ctx.record_dependency(self.pad.db.to_fs_path(self.path))
 
-        for name, is_attachment in self.pad.db.iter_items(self.path):
+        for name, is_attachment in self.pad.db.iter_items(
+                self.path, alt=self.alt):
             if not ((is_attachment == self._include_attachments) or
                     (not is_attachment == self._include_pages)):
                 continue
@@ -680,9 +693,10 @@ class Query(object):
             yield item
 
     def __repr__(self):
-        return '<%s %r>' % (
+        return '<%s %r%s>' % (
             self.__class__.__name__,
             self.path,
+            self.alt and ' alt=%r' % self.alt or '',
         )
 
 
@@ -699,8 +713,8 @@ class EmptyQuery(Query):
 class AttachmentsQuery(Query):
     """Specialized query class that only finds attachments."""
 
-    def __init__(self, path, pad):
-        Query.__init__(self, path, pad)
+    def __init__(self, path, pad, alt=PRIMARY_ALT):
+        Query.__init__(self, path, pad, alt=PRIMARY_ALT)
         self._include_pages = False
         self._include_attachments = True
 
@@ -730,11 +744,17 @@ class AttachmentsQuery(Query):
         return self.filter(F._attachment_type == 'text')
 
 
-def _iter_filename_choices(fn_base):
+def _iter_filename_choices(fn_base, alt, config):
     # the order here is important as attachments can exist without a .lr
     # file and as such need to come second or the loading of raw data will
     # implicitly say the record exists.
+
+    if alt is not None and config.is_valid_alternative(alt):
+        yield os.path.join(fn_base, 'contents+%s.lr' % alt), False
     yield os.path.join(fn_base, 'contents.lr'), False
+
+    if alt is not None and config.is_valid_alternative(alt):
+        yield fn_base + '+%s.lr' % alt, True
     yield fn_base + '.lr', True
 
 
@@ -760,7 +780,7 @@ class Database(object):
         """Convenience function to convert a path into an file system path."""
         return os.path.join(self.env.root_path, 'content', to_os_path(path))
 
-    def load_raw_data(self, path, cls=None):
+    def load_raw_data(self, path, alt=PRIMARY_ALT, cls=None):
         """Internal helper that loads the raw record data.  This performs
         very little data processing on the data.
         """
@@ -771,7 +791,8 @@ class Database(object):
         fn_base = self.to_fs_path(path)
 
         rv = cls()
-        for fs_path, is_attachment in _iter_filename_choices(fn_base):
+        choiceiter = _iter_filename_choices(fn_base, alt, self.config)
+        for fs_path, is_attachment in choiceiter:
             try:
                 with open(fs_path, 'rb') as f:
                     for key, lines in metaformat.tokenize(f, encoding='utf-8'):
@@ -785,17 +806,20 @@ class Database(object):
             rv['_path'] = path
             rv['_id'] = posixpath.basename(path)
             rv['_gid'] = hashlib.md5(path.encode('utf-8')).hexdigest()
+            rv['_alt'] = alt or PRIMARY_ALT
             if is_attachment:
                 rv['_attachment_for'] = posixpath.dirname(path)
             return rv
 
-    def iter_items(self, path):
+    def iter_items(self, path, alt=PRIMARY_ALT):
         """Iterates over all items below a path and yields them as
         tuples in the form ``(id, is_attachment)``.
         """
         fn_base = self.to_fs_path(path)
 
-        for fs_path, is_attachment in _iter_filename_choices(fn_base):
+        choiceiter = _iter_filename_choices(fn_base, alt, self.config)
+
+        for fs_path, is_attachment in choiceiter:
             if not os.path.isfile(fs_path):
                 continue
             # This path is actually for an attachment, which means that we
@@ -807,26 +831,42 @@ class Database(object):
             try:
                 dir_path = os.path.dirname(fs_path)
                 for filename in os.listdir(dir_path):
-                    if self.env.is_uninteresting_source_name(filename) or \
-                       filename == 'contents.lr':
+                    # If we found an .lr file, we just skip it as we do
+                    # not want to handle it at this point.  This is done
+                    # separately later.
+                    if filename.endswith('.lr'):
                         continue
+
+                    # Likewise if we found an interesting source file we
+                    # want to ignore it here.
+                    if self.env.is_uninteresting_source_name(filename):
+                        continue
+
                     try:
                         filename = filename.decode(fs_enc)
                     except UnicodeError:
                         continue
-                    if os.path.isfile(os.path.join(dir_path, filename,
-                                                   'contents.lr')):
-                        yield filename, False
-                    elif filename[-3:] != '.lr' and os.path.isfile(
-                            os.path.join(dir_path, filename)):
+
+                    # We found an attachment!
+                    if os.path.isfile(os.path.join(dir_path, filename)):
                         yield filename, True
+
+                    # We found a directory, let's make sure it contains a
+                    # contents.lr file (or a contents+alt.lr file).
+                    else:
+                        if (os.path.isfile(os.path.join(
+                                dir_path, filename, 'contents.lr')) or
+                            (alt is not None and
+                             os.path.isfile(os.path.join(
+                                 dir_path, filename, 'contents+%s.lr' % alt)))):
+                            yield filename, False
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
 
-    def list_items(self, path):
+    def list_items(self, path, alt=PRIMARY_ALT):
         """Like :meth:`iter_items` but returns a list."""
-        return list(self.iter_items(path))
+        return list(self.iter_items(path, alt=alt))
 
     def get_datamodel_for_raw_data(self, raw_data, pad=None):
         """Returns the datamodel that should be used for a specific raw
@@ -948,6 +988,31 @@ class Database(object):
         return Pad(self)
 
 
+def _split_alt_from_url(config, clean_path):
+    primary = config.primary_alternative
+
+    # The alternative system is not configured, just return
+    if primary is None:
+        return None, clean_path
+
+    # First try to find alternatives that are identified by a prefix.
+    for prefix, alt in config.get_alternative_url_prefixes():
+        if clean_path.startswith(prefix):
+            return alt, clean_path[len(prefix):].strip('/')
+
+    # Now find alternatives taht are identified by a suffix.
+    for suffix, alt in config.get_alternative_url_suffixes():
+        if clean_path.endswith(suffix):
+            return alt, clean_path[:-len(suffix)].strip('/')
+
+    # If we have a primary alternative without a prefix and suffix, we can
+    # return that one.
+    if config.primary_alternative_is_rooted:
+        return None, clean_path
+
+    return None, None
+
+
 class Pad(object):
 
     def __init__(self, db):
@@ -960,9 +1025,18 @@ class Pad(object):
         might be an attachment.  If a record cannot be found or is unexposed
         the return value will be `None`.
         """
-        node = self.root
+        clean_path = cleanup_path(url_path).strip('/')
 
-        pieces = cleanup_path(url_path).strip('/').split('/')
+        # Split off the alt and if no alt was found, point it to the
+        # primary alternative.
+        alt, clean_path = _split_alt_from_url(self.db.config, clean_path)
+        if clean_path is None:
+            return None
+
+        alt = alt or self.db.config.primary_alternative
+        node = self.get_root(alt=alt)
+
+        pieces = clean_path.split('/')
         if pieces == ['']:
             pieces = []
 
@@ -973,10 +1047,11 @@ class Pad(object):
         if include_assets:
             return self.asset_root.resolve_url_path(pieces)
 
-    @property
-    def root(self):
+    def get_root(self, alt=PRIMARY_ALT):
         """The root page of the database."""
-        return self.get('/', persist=True)
+        return self.get('/', alt=alt, persist=True)
+
+    root = property(get_root)
 
     @property
     def asset_root(self):
@@ -984,13 +1059,13 @@ class Pad(object):
         return Directory(self, name='',
                          path=os.path.join(self.db.env.root_path, 'assets'))
 
-    def get(self, path, persist=True):
+    def get(self, path, alt=PRIMARY_ALT, persist=True):
         """Loads a record by path."""
-        rv = self.cache[path]
+        rv = self.cache.get(path, alt)
         if rv is not None:
             return rv
 
-        raw_data = self.db.load_raw_data(path)
+        raw_data = self.db.load_raw_data(path, alt=alt)
         if raw_data is None:
             return
 
@@ -1012,18 +1087,18 @@ class Pad(object):
         cls = self.db.get_record_class(datamodel, data)
         return cls(self, data)
 
-    def edit(self, path, is_attachment=None, datamodel=None):
+    def edit(self, path, is_attachment=None, alt=PRIMARY_ALT, datamodel=None):
         """Edits a record by path."""
         path = cleanup_path(path)
         return make_editor_session(self, path, is_attachment=is_attachment,
-                                   datamodel=datamodel)
+                                   alt=alt, datamodel=datamodel)
 
-    def query(self, path=None):
+    def query(self, path=None, alt=PRIMARY_ALT):
         """Queries the database either at root level or below a certain
         path.  This is the recommended way to interact with toplevel data.
         The alternative is to work with the :attr:`root` document.
         """
-        return Query(path='/' + (path or '').strip('/'), pad=self)
+        return Query(path='/' + (path or '').strip('/'), pad=self, alt=alt)
 
 
 class RecordCache(object):
@@ -1035,19 +1110,30 @@ class RecordCache(object):
         self.persistent = {}
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
+    def _get_cache_key(self, record_or_path, alt=PRIMARY_ALT):
+        if isinstance(record_or_path, basestring):
+            path = record_or_path
+        else:
+            path = record_or_path['_path']
+            alt = record_or_path['_alt']
+        if alt != PRIMARY_ALT:
+            return '%s+%s' % (path, alt)
+        return path
+
     def is_persistent(self, record):
         """Indicates if a record is in the persistent record cache."""
-        return record['_path'] in self.persistent
+        cache_key = self._get_cache_key(record)
+        return cache_key in self.persistent
 
     def remember(self, record):
         """Remembers the record in the record cache."""
-        cache_key = record['_path']
+        cache_key = self._get_cache_key(record)
         if cache_key not in self.persistent and cache_key not in self.ephemeral:
             self.ephemeral[cache_key] = record
 
     def persist(self, record):
         """Persists a record.  This will put it into the persistent cache."""
-        cache_key = record['_path']
+        cache_key = self._get_cache_key(record)
         self.persistent[cache_key] = record
         try:
             del self.ephemeral[cache_key]
@@ -1058,13 +1144,16 @@ class RecordCache(object):
         """If the record is already ephemerally cached, this promotes it to
         the persistent cache section.
         """
-        if record['_path'] in self.ephemeral:
+        cache_key = self._get_cache_key(record)
+        if cache_key in self.ephemeral:
             self.persist(record)
 
-    def __getitem__(self, key):
-        rv = self.persistent.get(key)
+    def get(self, path, alt=PRIMARY_ALT):
+        """Looks up a record from the cache."""
+        cache_key = self._get_cache_key(path, alt)
+        rv = self.persistent.get(cache_key)
         if rv is not None:
             return rv
-        rv = self.ephemeral.get(key)
+        rv = self.ephemeral.get(cache_key)
         if rv is not None:
             return rv

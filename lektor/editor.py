@@ -9,7 +9,11 @@ from lektor.utils import atomic_open, is_valid_id, secure_filename, \
      increment_filename
 
 
-implied_keys = set(['_id', '_path', '_gid', '_attachment_for'])
+# Special value that identifies a target to the primary alt
+PRIMARY_ALT = '_primary'
+
+
+implied_keys = set(['_id', '_path', '_gid', '_alt', '_attachment_for'])
 possibly_implied_keys = set(['_model', '_template', '_attachment_type'])
 
 
@@ -21,9 +25,13 @@ class BadDelete(BadEdit):
     pass
 
 
-def make_editor_session(pad, path, is_attachment=None, datamodel=None):
+def make_editor_session(pad, path, is_attachment=None, alt=PRIMARY_ALT,
+                        datamodel=None):
     """Creates an editor session for the given path object."""
-    raw_data = pad.db.load_raw_data(path, cls=OrderedDict)
+    if alt != PRIMARY_ALT and not pad.db.config.is_valid_alternative(alt):
+        raise BadEdit('Attempted to edit an invalid alternative (%s)' % alt)
+
+    raw_data = pad.db.load_raw_data(path, cls=OrderedDict, alt=alt)
     id = posixpath.basename(path)
     if not is_valid_id(id):
         raise BadEdit('Invalid ID')
@@ -61,13 +69,13 @@ def make_editor_session(pad, path, is_attachment=None, datamodel=None):
         raw_data.pop(key, None)
 
     return EditorSession(pad, id, unicode(path), raw_data, datamodel, record,
-                         exists, is_attachment)
+                         exists, is_attachment, alt)
 
 
 class EditorSession(object):
 
-    def __init__(self, pad, id, path, original_data, datamodel, record, exists=True,
-                 is_attachment=False):
+    def __init__(self, pad, id, path, original_data, datamodel, record,
+                 exists=True, is_attachment=False, alt=PRIMARY_ALT):
         self.id = id
         self.pad = pad
         self.path = path
@@ -76,6 +84,7 @@ class EditorSession(object):
         self.original_data = original_data
         self.datamodel = datamodel
         self.is_root = path.strip('/') == ''
+        self.alt = alt
 
         slug_format = None
         parent_name = posixpath.dirname(path)
@@ -115,6 +124,7 @@ class EditorSession(object):
                 'exists': self.exists,
                 'label': label,
                 'url_path': url_path,
+                'alt': self.alt,
                 'is_attachment': self.is_attachment,
                 'can_be_deleted': can_be_deleted,
                 'slug_format': self.slug_format,
@@ -214,9 +224,12 @@ class EditorSession(object):
     def fs_path(self):
         """The path to the record file on the file system."""
         base = self.pad.db.to_fs_path(self.path)
+        suffix = '.lr'
+        if self.alt != PRIMARY_ALT:
+            suffix = '+%s%s' % (self.alt, suffix)
         if self.is_attachment:
-            return base + '.lr'
-        return os.path.join(base, 'contents.lr')
+            return base + suffix
+        return os.path.join(base, 'contents' + suffix)
 
     def revert_key(self, key):
         """Reverts a key to the implied value."""
