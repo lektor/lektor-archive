@@ -105,7 +105,8 @@ def get_record_info():
 
 @bp.route('/api/previewinfo')
 def get_preview_info():
-    record = g.admin_context.pad.get(request.args['path'])
+    alt = request.args.get('alt') or PRIMARY_ALT
+    record = g.admin_context.pad.get(request.args['path'], alt=alt)
     if record is None:
         return jsonify(exists=False, url=None, is_hidden=True)
     return jsonify(
@@ -119,8 +120,8 @@ def get_preview_info():
 def match_url():
     record = g.admin_context.pad.resolve_url_path(request.args['url_path'])
     if record is None:
-        return jsonify(exists=False, path=None)
-    return jsonify(exists=True, path=record['_path'])
+        return jsonify(exists=False, path=None, alt=None)
+    return jsonify(exists=True, path=record['_path'], alt=record['_alt'])
 
 
 @bp.route('/api/rawrecord')

@@ -13,7 +13,8 @@ class PreviewPage extends RecordComponent {
     super(props);
     this.state = {
       pageUrl: null,
-      pageUrlFor: null
+      pageUrlFor: null,
+      pageUrlForAlt: null,
     };
   }
 
@@ -28,23 +29,26 @@ class PreviewPage extends RecordComponent {
   }
 
   syncState() {
+    var alt = this.getRecordAlt();
     var path = this.getRecordPath();
     if (path === null) {
       this.setState(this.getInitialState());
       return;
     }
 
-    utils.loadData('/previewinfo', {path: path})
+    utils.loadData('/previewinfo', {path: path, alt: alt})
       .then((resp) => {
         this.setState({
           pageUrl: resp.url,
-          pageUrlFor: path
+          pageUrlFor: path,
+          pageUrlForAlt: alt
         });
       });
   }
 
   getIntendedPath() {
-    if (this.state.pageUrlFor == this.getRecordPath()) {
+    if (this.state.pageUrlFor == this.getRecordPath() &&
+        this.state.pageUrlForAlt == this.getRecordAlt()) {
       return this.state.pageUrl;
     }
     return null;
@@ -80,7 +84,7 @@ class PreviewPage extends RecordComponent {
     utils.loadData('/matchurl', {url_path: fsPath})
       .then((resp) => {
         if (resp.exists) {
-          var urlPath = utils.fsToUrlPath(resp.path);
+          var urlPath = this.getUrlRecordPathWithAlt(resp.path, resp.alt);
           this.context.router.transitionTo('preview', {path: urlPath});
         }
       });
