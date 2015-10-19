@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import click
 import hashlib
@@ -191,6 +192,29 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
                verbosity=verbosity,
                lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
                browse=browse)
+
+
+@cli.command('shell', short_help='Starts a python shell.')
+@pass_context
+def shell_cmd(ctx):
+    """Starts a Python shell in the context of the program."""
+    import code
+    banner = 'Python %s on %s\nLektor Project: %s' % (
+        sys.version,
+        sys.platform,
+        ctx.get_env().root_path,
+    )
+    ns = {}
+    startup = os.environ.get('PYTHONSTARTUP')
+    if startup and os.path.isfile(startup):
+        with open(startup, 'r') as f:
+            eval(compile(f.read(), startup, 'exec'), ns)
+    ns.update(
+        env=ctx.get_env(),
+        pad=ctx.new_pad(),
+        config=ctx.get_env().load_config(),
+    )
+    code.interact(banner=banner, local=ns)
 
 
 main = cli
