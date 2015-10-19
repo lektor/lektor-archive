@@ -145,7 +145,7 @@ class WsgiApp(object):
         self.ui_lang = ui_lang
 
     def get_pad(self):
-        db = Database(self.env, ui_lang=self.ui_lang)
+        db = Database(self.env)
         pad = db.new_pad()
         return pad
 
@@ -210,7 +210,7 @@ class BackgroundBuilder(threading.Thread):
 
     def build(self):
         try:
-            db = Database(self.env, ui_lang=self.ui_lang)
+            db = Database(self.env)
             builder = Builder(db.new_pad(), self.output_path)
             builder.build_all()
         except Exception:

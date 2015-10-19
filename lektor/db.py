@@ -748,14 +748,11 @@ def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
 
 class Database(object):
 
-    def __init__(self, env, ui_lang=None, config=None):
+    def __init__(self, env, config=None):
         self.env = env
         if config is None:
             config = env.load_config()
-        if ui_lang is None:
-            ui_lang = config.site_language
         self.config = config
-        self.ui_lang = ui_lang
         self.datamodels = load_datamodels(env)
         self.flowblocks = load_flowblocks(env)
 

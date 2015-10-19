@@ -13,7 +13,7 @@ class LektorInfo(object):
         self.output_path = output_path
 
     def get_pad(self):
-        return Database(self.env, ui_lang=self.ui_lang).new_pad()
+        return Database(self.env).new_pad()
 
     def get_builder(self):
         return Builder(self.get_pad(), self.output_path)
