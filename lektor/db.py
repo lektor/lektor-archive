@@ -756,8 +756,8 @@ class Database(object):
             ui_lang = config.site_language
         self.config = config
         self.ui_lang = ui_lang
-        self.datamodels = load_datamodels(env, lang=ui_lang)
-        self.flowblocks = load_flowblocks(env, lang=ui_lang)
+        self.datamodels = load_datamodels(env)
+        self.flowblocks = load_flowblocks(env)
 
     def to_fs_path(self, path):
         """Convenience function to convert a path into an file system path."""

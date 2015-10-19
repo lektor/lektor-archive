@@ -154,7 +154,7 @@ class AddChildPage extends RecordComponent {
       }
       fields.push(
         <dl key={field.name}>
-          <dt>{field.label}</dt>
+          <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
           <dd><Widget
             value={value}
             placeholder={placeholder}

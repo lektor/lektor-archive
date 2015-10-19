@@ -315,25 +315,11 @@ def is_valid_id(value):
     )
 
 
-def get_i18n(inifile, key, lang, default=None):
-    rv = inifile.get('%s[%s]' % (key, lang))
-    if rv is None:
-        rv = inifile.get(key, default=default)
-    return rv
-
-
-def resolve_i18n_for_dict(dict, lang):
+def get_i18n_block(inifile_or_dict, key, default_lang='en'):
     rv = {}
-    rv_lang = {}
-
-    lang_suffix = '[%s]' % lang
-
-    for key, value in dict.iteritems():
-        if '[' in key:
-            if key.endswith(lang_suffix):
-                rv_lang[key[:-len(lang_suffix)]] = value
-        else:
-            rv[key] = value
-
-    rv.update(rv_lang)
+    for k, v in inifile_or_dict.iteritems():
+        if k == key:
+            rv[default_lang] = v
+        elif k.startswith(key + '['):
+            rv[k[len(key) + 1:-1]] = v
     return rv

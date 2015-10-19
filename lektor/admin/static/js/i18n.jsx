@@ -10,6 +10,14 @@ var i18n = {
   currentLanguage: 'en',
 
   trans: function(key) {
+    var rv;
+    if (typeof key === 'object') {
+      rv = key[i18n.currentLanguage];
+      if (rv === undefined) {
+        rv = key.en;
+      }
+      return rv;
+    }
     return i18n.translations[i18n.currentLanguage][key] || key;
   }
 };

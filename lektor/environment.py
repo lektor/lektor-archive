@@ -6,7 +6,7 @@ import jinja2
 
 from inifile import IniFile
 
-from lektor.utils import tojson_filter, resolve_i18n_for_dict
+from lektor.utils import tojson_filter, get_i18n_block
 from lektor.context import url_to, site_proxy, get_ctx
 
 
@@ -83,11 +83,15 @@ SPECIAL_ARTIFACTS = ['.htaccess', '.htpasswd']
 
 class ServerInfo(object):
 
-    def __init__(self, id, name, target, enabled=True):
+    def __init__(self, id, name_i18n, target, enabled=True):
         self.id = id
-        self.name = name
+        self.name_i18n = name_i18n
         self.target = target
         self.enabled = enabled
+
+    @property
+    def name(self):
+        return self.name_i18n.get('en')
 
     @property
     def short_target(self):
@@ -180,13 +184,12 @@ class Config(object):
         info = self.values['SERVERS'].get(name)
         if info is None:
             return None
-        info = resolve_i18n_for_dict(info, lang)
         target = info.get('target')
         if target is None:
             return None
         return ServerInfo(
             id=name,
-            name=info['name'],
+            name_i18n=get_i18n_block(info, 'name'),
             target=target,
             enabled=info.get('enabled', 'true').lower() in ('true', 'yes', '1'),
         )

@@ -157,7 +157,7 @@ class EditPage extends RecordEditComponent {
 
       var rv = (
         <dl key={field.name} className={className}>
-          <dt>{field.label}</dt>
+          <dt>{i18n.trans(field.label_i18n)}</dt>
           <dd><Widget
             value={value}
             onChange={this.onValueChange.bind(this, field)}
