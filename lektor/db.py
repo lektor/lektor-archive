@@ -1015,7 +1015,7 @@ def _split_alt_from_url(config, clean_path):
         if clean_path.startswith(prefix):
             return alt, clean_path[len(prefix):].strip('/')
         # Special case which is the URL root.
-        elif clean_path.strip('/') == clean_path:
+        elif prefix.strip('/') == clean_path:
             return alt, ''
 
     # Now find alternatives taht are identified by a suffix.
