@@ -300,6 +300,10 @@ class Record(SourceObject):
             clean_path += suffix
         return '/' + clean_path.strip('/')
 
+    @property
+    def path(self):
+        return self['_path']
+
     def get_sort_key(self, fields):
         """Returns a sort key for the given field specifications specific
         for the data in the record.

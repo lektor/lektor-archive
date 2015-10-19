@@ -31,6 +31,11 @@ class SourceObject(object):
         raise NotImplementedError()
 
     @property
+    def path(self):
+        """Return the full pato to the source object."""
+        return self.url_path.strip('/')
+
+    @property
     def pad(self):
         """The associated pad of this source object."""
         rv = self._pad()
@@ -60,6 +65,7 @@ class SourceObject(object):
             path = path.url_path
         elif path[:1] == '!':
             resolve = False
+            path = path[1:]
 
         this = self.url_path
         if this == '/':
@@ -69,11 +75,11 @@ class SourceObject(object):
             depth = ('/' + this.strip('/')).count('/')
             prefix = ''
 
-        path = posixpath.join(this, path)
-
         if resolve:
-            source = self.pad.get(path, alt=self.alt)
+            source = self.pad.get(posixpath.join(self.path, path), alt=alt)
             if source is not None:
                 path = source.url_path
+
+        path = posixpath.join(this, path)
 
         return (prefix + '../' * depth).rstrip('/') + path
