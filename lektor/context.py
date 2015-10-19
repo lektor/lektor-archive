@@ -25,6 +25,12 @@ def site_proxy():
     return ctx.pad
 
 
+@LocalProxy
+def config_proxy():
+    """Returns the current config."""
+    return site_proxy.db.config
+
+
 def get_ctx():
     """Returns the current context."""
     return _ctx_stack.top

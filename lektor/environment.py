@@ -7,7 +7,7 @@ import jinja2
 from inifile import IniFile
 
 from lektor.utils import tojson_filter, get_i18n_block
-from lektor.context import url_to, site_proxy, get_ctx
+from lektor.context import url_to, site_proxy, config_proxy, get_ctx
 
 
 # Special value that identifies a target to the primary alt
@@ -302,6 +302,7 @@ class Environment(object):
             F=F,
             url_to=url_to,
             site=site_proxy,
+            config=config_proxy,
         )
 
     @property

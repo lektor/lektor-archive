@@ -71,7 +71,8 @@ def get_record_info():
         can_have_attachments = False
         is_attachment = False
     else:
-        can_have_children = record.datamodel.has_own_children
+        can_have_children = not record.is_attachment \
+            and record.datamodel.has_own_children
         can_have_attachments = record.datamodel.has_own_attachments
         is_attachment = record.is_attachment
         can_be_deleted = parent is not None and not record.datamodel.protected

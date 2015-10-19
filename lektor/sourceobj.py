@@ -1,6 +1,7 @@
 import posixpath
 
 from weakref import ref as weakref
+from lektor.environment import PRIMARY_ALT
 
 
 class SourceObject(object):
@@ -8,6 +9,16 @@ class SourceObject(object):
 
     def __init__(self, pad):
         self._pad = weakref(pad)
+
+    @property
+    def alt(self):
+        """Returns the effective alt of this source object (unresolved)."""
+        return PRIMARY_ALT
+
+    @property
+    def effective_alt(self):
+        """Returns the effective alt (resolved alt)."""
+        return self.alt
 
     @property
     def source_filename(self):
@@ -35,12 +46,15 @@ class SourceObject(object):
         if not url_path:
             return self
 
-    def url_to(self, path):
+    def url_to(self, path, alt=None):
         """Calculates the URL from the current source object to the given
         other source object.  Alternatively a path can also be provided
         instead of a source object.  If the path starts with a leading
         bang (``!``) then no resolving is performed.
         """
+        if alt is None:
+            alt = self['_alt']
+
         resolve = True
         if hasattr(path, 'url_path'):
             path = path.url_path
@@ -58,7 +72,7 @@ class SourceObject(object):
         path = posixpath.join(this, path)
 
         if resolve:
-            source = self.pad.get(path)
+            source = self.pad.get(path, alt=self.alt)
             if source is not None:
                 path = source.url_path
 

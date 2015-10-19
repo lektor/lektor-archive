@@ -239,6 +239,18 @@ class Record(SourceObject):
             return self.pad.db.default_model
 
     @property
+    def alt(self):
+        """Returns the effective alt of this source object (unresolved)."""
+        return self['_alt']
+
+    @property
+    def effective_alt(self):
+        """Returns the effective alt (resolved alt)."""
+        if self['_alt'] == PRIMARY_ALT:
+            return self.pad.db.config.primary_alternative
+        return self['_alt']
+
+    @property
     def is_hidden(self):
         """If a record is hidden it will not be processed.  This is related
         to the expose flag that can be set on the datamodel.
@@ -273,7 +285,7 @@ class Record(SourceObject):
     def url_path(self):
         """The target path where the record should end up."""
         prefix, suffix = self.pad.db.config.get_alternative_url_span(
-            self['_alt'])
+            self.alt)
         bits = []
         node = self
         while node is not None:
@@ -349,7 +361,7 @@ class Record(SourceObject):
             self.__class__.__name__,
             self['_model'],
             self['_path'],
-            self['_alt'] != PRIMARY_ALT and ' alt=%r' % self['_alt'] or '',
+            self.alt != PRIMARY_ALT and ' alt=%r' % self.alt or '',
         )
 
 
@@ -359,16 +371,16 @@ class Page(Record):
 
     @property
     def source_filename(self):
-        if self['_alt'] != PRIMARY_ALT:
+        if self.alt != PRIMARY_ALT:
             return posixpath.join(self.pad.db.to_fs_path(self['_path']),
-                                  'contents+%s.lr' % self['_alt'])
+                                  'contents+%s.lr' % self.alt)
         return posixpath.join(self.pad.db.to_fs_path(self['_path']),
                               'contents.lr')
 
     def _iter_dependent_filenames(self):
         yield self.source_filename
-        if self['_alt'] != PRIMARY_ALT:
-            yield posixpath.join(self.pad.db.to_fs_path(self['_path']),
+        if self.alt != PRIMARY_ALT:
+            yield posixpath.join(self.pad.db.to_fs_path(self.alt),
                                  'contents.lr')
 
     @property
@@ -414,7 +426,7 @@ class Page(Record):
         repl_query = self.datamodel.get_child_replacements(self)
         if repl_query is not None:
             return repl_query
-        return Query(path=self['_path'], pad=self.pad, alt=self['_alt'])
+        return Query(path=self['_path'], pad=self.pad, alt=self.alt)
 
     @property
     def children(self):
@@ -431,7 +443,7 @@ class Page(Record):
         """
         if self.datamodel.child_config.replaced_with is not None:
             return EmptyQuery(path=self['_path'], pad=self.pad,
-                              alt=self['_alt'])
+                              alt=self.alt)
         return self.all_children
 
     def find_page(self, path):
@@ -442,7 +454,7 @@ class Page(Record):
     def attachments(self):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad,
-                                alt=self['_alt'])
+                                alt=self.alt)
 
 
 class Attachment(Record):
@@ -1162,7 +1174,7 @@ class RecordCache(object):
             path = record_or_path
         else:
             path = record_or_path['_path']
-            alt = record_or_path['_alt']
+            alt = record_or_path.alt
         if alt != PRIMARY_ALT:
             return '%s+%s' % (path, alt)
         return path
