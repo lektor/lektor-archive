@@ -56,15 +56,16 @@ def get_record_info():
             children.append(child)
 
     primary_alt = db.config.primary_alternative
-    for alt in tree_item.alts.itervalues():
-        alt_cfg = db.config.get_alternative(alt.id)
-        alts.append({
-            'alt': alt.id,
-            'is_primary': alt.id == PRIMARY_ALT,
-            'primary_overlay': alt.id == primary_alt,
-            'name_i18n': alt_cfg['name'],
-            'exists': alt.exists,
-        })
+    if primary_alt is not None:
+        for alt in tree_item.alts.itervalues():
+            alt_cfg = db.config.get_alternative(alt.id)
+            alts.append({
+                'alt': alt.id,
+                'is_primary': alt.id == PRIMARY_ALT,
+                'primary_overlay': alt.id == primary_alt,
+                'name_i18n': alt_cfg['name'],
+                'exists': alt.exists,
+            })
 
     return jsonify(
         id=tree_item.id,
