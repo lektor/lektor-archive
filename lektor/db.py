@@ -958,7 +958,7 @@ class Database(object):
     def get_attachment_type(self, path):
         """Gets the attachment type for a path."""
         return self.config['ATTACHMENT_TYPES'].get(
-            posixpath.splitext(path)[1])
+            posixpath.splitext(path)[1].lower())
 
     def track_record_dependency(self, record):
         ctx = get_ctx()
@@ -1136,8 +1136,14 @@ class Pad(object):
 
     def describe_alternatives(self, path):
         """Returns a list of alternatives and their status."""
-        alts = self.db.config.list_alternatives()
         primary = self.db.config.primary_alternative
+
+        # If there is no primary alternative, then this returns nothing as
+        # the entire system is disabled.
+        if primary is None:
+            return []
+
+        alts = self.db.config.list_alternatives()
 
         def _describe_alt(alt):
             cfg = self.db.config.get_alternative(alt)

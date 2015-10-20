@@ -38,6 +38,8 @@ DEFAULT_CONFIG = {
         '.pdf': 'document',
         '.doc': 'document',
         '.docx': 'document',
+        '.htm': 'document',
+        '.html': 'document',
 
         '.txt': 'text',
         '.log': 'text',
