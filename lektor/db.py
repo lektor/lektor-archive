@@ -20,6 +20,7 @@ from lektor.imagetools import make_thumbnail, read_exif, get_image_info
 from lektor.assets import Directory
 from lektor.editor import make_editor_session
 from lektor.environment import PRIMARY_ALT
+from lektor.databags import Databags
 
 
 def _require_ctx(record):
@@ -240,14 +241,7 @@ class Record(SourceObject):
 
     @property
     def alt(self):
-        """Returns the effective alt of this source object (unresolved)."""
-        return self['_alt']
-
-    @property
-    def effective_alt(self):
-        """Returns the effective alt (resolved alt)."""
-        if self['_alt'] == PRIMARY_ALT:
-            return self.pad.db.config.primary_alternative
+        """Returns the alt of this source object."""
         return self['_alt']
 
     @property
@@ -1052,6 +1046,7 @@ class Pad(object):
     def __init__(self, db):
         self.db = db
         self.cache = RecordCache(db.config['EPHEMERAL_RECORD_CACHE_SIZE'])
+        self.databags = Databags(db.env)
 
     def resolve_url_path(self, url_path, include_invisible=False,
                          include_assets=True, alt_fallback=True):

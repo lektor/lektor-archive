@@ -29,6 +29,8 @@ _slash_escape = '\\/' not in json.dumps('/')
 
 _slashes_re = re.compile(r'/+')
 _last_num_re = re.compile(r'^(.*)(\d+)(.*?)$')
+_list_marker = object()
+_value_marker = object()
 
 # Figure out our fs encoding, if it's ascii we upgrade to utf-8
 fs_enc = sys.getfilesystemencoding()
@@ -75,6 +77,102 @@ def magic_split_ext(filename, ext_check=True):
         return filename, ''
     basename = '.'.join(parts[:-1])
     return basename, ext
+
+
+def iter_dotted_path_prefixes(dotted_path):
+    pieces = dotted_path.split('.')
+    for x in xrange(1, len(pieces)):
+        yield '.'.join(pieces[:x]), '.'.join(pieces[x:])
+
+
+def resolve_dotted_value(obj, dotted_path):
+    node = obj
+    for key in dotted_path.split('.'):
+        if isinstance(node, dict):
+            new_node = node.get(key)
+            if new_node is None and key.isdigit():
+                new_node = node.get(int(key))
+        elif isinstance(node, list):
+            try:
+                new_node = node[int(key)]
+            except (ValueError, TypeError, IndexError):
+                new_node = None
+        else:
+            new_node = None
+        node = new_node
+        if node is None:
+            break
+    return node
+
+
+def decode_flat_data(itemiter):
+    def _split_key(name):
+        result = name.split('.')
+        for idx, part in enumerate(result):
+            if part.isdigit():
+                result[idx] = int(part)
+        return result
+
+    def _enter_container(container, key):
+        if key not in container:
+            return container.setdefault(key, {})
+        return container[key]
+
+    def _convert(container):
+        if _value_marker in container:
+            force_list = False
+            values = container.pop(_value_marker)
+            if container.pop(_list_marker, False):
+                force_list = True
+                values.extend(_convert(x[1]) for x in
+                              sorted(container.items()))
+            if not force_list and len(values) == 1:
+                values = values[0]
+
+            # We had nothing remaining, return
+            if not container:
+                return values
+
+            # Values remain.  Assume that the user left out the .value
+            # part and recurse.  This exists in order to allow this
+            # usage: foo.__type=integer&foo=42
+            result = _convert(container)
+            result.setdefault('value', values)
+            return result
+        elif container.pop(_list_marker, False):
+            return [_convert(x[1]) for x in sorted(container.items())]
+        return dict((k, _convert(v)) for k, v in container.iteritems())
+
+    result = {}
+
+    for key, value in itemiter:
+        parts = _split_key(key)
+        if not parts:
+            continue
+        container = result
+        for part in parts:
+            last_container = container
+            container = _enter_container(container, part)
+            last_container[_list_marker] = isinstance(part, (int, long))
+        container[_value_marker] = [value]
+
+    return _convert(result)
+
+
+def merge(a, b):
+    """Merges two values together."""
+    if b is None and a is not None:
+        return a
+    if a is None:
+        return b
+    if isinstance(a, list) and isinstance(b, list):
+        for idx, (item_1, item_2) in enumerate(zip(a, b)):
+            a[idx] = merge(item_1, item_2)
+    if isinstance(a, dict) and isinstance(b, dict):
+        for key, value in b.iteritems():
+            a[key] = merge(a.get(key), value)
+        return a
+    return a
 
 
 def secure_filename(filename, fallback_name='file'):

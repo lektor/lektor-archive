@@ -16,11 +16,6 @@ class SourceObject(object):
         return PRIMARY_ALT
 
     @property
-    def effective_alt(self):
-        """Returns the effective alt (resolved alt)."""
-        return self.alt
-
-    @property
     def source_filename(self):
         """The primary source filename of this source object."""
         raise NotImplementedError()

@@ -276,6 +276,11 @@ class Config(object):
         return self.values['PRIMARY_ALTERNATIVE']
 
 
+def lookup_from_bag(*args):
+    pieces = '.'.join(x for x in args if x)
+    return site_proxy.databags.lookup(pieces)
+
+
 class Environment(object):
 
     def __init__(self, root_path):
@@ -303,6 +308,7 @@ class Environment(object):
             url_to=url_to,
             site=site_proxy,
             config=config_proxy,
+            bag=lookup_from_bag,
         )
 
     @property
