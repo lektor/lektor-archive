@@ -1382,34 +1382,6 @@ class Tree(object):
                                    is_attachment=is_attachment,
                                    datamodel=datamodel)
 
-    def describe_alternatives(self, path):
-        """Returns a list of alternatives and their status."""
-        # XXX: throw this away
-        primary = self.db.config.primary_alternative
-
-        # If there is no primary alternative, then this returns nothing as
-        # the entire system is disabled.
-        if primary is None:
-            return []
-
-        alts = self.db.config.list_alternatives()
-
-        def _describe_alt(alt):
-            cfg = self.db.config.get_alternative(alt)
-            record = self.get(path, alt=alt)
-            return {
-                'alt': alt,
-                'is_primary': alt == PRIMARY_ALT,
-                'primary_overlay': alt == primary,
-                'name_i18n': cfg['name'],
-                'exists': os.path.isfile(record.source_filename),
-            }
-
-        rv = [_describe_alt('_primary')]
-        for key in alts:
-            rv.append(_describe_alt(key))
-        return rv
-
 
 class RecordCache(object):
     """The record cache holds records eitehr in an persistent or ephemeral
