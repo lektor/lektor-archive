@@ -275,10 +275,10 @@ class DataModel(object):
 
 class FlowBlockModel(object):
 
-    def __init__(self, env, id, name, filename=None, fields=None):
+    def __init__(self, env, id, name_i18n, filename=None, fields=None):
         self.env = env
         self.id = id
-        self.name = name
+        self.name_i18n = name_i18n
         self.filename = filename
         if fields is None:
             fields = []
@@ -288,10 +288,15 @@ class FlowBlockModel(object):
         self.field_map['_flowblock'] = Field(
             env, name='_flowblock', type=types.builtin_types['string'])
 
+    @property
+    def name(self):
+        return self.name_i18n.get('en') or self.id.title().replace('_', ' ')
+
     def to_json(self, pad):
         return {
             'id': self.id,
             'name': self.name,
+            'name_i18n': self.name_i18n,
             'filename': self.filename,
             'fields': [x.to_json(pad) for x in _iter_all_fields(self)
                        if x.name != '_flowblock'],
@@ -361,7 +366,7 @@ def flowblock_data_from_ini(id, inifile):
     return dict(
         filename=inifile.filename,
         id=id,
-        name=get_i18n_block(inifile, 'block.name') or id.title().replace('_', ' '),
+        name_i18n=get_i18n_block(inifile, 'block.name'),
         fields=fielddata_from_ini(inifile),
     )
 
@@ -445,7 +450,7 @@ def flowblock_from_data(env, block_data):
         env,
         filename=block_data['filename'],
         id=block_data['id'],
-        name=block_data['name'],
+        name_i18n=block_data['name_i18n'],
         fields=fields_from_data(env, block_data['fields']),
     )
 

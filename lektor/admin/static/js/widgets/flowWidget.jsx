@@ -243,7 +243,8 @@ var FlowWidget = React.createClass({
 
     for (var key in this.props.type.flowblocks) {
       var flowBlockModel = this.props.type.flowblocks[key];
-      choices.push([flowBlockModel.id, i18n.trans(flowBlockModel.name)]);
+      var label = i18n.trans(flowBlockModel.name_i18n) || flowBlockModel.name;
+      choices.push([flowBlockModel.id, label]);
     }
     choices.sort(function(a, b) {
       return a[1].toLowerCase().localeCompare(b[1].toLowerCase());
