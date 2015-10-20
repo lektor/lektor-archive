@@ -62,10 +62,16 @@ class Sidebar extends RecordComponent {
 
     utils.loadData('/recordinfo', {path: path})
       .then((resp) => {
+        var alts = resp.alts;
+        alts.sort((a, b) => {
+          var nameA = (a.is_primary ? 'A' : 'B') + i18n.trans(a.name_i18n);
+          var nameB = (b.is_primary ? 'A' : 'B') + i18n.trans(b.name_i18n);
+          return nameA === nameB ? 0 : nameA < nameB ? -1 : 1;
+        });
         this.setState({
           recordAttachments: resp.attachments,
           recordChildren: resp.children,
-          recordAlts: resp.alts,
+          recordAlts: alts,
           canHaveAttachments: resp.can_have_attachments,
           canHaveChildren: resp.can_have_children,
           isAttachment: resp.is_attachment,
@@ -176,8 +182,8 @@ class Sidebar extends RecordComponent {
     var items = this.state.recordChildren.map((child) => {
       var urlPath = this.getUrlRecordPathWithAlt(child.path);
       return (
-        <li key={child['_id']}>
-          <Link to={target} params={{path: urlPath}}>{child.label}</Link>
+        <li key={child.id}>
+          <Link to={target} params={{path: urlPath}}>{i18n.trans(child.label_i18n)}</Link>
         </li>
       )
     });
@@ -204,8 +210,8 @@ class Sidebar extends RecordComponent {
     var items = this.state.recordAttachments.map((atch) => {
       var urlPath = this.getUrlRecordPathWithAlt(atch.path);
       return (
-        <li key={atch['_id']}>
-          <Link to="edit" params={{path: urlPath}}>{atch['_id']} ({atch.type})</Link>
+        <li key={atch.id}>
+          <Link to="edit" params={{path: urlPath}}>{atch.id} ({atch.type})</Link>
         </li>
       )
     });

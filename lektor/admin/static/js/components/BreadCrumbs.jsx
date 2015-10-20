@@ -49,11 +49,14 @@ class BreadCrumbs extends RecordComponent {
   }
 
   onCloseClick(e) {
-    var segs = this.state.recordPathInfo.segments;
-    if (segs.length > 0) {
-      window.location.href = utils.getCanonicalUrl(segs[segs.length - 1].url_path);
-      e.preventDefault();
-    }
+    e.preventDefault();
+    utils.loadData('/previewinfo', {
+      path: this.getRecordPath(),
+      alt: this.getRecordAlt()
+    })
+    .then((resp) => {
+      window.location.href = utils.getCanonicalUrl(resp.url);
+    });
   }
 
   render() {
@@ -64,7 +67,7 @@ class BreadCrumbs extends RecordComponent {
     if (this.state.recordPathInfo != null) {
       crumbs = this.state.recordPathInfo.segments.map((item) => {
         var urlPath = this.getUrlRecordPathWithAlt(item.path);
-        var label = item.label;
+        var label = i18n.trans(item.label_i18n);
         var className = 'record-crumb';
 
         if (!item.exists) {

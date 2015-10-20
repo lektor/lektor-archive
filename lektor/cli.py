@@ -199,7 +199,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
 def shell_cmd(ctx):
     """Starts a Python shell in the context of the program."""
     import code
-    from lektor.db import F
+    from lektor.db import F, Tree
     banner = 'Python %s on %s\nLektor Project: %s' % (
         sys.version,
         sys.platform,
@@ -210,9 +210,11 @@ def shell_cmd(ctx):
     if startup and os.path.isfile(startup):
         with open(startup, 'r') as f:
             eval(compile(f.read(), startup, 'exec'), ns)
+    pad = ctx.new_pad()
     ns.update(
         env=ctx.get_env(),
-        pad=ctx.new_pad(),
+        pad=pad,
+        tree=Tree(pad),
         config=ctx.get_env().load_config(),
         F=F
     )

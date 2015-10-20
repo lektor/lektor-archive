@@ -160,7 +160,7 @@ class DataModel(object):
 
         self._child_slug_tmpl = None
         self._child_replacements = None
-        self._label_tmpl = None
+        self._label_tmpls = {}
 
     @property
     def name(self):
@@ -189,22 +189,22 @@ class DataModel(object):
             'fields': [x.to_json(pad) for x in _iter_all_fields(self)],
         }
 
-    def format_record_label(self, record):
+    def format_record_label(self, record, lang='en'):
         """Returns the label for a given record."""
-        # XXX: this does not support i18n :(
-        label = self.label
+        label = self.label_i18n.get(lang)
         if label is None:
             return None
 
-        if self._label_tmpl is None or \
-           self._label_tmpl[0] != label:
-            self._label_tmpl = (
+        tmpl = self._label_tmpls.get(lang)
+        if tmpl is None:
+            tmpl = (
                 label,
                 FormatExpression(self.env, label)
             )
+            self._label_tmpls[lang] = tmpl
 
         try:
-            return self._label_tmpl[1].evaluate(record.pad, this=record)
+            return tmpl[1].evaluate(record.pad, this=record)
         except Exception:
             # XXX: log
             return None

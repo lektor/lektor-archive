@@ -24,34 +24,18 @@ def get_record_and_parent(path):
 @bp.route('/api/pathinfo')
 def get_path_info():
     """Returns the path segment information for a record."""
-    path = request.args['path']
-    record, parent = get_record_and_parent(path)
+    tree_item = g.admin_context.tree.get(request.args['path'])
     segments = []
 
-    def _make_segment(record):
-        return {
-            'id': record['_id'],
-            'path': record['_path'],
-            'url_path': record.url_path,
-            'label': record.record_label,
-            'exists': True,
-            'can_have_children': record.datamodel.has_own_children,
-        }
-
-    if record is not None:
-        segments.append(_make_segment(record))
-    else:
+    while tree_item is not None:
         segments.append({
-            'id': posixpath.basename(path),
-            'path': path,
-            'label': None,
-            'exists': False,
-            'can_have_children': False,
+            'id': tree_item.id,
+            'path': tree_item.path,
+            'label_i18n': tree_item.label_i18n,
+            'exists': tree_item.exists,
+            'can_have_children': tree_item.can_have_children
         })
-
-    while parent is not None:
-        segments.append(_make_segment(parent))
-        parent = parent.parent
+        tree_item = tree_item.get_parent()
 
     segments.reverse()
     return jsonify(segments=segments)
@@ -59,49 +43,51 @@ def get_path_info():
 
 @bp.route('/api/recordinfo')
 def get_record_info():
-    record, parent = get_record_and_parent(request.args['path'])
-
+    db = g.admin_context.pad.db
+    tree_item = g.admin_context.tree.get(request.args['path'])
     children = []
     attachments = []
     alts = []
-    can_be_deleted = False
 
-    if record is None:
-        can_have_children = False
-        can_have_attachments = False
-        is_attachment = False
-    else:
-        can_have_children = not record.is_attachment \
-            and record.datamodel.has_own_children
-        can_have_attachments = not record.is_attachment \
-            and record.datamodel.has_own_attachments
-        is_attachment = record.is_attachment
-        can_be_deleted = parent is not None and not record.datamodel.protected
-        alts = g.admin_context.pad.describe_alternatives(request.args['path'])
+    for child in tree_item.iter_children():
+        if child.is_attachment:
+            attachments.append(child)
+        else:
+            children.append(child)
 
-        if can_have_children:
-            children = [{
-                '_id': x['_id'],
-                'path': x['_path'],
-                'label': x.record_label,
-                'visible': x.is_visible
-            } for x in record.real_children]
+    primary_alt = db.config.primary_alternative
+    for alt in tree_item.alts.itervalues():
+        alt_cfg = db.config.get_alternative(alt.id)
+        alts.append({
+            'alt': alt.id,
+            'is_primary': alt.id == PRIMARY_ALT,
+            'primary_overlay': alt.id == primary_alt,
+            'name_i18n': alt_cfg['name'],
+            'exists': alt.exists,
+        })
 
-        if can_have_attachments:
-            attachments = [{
-                '_id': x['_id'],
-                'type': x['_attachment_type'],
-                'path': x['_path'],
-            } for x in record.attachments]
-
-    return jsonify(attachments=attachments,
-                   can_have_attachments=can_have_attachments,
-                   children=children,
-                   alts=alts,
-                   can_have_children=can_have_children,
-                   is_attachment=is_attachment,
-                   can_be_deleted=can_be_deleted,
-                   exists=record is not None)
+    return jsonify(
+        id=tree_item.id,
+        path=tree_item.path,
+        exists=tree_item.exists,
+        is_attachment=tree_item.is_attachment,
+        attachments=[{
+            'id': x.id,
+            'path': x.path,
+            'type': x.attachment_type,
+        } for x in attachments],
+        children=[{
+            'id': x.id,
+            'path': x.path,
+            'label': x.id,
+            'label_i18n': x.label_i18n,
+            'visible': x.is_visible,
+        } for x in children],
+        alts=alts,
+        can_have_children=tree_item.can_have_children,
+        can_have_attachments=tree_item.can_have_attachments,
+        can_be_deleted=tree_item.can_be_deleted,
+    )
 
 
 @bp.route('/api/previewinfo')
@@ -129,7 +115,7 @@ def match_url():
 @bp.route('/api/rawrecord')
 def get_raw_record():
     alt = request.args.get('alt') or PRIMARY_ALT
-    ts = g.admin_context.pad.edit(request.args['path'], alt=alt)
+    ts = g.admin_context.tree.edit(request.args['path'], alt=alt)
     return jsonify(ts.to_json())
 
 
@@ -137,7 +123,7 @@ def get_raw_record():
 def get_new_record_info():
     pad = g.admin_context.pad
     alt = request.args.get('alt') or PRIMARY_ALT
-    ts = pad.edit(request.args['path'], alt=alt)
+    ts = g.admin_context.tree.edit(request.args['path'], alt=alt)
     if ts.is_attachment:
         can_have_children = False
     elif ts.datamodel.child_config.replaced_with is not None:
@@ -171,8 +157,7 @@ def get_new_record_info():
 
 @bp.route('/api/newattachment')
 def get_new_attachment_info():
-    pad = g.admin_context.pad
-    ts = pad.edit(request.args['path'])
+    ts = g.admin_context.tree.edit(request.args['path'])
     return jsonify({
         'can_upload': ts.exists and not ts.is_attachment,
         'label': ts.record and ts.record.record_label or ts.id,
@@ -182,7 +167,7 @@ def get_new_attachment_info():
 @bp.route('/api/newattachment', methods=['POST'])
 def upload_new_attachments():
     alt = request.values.get('alt') or PRIMARY_ALT
-    ts = g.admin_context.pad.edit(request.values['path'], alt=alt)
+    ts = g.admin_context.tree.edit(request.values['path'], alt=alt)
     if not ts.exists or ts.is_attachment:
         return jsonify({
             'bad_upload': True
@@ -214,8 +199,8 @@ def add_new_record():
 
     path = posixpath.join(values['path'], values['id'])
 
-    ts = g.admin_context.pad.edit(path, datamodel=values.get('model'),
-                                  alt=alt)
+    ts = g.admin_context.tree.edit(path, datamodel=values.get('model'),
+                                   alt=alt)
     with ts:
         if ts.exists:
             exists = True
@@ -231,11 +216,11 @@ def add_new_record():
 
 @bp.route('/api/deleterecord')
 def get_delete_info():
+    # XXX: convert to tree usage
     path = request.args['path']
     alt = request.args.get('alt') or PRIMARY_ALT
     record = g.admin_context.pad.get(path, alt=alt)
     children = []
-    alts = []
     child_count = 0
 
     if record is None:
@@ -246,7 +231,6 @@ def get_delete_info():
         can_be_deleted = record['_path'] != '/' and not record.datamodel.protected
         is_attachment = record.is_attachment
         label = record.record_label
-        alts = g.admin_context.pad.describe_alternatives(request.args['path'])
         if not is_attachment:
             children = [{
                 'id': x['_id'],
@@ -259,7 +243,6 @@ def get_delete_info():
             'id': posixpath.basename(path),
             'path': path,
             'alt': alt,
-            'alts': alts,
             'exists': record is not None,
             'label': label,
             'can_be_deleted': can_be_deleted,
@@ -278,7 +261,7 @@ def get_delete_info():
 def delete_record():
     alt = request.values.get('alt') or PRIMARY_ALT
     if request.values['path'] != '/':
-        ts = g.admin_context.pad.edit(request.values['path'], alt=alt)
+        ts = g.admin_context.tree.edit(request.values['path'], alt=alt)
         with ts:
             ts.delete()
     return jsonify(okay=True)
@@ -289,7 +272,7 @@ def update_raw_record():
     values = request.get_json()
     data = values['data']
     alt = values.get('alt') or PRIMARY_ALT
-    ts = g.admin_context.pad.edit(values['path'], alt=alt)
+    ts = g.admin_context.tree.edit(values['path'], alt=alt)
     with ts:
         ts.update(data)
     return jsonify(path=ts.path)

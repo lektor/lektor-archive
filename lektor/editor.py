@@ -14,6 +14,9 @@ implied_keys = set(['_id', '_path', '_gid', '_alt', '_attachment_for'])
 possibly_implied_keys = set(['_model', '_template', '_attachment_type'])
 
 
+# XXX: this should be all based on the Tree code.
+
+
 class BadEdit(Exception):
     pass
 

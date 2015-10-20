@@ -4,7 +4,7 @@ import hashlib
 import operator
 import posixpath
 
-from itertools import islice
+from itertools import islice, chain
 
 from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
@@ -286,15 +286,23 @@ class Record(SourceObject):
         """The negated version of :attr:`is_hidden`."""
         return not self.is_hidden
 
-    @property
-    def record_label(self):
-        """The generic record label."""
-        rv = self.datamodel.format_record_label(self)
-        if rv:
-            return rv
+    def get_fallback_record_label(self, lang):
         if not self['_id']:
             return '(Index)'
         return self['_id'].replace('-', ' ').replace('_', ' ').title()
+
+    def get_record_label_i18n(self):
+        rv = {}
+        for lang, _ in self.datamodel.label_i18n.iteritems():
+            label = self.datamodel.format_record_label(self, lang)
+            if not label:
+                label = self.get_fallback_record_label(lang)
+            rv[lang] = label
+        return rv
+
+    @property
+    def record_label(self):
+        return (self.get_record_label_i18n() or {}).get('en')
 
     @property
     def url_path(self):
@@ -494,12 +502,7 @@ class Attachment(Record):
         return self.pad.get(self._data['_attachment_for'],
                             persist=self.pad.cache.is_persistent(self))
 
-    @property
-    def record_label(self):
-        """The generic record label."""
-        rv = self.datamodel.format_record_label(self)
-        if rv is not None:
-            return rv
+    def get_fallback_record_label(self, lang):
         return self['_id']
 
     def _iter_dependent_filenames(self):
@@ -619,6 +622,14 @@ class Query(object):
         return self.pad.get('%s/%s' % (self.path, id), persist=persist,
                             alt=self.alt)
 
+    def _matches(self, record):
+        if self._visible_only and not record.is_visible:
+            return False
+        for filter in self._filters or ():
+            if not save_eval(filter, record):
+                return False
+        return True
+
     def _iterate(self):
         """Low level record iteration."""
         # If we iterate over children we also need to track those
@@ -635,19 +646,14 @@ class Query(object):
         if ctx is not None:
             ctx.record_dependency(self.pad.db.to_fs_path(self.path))
 
-        for name, is_attachment in self.pad.db.iter_items(
+        for name, _, is_attachment in self.pad.db.iter_items(
                 self.path, alt=self.alt):
             if not ((is_attachment == self._include_attachments) or
                     (not is_attachment == self._include_pages)):
                 continue
 
             record = self._get(name, persist=False)
-            if self._visible_only and not record.is_visible:
-                continue
-            for filter in self._filters or ():
-                if not save_eval(filter, record):
-                    break
-            else:
+            if self._matches(record):
                 yield record
 
     def filter(self, expr):
@@ -790,18 +796,36 @@ class AttachmentsQuery(Query):
         return self.filter(F._attachment_type == 'text')
 
 
-def _iter_filename_choices(fn_base, alt, config):
+def _iter_filename_choices(fn_base, alts, config):
+    """Returns an iterator over all possible filename choices to .lr files
+    below a base filename that matches any of the given alts.
+    """
     # the order here is important as attachments can exist without a .lr
     # file and as such need to come second or the loading of raw data will
     # implicitly say the record exists.
+    for alt in alts:
+        if alt != PRIMARY_ALT and config.is_valid_alternative(alt):
+            yield os.path.join(fn_base, 'contents+%s.lr' % alt), alt, False
+    yield os.path.join(fn_base, 'contents.lr'), PRIMARY_ALT, False
 
-    if alt is not None and config.is_valid_alternative(alt):
-        yield os.path.join(fn_base, 'contents+%s.lr' % alt), False
-    yield os.path.join(fn_base, 'contents.lr'), False
+    for alt in alts:
+        if alt != PRIMARY_ALT and config.is_valid_alternative(alt):
+            yield fn_base + '+%s.lr' % alt, alt, True
+    yield fn_base + '.lr', PRIMARY_ALT, True
 
-    if alt is not None and config.is_valid_alternative(alt):
-        yield fn_base + '+%s.lr' % alt, True
-    yield fn_base + '.lr', True
+
+def _iter_content_files(dir_path, alts):
+    """Returns an iterator over all existing content files below the given
+    directory.  This yields specific files for alts before it falls back
+    to the primary alt.
+    """
+    for alt in alts:
+        if alt == PRIMARY_ALT:
+            continue
+        if os.path.isfile(os.path.join(dir_path, 'contents+%s.lr' % alt)):
+            yield alt
+    if os.path.isfile(os.path.join(dir_path, 'contents.lr')):
+        yield PRIMARY_ALT
 
 
 def _iter_datamodel_choices(datamodel_name, path, is_attachment=False):
@@ -837,8 +861,8 @@ class Database(object):
         fn_base = self.to_fs_path(path)
 
         rv = cls()
-        choiceiter = _iter_filename_choices(fn_base, alt, self.config)
-        for fs_path, is_attachment in choiceiter:
+        choiceiter = _iter_filename_choices(fn_base, [alt], self.config)
+        for fs_path, _, is_attachment in choiceiter:
             try:
                 with open(fs_path, 'rb') as f:
                     for key, lines in metaformat.tokenize(f, encoding='utf-8'):
@@ -859,33 +883,34 @@ class Database(object):
 
     def iter_items(self, path, alt=PRIMARY_ALT):
         """Iterates over all items below a path and yields them as
-        tuples in the form ``(id, is_attachment)``.
+        tuples in the form ``(id, alt, is_attachment)``.
         """
         fn_base = self.to_fs_path(path)
 
-        choiceiter = _iter_filename_choices(fn_base, alt, self.config)
+        if alt is None:
+            alts = self.config.list_alternatives()
+            single_alt = False
+        else:
+            alts = [alt]
+            single_alt = True
 
-        for fs_path, is_attachment in choiceiter:
+        choiceiter = _iter_filename_choices(fn_base, alts, self.config)
+
+        for fs_path, actual_alt, is_attachment in choiceiter:
             if not os.path.isfile(fs_path):
                 continue
+
             # This path is actually for an attachment, which means that we
             # cannot have any items below it and will just abort with an
             # empty iterator.
             if is_attachment:
-                return
+                break
 
             try:
                 dir_path = os.path.dirname(fs_path)
                 for filename in os.listdir(dir_path):
-                    # If we found an .lr file, we just skip it as we do
-                    # not want to handle it at this point.  This is done
-                    # separately later.
-                    if filename.endswith('.lr'):
-                        continue
-
-                    # Likewise if we found an interesting source file we
-                    # want to ignore it here.
-                    if self.env.is_uninteresting_source_name(filename):
+                    if filename.endswith('.lr') or \
+                       self.env.is_uninteresting_source_name(filename):
                         continue
 
                     try:
@@ -893,26 +918,31 @@ class Database(object):
                     except UnicodeError:
                         continue
 
-                    # We found an attachment!
+                    # We found an attachment.  Attachments always live
+                    # below the primary alt, so we report it as such.
                     if os.path.isfile(os.path.join(dir_path, filename)):
-                        yield filename, True
+                        yield filename, PRIMARY_ALT, True
 
                     # We found a directory, let's make sure it contains a
                     # contents.lr file (or a contents+alt.lr file).
                     else:
-                        if (os.path.isfile(os.path.join(
-                                dir_path, filename, 'contents.lr')) or
-                            (alt is not None and
-                             os.path.isfile(os.path.join(
-                                 dir_path, filename, 'contents+%s.lr' % alt)))):
-                            yield filename, False
+                        for content_alt in _iter_content_files(
+                                os.path.join(dir_path, filename), alts):
+                            yield filename, content_alt, False
+                            # If we want a single alt, we break here so
+                            # that we only produce a single result.
+                            # Otherwise this would also return the primary
+                            # fallback here.
+                            if single_alt:
+                                break
             except IOError as e:
                 if e.errno != errno.ENOENT:
                     raise
+                continue
 
-    def list_items(self, path, alt=PRIMARY_ALT):
-        """Like :meth:`iter_items` but returns a list."""
-        return list(self.iter_items(path, alt=alt))
+            # If we reach this point, we found our parent, so we can stop
+            # searching for more at this point.
+            break
 
     def get_datamodel_for_raw_data(self, raw_data, pad=None):
         """Returns the datamodel that should be used for a specific raw
@@ -1165,14 +1195,196 @@ class Pad(object):
         cls = self.db.get_record_class(datamodel, data)
         return cls(self, data)
 
+    def query(self, path=None, alt=PRIMARY_ALT):
+        """Queries the database either at root level or below a certain
+        path.  This is the recommended way to interact with toplevel data.
+        The alternative is to work with the :attr:`root` document.
+        """
+        # Don't accidentally pass `None` down to the query as this might
+        # do some unexpected things.
+        if alt is None:
+            alt = PRIMARY_ALT
+        return Query(path='/' + (path or '').strip('/'), pad=self, alt=alt)
+
+
+class TreeItem(object):
+    """Represents a single tree item and all the alts within it."""
+
+    def __init__(self, tree, path, alts, exists=True,
+                 is_attachment=False, attachment_type=None,
+                 can_have_children=False, can_have_attachments=False,
+                 can_be_deleted=False, is_visible=True,
+                 label_i18n=None):
+        self.tree = tree
+        self.path = path
+        self.alts = alts
+        self.exists = exists
+        self.is_attachment = is_attachment
+        self.attachment_type = attachment_type
+        self.can_have_children = can_have_children
+        self.can_have_attachments = can_have_attachments
+        self.can_be_deleted = can_be_deleted
+        self.is_visible = is_visible
+        self.label_i18n = label_i18n
+
+    @property
+    def id(self):
+        """The local ID of the item."""
+        return posixpath.basename(self.path)
+
+    def get_parent(self):
+        """Returns the parent item."""
+        if self.path == '/':
+            return None
+        return self.tree.get(posixpath.dirname(self.path))
+
+    def get(self, path):
+        """Returns a child within this item."""
+        if self.exists:
+            return self.tree.get(posixpath.join(self.path, path))
+
+    def iter_children(self, include_attachments=True, include_pages=True):
+        """Iterates over all children."""
+        if self.exists:
+            return self.tree.iter_children(self.path, include_attachments,
+                                           include_pages)
+
+    def get_children(self, offset=0, limit=None, include_attachments=True,
+                     include_pages=True):
+        """Returns a list of all children."""
+        if not self.exists:
+            return []
+        return self.tree.get_children(self.path, offset, limit,
+                                      include_attachments, include_pages)
+
+    def __repr__(self):
+        return '<TreeItem %r%s>' % (
+            self.path,
+            self.is_attachment and ' attachment' or '',
+        )
+
+
+class Alt(object):
+
+    def __init__(self, id, record):
+        self.id = id
+        self.record = record
+        self.exists = record is not None and \
+            os.path.isfile(record.source_filename)
+
+    def __repr__(self):
+        return '<Alt %r%s>' % (self.id, self.exists and '*' or '')
+
+
+class Tree(object):
+    """Special object that can be used to get a broader insight into the
+    database in a way that is not bound to the alt system directly.
+
+    This wraps a pad and provides additional ways to interact with the data
+    of the database in a way that is similar to how the data is actually laid
+    out on the file system and not as the data is represented.  Primarily the
+    difference is how alts are handled.  Where the pad resolves the alts
+    automatically to make the handling automatic, the tree will give access
+    to the underlying alts automatically.
+    """
+
+    def __init__(self, pad):
+        self.pad = pad
+
+    def get(self, path=None, persist=True):
+        """Returns a path item at the given node."""
+        path = '/' + (path or '').strip('/')
+        alts = {}
+        exists = False
+        first_record = None
+        label_i18n = None
+
+        for alt in chain([PRIMARY_ALT], self.pad.db.config.list_alternatives()):
+            record = self.pad.get(path, alt=alt, persist=persist)
+            if first_record is None:
+                first_record = record
+            if record is not None:
+                exists = True
+            alts[alt] = Alt(alt, record)
+
+        # These flags only really make sense if we found an existing
+        # record, otherwise we fall back to some sort of sane default.
+        # Note that in theory different alts can disagree on what
+        # datamodel they use but this is something that is really not
+        # supported.  This cannot happen if you edit based on the admin
+        # panel and if you edit it manually and screw up the part, we
+        # cannot really do anything about it.
+        #
+        # More importantly we genreally assume that first_record is the
+        # primary alt.  There are some situations in which case this is
+        # not true, for instance if no primary alt exists.  In this case
+        # we just go with any record.
+        is_visible = True
+        is_attachment = False
+        attachment_type = None
+        can_have_children = False
+        can_have_attachments = False
+        can_be_deleted = exists and path != '/'
+
+        if first_record is not None:
+            is_attachment = first_record.is_attachment
+            is_visible = first_record.is_visible
+            dm = first_record.datamodel
+            if not is_attachment:
+                can_have_children = dm.has_own_children
+                can_have_attachments = dm.has_own_attachments
+                if dm.protected:
+                    can_be_deleted = False
+            else:
+                attachment_type = first_record['_attachment_type'] or None
+            label_i18n = first_record.get_record_label_i18n()
+
+        return TreeItem(self, path, alts, exists, is_attachment=is_attachment,
+                        attachment_type=attachment_type,
+                        can_have_children=can_have_children,
+                        can_have_attachments=can_have_attachments,
+                        can_be_deleted=can_be_deleted,
+                        is_visible=is_visible, label_i18n=label_i18n)
+
+    def _get_child_ids(self, path=None, include_attachments=True,
+                       include_pages=True):
+        """Returns a sorted list of just the IDs of children below a path."""
+        path = '/' + (path or '').strip('/')
+        names = set()
+        for name, _, is_attachment in self.pad.db.iter_items(path, alt=None):
+            if (is_attachment and include_attachments) or \
+               (not is_attachment and include_pages):
+                names.add(name)
+        return sorted(names, key=lambda x: x.lower())
+
+    def iter_children(self, path=None, include_attachments=True,
+                      include_pages=True):
+        """Iterates over all children below a path."""
+        path = '/' + (path or '').strip('/')
+        for name in self._get_child_ids(path, include_attachments,
+                                        include_pages):
+            yield self.get(posixpath.join(path, name), persist=False)
+
+    def get_children(self, path=None, offset=0, limit=None,
+                     include_attachments=True, include_pages=True):
+        """Returns a slice of children."""
+        path = '/' + (path or '').strip('/')
+        end = None
+        if limit is not None:
+            end = offset + limit
+        return [self.get(posixpath.join(path, name), persist=False)
+                for name in self._get_child_ids(
+                    path, include_attachments, include_pages)[offset:end]]
+
     def edit(self, path, is_attachment=None, alt=PRIMARY_ALT, datamodel=None):
         """Edits a record by path."""
-        path = cleanup_path(path)
-        return make_editor_session(self, path, is_attachment=is_attachment,
-                                   alt=alt, datamodel=datamodel)
+        return make_editor_session(self.pad, cleanup_path(path), alt=alt,
+                                   is_attachment=is_attachment,
+                                   datamodel=datamodel)
 
     def describe_alternatives(self, path):
         """Returns a list of alternatives and their status."""
+        # XXX: throw this away
         primary = self.db.config.primary_alternative
 
         # If there is no primary alternative, then this returns nothing as
@@ -1197,13 +1409,6 @@ class Pad(object):
         for key in alts:
             rv.append(_describe_alt(key))
         return rv
-
-    def query(self, path=None, alt=PRIMARY_ALT):
-        """Queries the database either at root level or below a certain
-        path.  This is the recommended way to interact with toplevel data.
-        The alternative is to work with the :attr:`root` document.
-        """
-        return Query(path='/' + (path or '').strip('/'), pad=self, alt=alt)
 
 
 class RecordCache(object):
