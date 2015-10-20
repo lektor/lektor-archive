@@ -131,7 +131,7 @@ class AddChildPage extends RecordComponent {
     if (!this.state.newChildInfo.implied_model) {
       var choices = this.getAvailableModels().map((model) => {
         return (
-          <option value={model.id} key={model.id}>{model.name}</option>
+          <option value={model.id} key={model.id}>{i18n.trans(model.name_i18n)}</option>
         );
       });
       fields.push(

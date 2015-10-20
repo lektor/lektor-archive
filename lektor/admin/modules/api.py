@@ -155,6 +155,7 @@ def get_new_record_info():
         return {
             'id': model.id,
             'name': model.name,
+            'name_i18n': model.name_i18n,
             'primary_field': primary_field
         }
 

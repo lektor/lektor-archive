@@ -115,7 +115,7 @@ def _iter_all_fields(obj):
 
 class DataModel(object):
 
-    def __init__(self, env, id, name, label_i18n=None,
+    def __init__(self, env, id, name_i18n, label_i18n=None,
                  filename=None, hidden=None, protected=None,
                  expose=None, child_config=None, attachment_config=None,
                  pagination_config=None, fields=None,
@@ -123,7 +123,7 @@ class DataModel(object):
         self.env = env
         self.filename = filename
         self.id = id
-        self.name = name
+        self.name_i18n = name_i18n
         self.label_i18n = label_i18n
         if hidden is None:
             hidden = False
@@ -163,6 +163,10 @@ class DataModel(object):
         self._label_tmpl = None
 
     @property
+    def name(self):
+        return self.name_i18n.get('en')
+
+    @property
     def label(self):
         return self.label_i18n.get('en')
 
@@ -172,6 +176,7 @@ class DataModel(object):
             'filename': self.filename,
             'id': self.id,
             'name': self.name,
+            'name_i18n': self.name_i18n,
             'primary_field': self.primary_field,
             'label': self.label,
             'label_i18n': self.label_i18n,
@@ -406,7 +411,7 @@ def datamodel_from_data(env, model_data, parent=None):
         filename=model_data['filename'],
         id=model_data['id'],
         parent=parent,
-        name=model_data['name'],
+        name_i18n=model_data['name'],
         primary_field=model_data['primary_field'],
 
         # direct data that can inherit
