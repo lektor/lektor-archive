@@ -53,7 +53,7 @@ class SourceObject(object):
         bang (``!``) then no resolving is performed.
         """
         if alt is None:
-            alt = self['_alt']
+            alt = self.alt
 
         resolve = True
         if hasattr(path, 'url_path'):
@@ -75,6 +75,6 @@ class SourceObject(object):
             if source is not None:
                 path = source.url_path
 
-        path = posixpath.join(this, path)
+        path = posixpath.normpath(posixpath.join(this, path))
 
         return (prefix + '../' * depth).rstrip('/') + path

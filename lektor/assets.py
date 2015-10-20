@@ -3,6 +3,7 @@ import stat
 import posixpath
 
 from lektor.sourceobj import SourceObject
+from lektor.context import get_ctx
 
 
 special_file_assets = {}

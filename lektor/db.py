@@ -1125,6 +1125,16 @@ class Pad(object):
 
         return self.db.track_record_dependency(rv)
 
+    def get_asset(self, path):
+        """Loads an asset by path."""
+        clean_path = cleanup_path(path).strip('/')
+        node = self.asset_root
+        for piece in clean_path.split('/'):
+            node = node.get_child(piece)
+            if node is None:
+                break
+        return node
+
     def instance_from_data(self, raw_data, datamodel=None):
         """This creates an instance from the given raw data."""
         if datamodel is None:
