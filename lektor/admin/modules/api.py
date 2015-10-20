@@ -119,7 +119,8 @@ def get_preview_info():
 
 @bp.route('/api/matchurl')
 def match_url():
-    record = g.admin_context.pad.resolve_url_path(request.args['url_path'])
+    record = g.admin_context.pad.resolve_url_path(
+        request.args['url_path'], alt_fallback=False)
     if record is None:
         return jsonify(exists=False, path=None, alt=None)
     return jsonify(exists=True, path=record['_path'], alt=record['_alt'])
