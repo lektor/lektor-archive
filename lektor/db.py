@@ -298,6 +298,9 @@ class Record(SourceObject):
             if not label:
                 label = self.get_fallback_record_label(lang)
             rv[lang] = label
+        # Fill in english if missing
+        if not rv:
+            rv['en'] = self.get_fallback_record_label('en')
         return rv
 
     @property
