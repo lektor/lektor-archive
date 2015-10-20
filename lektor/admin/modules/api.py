@@ -235,6 +235,7 @@ def get_delete_info():
     alt = request.args.get('alt') or PRIMARY_ALT
     record = g.admin_context.pad.get(path, alt=alt)
     children = []
+    alts = []
     child_count = 0
 
     if record is None:
@@ -245,6 +246,7 @@ def get_delete_info():
         can_be_deleted = record['_path'] != '/' and not record.datamodel.protected
         is_attachment = record.is_attachment
         label = record.record_label
+        alts = g.admin_context.pad.describe_alternatives(request.args['path'])
         if not is_attachment:
             children = [{
                 'id': x['_id'],
@@ -257,6 +259,7 @@ def get_delete_info():
             'id': posixpath.basename(path),
             'path': path,
             'alt': alt,
+            'alts': alts,
             'exists': record is not None,
             'label': label,
             'can_be_deleted': can_be_deleted,

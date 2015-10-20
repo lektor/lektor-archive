@@ -76,6 +76,9 @@ class _CmpHelper(object):
         a, b = self.coerce(self.value, other.value)
         return a == b
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
         a, b = self.coerce(self.value, other.value)
         try:
@@ -155,6 +158,24 @@ class _Expr(object):
     def endswith_cs(self, other):
         return _BinExpr(self, _auto_wrap_expr(other),
                         lambda a, b: unicode(a).endswith(unicode(b)))
+
+    def false(self):
+        return _IsBoolExpr(self, False)
+
+    def true(self):
+        return _IsBoolExpr(self, True)
+
+
+class _IsBoolExpr(_Expr):
+
+    def __init__(self, expr, true):
+        self.__expr = expr
+        self.__true = true
+
+    def __eval__(self, record):
+        val = self.__expr.__eval__(record)
+        return (not is_undefined(val) and
+                val not in (None, 0, False, '')) == self.__true
 
 
 class _Literal(_Expr):

@@ -199,6 +199,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
 def shell_cmd(ctx):
     """Starts a Python shell in the context of the program."""
     import code
+    from lektor.db import F
     banner = 'Python %s on %s\nLektor Project: %s' % (
         sys.version,
         sys.platform,
@@ -213,6 +214,7 @@ def shell_cmd(ctx):
         env=ctx.get_env(),
         pad=ctx.new_pad(),
         config=ctx.get_env().load_config(),
+        F=F
     )
     code.interact(banner=banner, local=ns)
 
