@@ -1,3 +1,4 @@
+import os
 import posixpath
 
 import click
@@ -115,8 +116,9 @@ def browsefs():
             fn = record.attachment_filename
         else:
             fn = record.source_filename
-        click.launch(fn, locate=True)
-        okay = True
+        if os.path.exists(fn):
+            click.launch(fn, locate=True)
+            okay = True
     return jsonify(okay=okay)
 
 

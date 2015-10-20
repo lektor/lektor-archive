@@ -4,6 +4,7 @@ import errno
 
 from inifile import IniFile
 
+from lektor.context import get_ctx
 from lektor.utils import iter_dotted_path_prefixes, resolve_dotted_value, \
      merge, decode_flat_data
 
@@ -40,13 +41,22 @@ class Databags(object):
         if not sources:
             return None
         rv = self._bags.get(name)
-        if rv is not None:
-            return rv
+        if rv is None:
+            filenames = []
+            rv = {}
+            for filename in sources:
+                filename = os.path.join(self.root_path, filename)
+                rv = merge(rv, load_databag(filename))
+                filenames.append(filename)
+            self._bags[name] = (rv, filenames)
+        else:
+            rv, filenames = rv
 
-        rv = {}
-        for filename in sources:
-            rv = merge(rv, load_databag(os.path.join(self.root_path, filename)))
-        self._bags[name] = rv
+        ctx = get_ctx()
+        if ctx is not None:
+            for filename in filenames:
+                ctx.record_dependency(filename)
+
         return rv
 
     def lookup(self, key):
