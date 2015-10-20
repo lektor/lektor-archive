@@ -55,7 +55,11 @@ class BreadCrumbs extends RecordComponent {
       alt: this.getRecordAlt()
     })
     .then((resp) => {
-      window.location.href = utils.getCanonicalUrl(resp.url);
+      if (resp.url === null) {
+        window.location.href = utils.getCanonicalUrl('/');
+      } else {
+        window.location.href = utils.getCanonicalUrl(resp.url);
+      }
     });
   }
 
