@@ -43,6 +43,8 @@
   "EDIT_ATTACHMENT_METADATA_OF": "Bearbeite Metadaten von Anhang “%s”",
   "EDIT_PAGE_NAME": "Bearbeite “%s”",
   "SAVE_CHANGES": "Änderungen Speichern",
+  "BROWSE_FS": "Dateisystem Öffnen",
+  "ERROR_CANNOT_BROWSE_FS": "Fehler: Datei existiert noch nicht",
   "REMOVE_FLOWBLOCK_PROMPT": "Willst du diesen Block wirklich entfernen?",
   "ADD_FLOWBLOCK": "Block Hinzufügen",
   "INVALID_INPUT": "Ungültige Eingabe",

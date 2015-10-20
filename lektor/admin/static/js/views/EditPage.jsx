@@ -123,6 +123,18 @@ class EditPage extends RecordEditComponent {
       });
   }
 
+  browseFs(event) {
+    utils.apiRequest('/browsefs', {data: {
+      path: this.getRecordPath(),
+      alt: this.getRecordAlt()
+    }, method: 'POST'})
+      .then((resp) => {
+        if (!resp.okay) {
+          alert(i18n.trans('ERROR_CANNOT_BROWSE_FS'));
+        }
+      });
+  }
+
   deleteRecord(event) {
     this.context.router.transitionTo('delete', {
       path: this.getUrlRecordPathWithAlt()
@@ -223,6 +235,8 @@ class EditPage extends RecordEditComponent {
           <button type="submit" className="btn btn-primary"
             onClick={this.saveChanges.bind(this)}>{i18n.trans('SAVE_CHANGES')}</button>
           {deleteButton}
+          <button type="submit" className="btn btn-default"
+            onClick={this.browseFs.bind(this)}>{i18n.trans('BROWSE_FS')}</button>
         </div>
       </div>
     );

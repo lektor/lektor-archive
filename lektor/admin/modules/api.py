@@ -1,5 +1,6 @@
 import posixpath
 
+import click
 from flask import Blueprint, jsonify, request, g, current_app
 
 from lektor.utils import is_valid_id
@@ -102,6 +103,21 @@ def get_preview_info():
         url=record.url_path,
         is_hidden=record.is_hidden
     )
+
+
+@bp.route('/api/browsefs', methods=['POST'])
+def browsefs():
+    alt = request.values.get('alt') or PRIMARY_ALT
+    record = g.admin_context.pad.get(request.values['path'], alt=alt)
+    okay = False
+    if record is not None:
+        if record.is_attachment:
+            fn = record.attachment_filename
+        else:
+            fn = record.source_filename
+        click.launch(fn, locate=True)
+        okay = True
+    return jsonify(okay=okay)
 
 
 @bp.route('/api/matchurl')
