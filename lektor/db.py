@@ -1097,6 +1097,12 @@ class Pad(object):
         rv = []
         for alt in self.db.config.list_alternatives():
             rv.append(self.get_root(alt=alt))
+
+        # If we don't have any alternatives, then we go with the implied
+        # root.
+        if not rv:
+            rv = [self.root]
+
         rv.append(self.asset_root)
         return rv
 
