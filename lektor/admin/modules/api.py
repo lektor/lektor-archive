@@ -73,7 +73,8 @@ def get_record_info():
     else:
         can_have_children = not record.is_attachment \
             and record.datamodel.has_own_children
-        can_have_attachments = record.datamodel.has_own_attachments
+        can_have_attachments = not record.is_attachment \
+            and record.datamodel.has_own_attachments
         is_attachment = record.is_attachment
         can_be_deleted = parent is not None and not record.datamodel.protected
         alts = g.admin_context.pad.describe_alternatives(request.args['path'])
