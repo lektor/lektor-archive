@@ -14,9 +14,6 @@ implied_keys = set(['_id', '_path', '_gid', '_alt', '_attachment_for'])
 possibly_implied_keys = set(['_model', '_template', '_attachment_type'])
 
 
-# XXX: this should be all based on the Tree code.
-
-
 class BadEdit(Exception):
     pass
 
@@ -109,9 +106,11 @@ class EditorSession(object):
 
     def to_json(self):
         label = None
+        label_i18n = None
         url_path = None
         if self.record is not None:
             label = self.record.record_label
+            label_i18n = self.record.get_record_label_i18n()
             url_path = self.record.url_path
         else:
             label = self.id
@@ -123,6 +122,7 @@ class EditorSession(object):
                 'path': self.path,
                 'exists': self.exists,
                 'label': label,
+                'label_i18n': label_i18n,
                 'url_path': url_path,
                 'alt': self.alt,
                 'is_attachment': self.is_attachment,

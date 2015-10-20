@@ -121,6 +121,7 @@ def get_raw_record():
 
 @bp.route('/api/newrecord')
 def get_new_record_info():
+    # XXX: convert to tree usage
     pad = g.admin_context.pad
     alt = request.args.get('alt') or PRIMARY_ALT
     ts = g.admin_context.tree.edit(request.args['path'], alt=alt)

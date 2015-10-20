@@ -211,9 +211,13 @@ class EditPage extends RecordEditComponent {
       ? i18n.trans('EDIT_ATTACHMENT_METADATA_OF')
       : i18n.trans('EDIT_PAGE_NAME');
 
+    var label = this.state.recordInfo.label_i18n
+      ? i18n.trans(this.state.recordInfo.label_i18n)
+      : this.state.recordInfo.label;
+
     return (
       <div className="edit-area">
-        <h2>{title.replace('%s', this.state.recordInfo.label)}</h2>
+        <h2>{title.replace('%s', label)}</h2>
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
