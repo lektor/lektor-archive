@@ -293,7 +293,7 @@ class Record(SourceObject):
 
     def get_record_label_i18n(self):
         rv = {}
-        for lang, _ in self.datamodel.label_i18n.iteritems():
+        for lang, _ in (self.datamodel.label_i18n or {}).iteritems():
             label = self.datamodel.format_record_label(self, lang)
             if not label:
                 label = self.get_fallback_record_label(lang)

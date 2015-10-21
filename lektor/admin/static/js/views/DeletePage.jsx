@@ -32,10 +32,10 @@ class DeletePage extends RecordComponent {
   }
 
   syncDialog() {
-    utils.loadData('/deleterecord', {path: this.getRecordPath()})
+    utils.loadData('/recordinfo', {path: this.getRecordPath()})
       .then((resp) => {
         this.setState({
-          recordInfo: resp.record_info
+          recordInfo: resp
         });
       });
   }
@@ -90,7 +90,7 @@ class DeletePage extends RecordComponent {
           {i18n.trans('DELETE_PAGE_PROMPT')}
         </p>
       );
-      if (ri.child_count > 0) {
+      if (ri.children.length > 0) {
         elements.push(
           <p key="page">
             {i18n.trans('DELETE_PAGE_CHILDREN_WARNING')}
@@ -114,9 +114,11 @@ class DeletePage extends RecordComponent {
       });
     }
     
+    var label = ri.label_i18n ? i18n.trans(ri.label_i18n) : ri.id;
+
     return (
       <div>
-        <h2>{i18n.trans('DELETE_RECORD').replace('%s', this.state.recordInfo.label)}</h2>
+        <h2>{i18n.trans('DELETE_RECORD').replace('%s', label)}</h2>
         {elements}
         <div style={{display: children.length > 0 ? 'block' : 'none'}}>
           <h4>{i18n.trans('CHILD_PAGES_TO_BE_DELETED')}</h4>

@@ -72,6 +72,7 @@ def get_record_info():
     return jsonify(
         id=tree_item.id,
         path=tree_item.path,
+        label_i18n=tree_item.label_i18n,
         exists=tree_item.exists,
         is_attachment=tree_item.is_attachment,
         attachments=[{
@@ -232,49 +233,6 @@ def add_new_record():
         'exists': exists,
         'path': path
     })
-
-
-@bp.route('/api/deleterecord')
-def get_delete_info():
-    # XXX: convert to tree usage
-    path = request.args['path']
-    alt = request.args.get('alt') or PRIMARY_ALT
-    record = g.admin_context.pad.get(path, alt=alt)
-    children = []
-    child_count = 0
-
-    if record is None:
-        can_be_deleted = True
-        is_attachment = False
-        label = posixpath.basename(path)
-    else:
-        can_be_deleted = record['_path'] != '/' and not record.datamodel.protected
-        is_attachment = record.is_attachment
-        label = record.record_label
-        if not is_attachment:
-            children = [{
-                'id': x['_id'],
-                'label': x.record_label,
-            } for x in record.real_children.limit(10)]
-            child_count = record.real_children.count()
-
-    return jsonify(
-        record_info={
-            'id': posixpath.basename(path),
-            'path': path,
-            'alt': alt,
-            'exists': record is not None,
-            'label': label,
-            'can_be_deleted': can_be_deleted,
-            'is_attachment': is_attachment,
-            'attachments': [{
-                'id': x['_id'],
-                'type': x['_attachment_type']
-            } for x in getattr(record, 'attachments', ())],
-            'children': children,
-            'child_count': child_count,
-        },
-    )
 
 
 @bp.route('/api/deleterecord', methods=['POST'])
