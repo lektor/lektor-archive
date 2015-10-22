@@ -74,18 +74,24 @@ div.application {
         color: #888;
       }
 
+      li:before {
+        color: @header-sep-color;
+      }
+
       li.new-record-crumb {
         a {
-          background: white;
+          background: @block-item-background;
           padding: 1px 5px;
           font-weight: bold;
-          border: 1px solid #aaa;
-          color: #444;
+          border: 1px solid @header-taint;
+          color: @block-item-color;
           border-radius: @panel-radius;
+          text-decoration: none!important;
 
           &:hover {
-            color: @brand-primary;
-            border-color: @brand-primary;
+            background: @block-item-active-background;
+            color: @block-item-active-color;
+            border-color: @block-header-background;
             text-decoration: none;
           }
         }

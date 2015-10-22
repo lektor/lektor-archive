@@ -40,7 +40,7 @@ def rewrite_html_for_editing(fp):
         margin: 0;
         font-family: 'Verdana', sans-serif;
         background: #eee;
-        color: #d00;
+        color: #77304c;
         font-weight: normal;
         font-size: 32px;
         padding: 0;
