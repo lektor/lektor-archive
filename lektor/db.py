@@ -493,7 +493,11 @@ class Attachment(Record):
 
     @property
     def source_filename(self):
-        return self.pad.db.to_fs_path(self['_path']) + '.lr'
+        if self.alt != PRIMARY_ALT:
+            suffix = '+%s.lr' % self.alt
+        else:
+            suffix = '.lr'
+        return self.pad.db.to_fs_path(self['_path']) + suffix
 
     @property
     def attachment_filename(self):

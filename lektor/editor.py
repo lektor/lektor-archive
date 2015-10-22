@@ -101,6 +101,7 @@ class EditorSession(object):
         self._changed = set()
         self._delete_this = False
         self._recursive_delete = False
+        self._master_delete = False
         self.is_attachment = is_attachment
         self.closed = False
 
@@ -220,16 +221,24 @@ class EditorSession(object):
     def __len__(self):
         return len(self.items())
 
-    @property
-    def fs_path(self):
+    def get_fs_path(self, alt=PRIMARY_ALT):
         """The path to the record file on the file system."""
         base = self.pad.db.to_fs_path(self.path)
         suffix = '.lr'
-        if self.alt != PRIMARY_ALT:
-            suffix = '+%s%s' % (self.alt, suffix)
+        if alt != PRIMARY_ALT:
+            suffix = '+%s%s' % (alt, suffix)
         if self.is_attachment:
             return base + suffix
         return os.path.join(base, 'contents' + suffix)
+
+    @property
+    def fs_path(self):
+        return self.get_fs_path(self.alt)
+
+    @property
+    def attachment_fs_path(self):
+        if self.is_attachment:
+            return self.pad.db.to_fs_path(self.path)
 
     def revert_key(self, key):
         """Reverts a key to the implied value."""
@@ -252,16 +261,28 @@ class EditorSession(object):
                 self._save_impl()
         self.closed = True
 
-    def delete(self, recursive=False):
-        """Deletes the record.  The default behavior is to remove the
-        immediate item only (and all of its attachments).
+    def delete(self, recursive=None, delete_master=False):
+        """Deletes the record.  How the delete works depends on what is being
+        deleted:
+
+        *   delete attachment: recursive mode is silently ignored.  If
+            `delete_master` is set then the attachment is deleted, otherwise
+            only the metadata is deleted.
+        *   delete page: in recursive mode everything is deleted in which
+            case `delete_master` must be set to `True` or an error is
+            generated.  In fact, the default is to perform a recursive
+            delete in that case.  If `delete_master` is False, then only the
+            contents file of the current alt is deleted.
 
         If a delete cannot be performed, an error is generated.
         """
         if self.closed:
             return
+        if recursive is None:
+            recursive = not self.is_attachment and delete_master
         self._delete_this = True
         self._recursive_delete = recursive
+        self._master_delete = delete_master
 
     def add_attachment(self, filename, fp):
         """Stores a new attachment.  Returns `None` if the file already"""
@@ -283,56 +304,52 @@ class EditorSession(object):
             shutil.copyfileobj(fp, f)
         return safe_filename
 
-    def _delete_impl(self):
-        # If this is already an attachment, then we can just delete the
-        # metadata and the attachment file, and bail.  The parameters do
-        # not matter in that case.
-        if self.is_attachment:
-            for fn in self.fs_path, self.fs_path[:-3]:
-                try:
-                    os.unlink(fn)
-                except OSError:
-                    pass
-            return
+    def _attachment_delete_impl(self):
+        files = [self.fs_path]
+        if self._master_delete:
+            files.append(self.attachment_fs_path)
+            for alt in self.pad.db.config.list_alternatives():
+                files.append(self.get_fs_path(alt))
 
-        try:
-            os.unlink(self.fs_path)
-        except OSError:
-            pass
+        for fn in files:
+            try:
+                os.unlink(fn)
+            except OSError:
+                pass
 
-        # If we're not deleting the primary alt, we just want to delete
-        # the contents file (which happened above) and then bail for the
-        # rest.
-        if self.alt != PRIMARY_ALT:
-            return
-
+    def _page_delete_impl(self):
         directory = os.path.dirname(self.fs_path)
 
-        # Recursive deletes are done through shutil.rmtree, in that case
-        # we just bail entirely.
         if self._recursive_delete:
             try:
                 shutil.rmtree(directory)
             except (OSError, IOError):
                 pass
             return
+        elif self._master_delete:
+            raise BadDelete('Master deletes of pages require that recursive '
+                            'deleting is enabled.')
 
-        try:
-            attachments = os.listdir(directory)
-        except OSError:
-            attachments = []
-        for filename in attachments:
-            filename = os.path.join(directory, filename)
-            if os.path.isfile(filename):
-                try:
-                    os.unlink(filename)
-                except OSError:
-                    pass
+        for fn in self.fs_path, directory:
+            try:
+                os.unlink(fn)
+            except OSError:
+                pass
 
-        try:
-            os.rmdir(directory)
-        except OSError:
-            pass
+    def _delete_impl(self):
+        if self.alt != PRIMARY_ALT:
+            if self._master_delete:
+                raise BadDelete('Master deletes need to be done from the primary '
+                                'alt.  Tried to delete from "%s"' % self.alt)
+            if self._recursive_delete:
+                raise BadDelete('Cannot perform recursive delete from a non '
+                                'primary alt.  Tried to delete from "%s"' %
+                                self.alt)
+
+        if self.is_attachment:
+            self._attachment_delete_impl()
+        else:
+            self._page_delete_impl()
 
     def _save_impl(self):
         if not self._changed and self.exists:

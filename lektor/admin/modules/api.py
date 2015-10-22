@@ -238,10 +238,11 @@ def add_new_record():
 @bp.route('/api/deleterecord', methods=['POST'])
 def delete_record():
     alt = request.values.get('alt') or PRIMARY_ALT
+    delete_master = request.values.get('delete_master') == '1'
     if request.values['path'] != '/':
         ts = g.admin_context.tree.edit(request.values['path'], alt=alt)
         with ts:
-            ts.delete()
+            ts.delete(delete_master=delete_master)
     return jsonify(okay=True)
 
 

@@ -164,11 +164,12 @@ class DataModel(object):
 
     @property
     def name(self):
-        return self.name_i18n.get('en')
+        name = (self.name_i18n or {}).get('en')
+        return name or self.id.title().replace('_', ' ')
 
     @property
     def label(self):
-        return self.label_i18n.get('en')
+        return (self.label_i18n or {}).get('en')
 
     def to_json(self, pad):
         """Describes the datamodel as JSON data."""
@@ -335,8 +336,8 @@ def datamodel_data_from_ini(id, inifile):
         filename=inifile.filename,
         id=id,
         parent=inifile.get('model.inherits'),
-        name=get_i18n_block(inifile, 'model.name') or id.title().replace('_', ' '),
-        label=get_i18n_block(inifile, 'model.label'),
+        name_i18n=get_i18n_block(inifile, 'model.name'),
+        label_i18n=get_i18n_block(inifile, 'model.label'),
         primary_field=inifile.get('model.primary_field'),
         hidden=inifile.get_bool('model.hidden', default=None),
         protected=inifile.get_bool('model.protected', default=None),
@@ -416,11 +417,11 @@ def datamodel_from_data(env, model_data, parent=None):
         filename=model_data['filename'],
         id=model_data['id'],
         parent=parent,
-        name_i18n=model_data['name'],
+        name_i18n=model_data['name_i18n'],
         primary_field=model_data['primary_field'],
 
         # direct data that can inherit
-        label_i18n=get_value('label'),
+        label_i18n=get_value('label_i18n'),
         hidden=get_value('hidden'),
         protected=get_value('protected'),
         expose=get_value('expose'),
