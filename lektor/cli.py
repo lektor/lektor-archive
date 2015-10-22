@@ -4,12 +4,27 @@ import time
 import click
 import hashlib
 
+from .i18n import get_default_lang, is_valid_language
+
 
 class Context(object):
 
     def __init__(self):
         self.tree = None
         self._env = None
+        self._ui_lang = None
+
+    def _get_ui_lang(self):
+        rv = self._ui_lang
+        if rv is None:
+            rv = self._ui_lang = get_default_lang()
+        return rv
+
+    def _set_ui_lang(self, value):
+        self._ui_lang = value
+
+    ui_lang = property(_get_ui_lang, _set_ui_lang)
+    del _get_ui_lang, _set_ui_lang
 
     def get_tree(self):
         if self.tree is not None:
@@ -50,16 +65,26 @@ class Context(object):
 pass_context = click.make_pass_decorator(Context, ensure=True)
 
 
+def validate_language(ctx, param, value):
+    if value is not None and not is_valid_language(value):
+        raise click.BadParameter('Unsupported language "%s".' % value)
+    return value
+
+
 @click.group()
 @click.option('--tree', type=click.Path(),
               help='The path to the lektor tree to work with.')
+@click.option('--language', default=None, callback=validate_language,
+              help='The UI language to use (overrides autodetection).')
 @pass_context
-def cli(ctx, tree=None):
+def cli(ctx, tree=None, language=None):
     """The lektor management application.
 
     This command can invoke lektor locally and serve up the website.  It's
     intended for local development of websites.
     """
+    if language is not None:
+        ctx.ui_lang = language
     if tree is not None:
         ctx.tree = tree
 
@@ -189,7 +214,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
     print ' * Tree path: %s' % ctx.get_tree()
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
-               verbosity=verbosity,
+               verbosity=verbosity, ui_lang=ctx.ui_lang,
                lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
                browse=browse)
 

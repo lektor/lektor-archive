@@ -233,10 +233,12 @@ class EditorSession(object):
 
     @property
     def fs_path(self):
+        """The file system path of the content file on disk."""
         return self.get_fs_path(self.alt)
 
     @property
     def attachment_fs_path(self):
+        """The file system path of the actual attachment."""
         if self.is_attachment:
             return self.pad.db.to_fs_path(self.path)
 
