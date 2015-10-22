@@ -71,7 +71,7 @@ class BreadCrumbs extends RecordComponent {
     if (this.state.recordPathInfo != null) {
       crumbs = this.state.recordPathInfo.segments.map((item) => {
         var urlPath = this.getUrlRecordPathWithAlt(item.path);
-        var label = i18n.trans(item.label_i18n);
+        var label = item.label_i18n ? i18n.trans(item.label_i18n) : item.label;
         var className = 'record-crumb';
 
         if (!item.exists) {

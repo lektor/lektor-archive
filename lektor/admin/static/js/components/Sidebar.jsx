@@ -81,6 +81,19 @@ class Sidebar extends RecordComponent {
       });
   }
 
+  fsOpen(event) {
+    event.preventDefault();
+    utils.apiRequest('/browsefs', {data: {
+      path: this.getRecordPath(),
+      alt: this.getRecordAlt()
+    }, method: 'POST'})
+      .then((resp) => {
+        if (!resp.okay) {
+          alert(i18n.trans('ERROR_CANNOT_BROWSE_FS'));
+        }
+      });
+  }
+
   renderPageActions() {
     var urlPath = this.getUrlRecordPathWithAlt();
     var links = [];
@@ -105,6 +118,16 @@ class Sidebar extends RecordComponent {
       <li key='preview'><Link to="preview" params={linkParams
         }>{i18n.trans('PREVIEW')}</Link></li>
     );
+
+    if (this.state.recordExists) {
+      links.push(
+        <li key='fs-open'>
+          <a href="#" onClick={this.fsOpen.bind(this)}>
+            {i18n.trans('BROWSE_FS')}
+          </a>
+        </li>
+      );
+    }
 
     if (this.state.canHaveChildren) {
       links.push(

@@ -51,7 +51,7 @@
   "EDIT_ATTACHMENT_METADATA_OF": "Edit Metadata of Attachment “%s”",
   "EDIT_PAGE_NAME": "Edit “%s”",
   "SAVE_CHANGES": "Save Changes",
-  "BROWSE_FS": "Open Filesystem",
+  "BROWSE_FS": "Open In Filesystem",
   "ERROR_CANNOT_BROWSE_FS": "Error: File does not exist yet.",
   "REMOVE_FLOWBLOCK_PROMPT": "Do you really want to remove this block?",
   "ADD_FLOWBLOCK": "Add Block",

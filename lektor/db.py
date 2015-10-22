@@ -1252,9 +1252,10 @@ class TreeItem(object):
 
     def iter_children(self, include_attachments=True, include_pages=True):
         """Iterates over all children."""
-        if self.exists:
-            return self.tree.iter_children(self.path, include_attachments,
-                                           include_pages)
+        if not self.exists:
+            return iter(())
+        return self.tree.iter_children(self.path, include_attachments,
+                                       include_pages)
 
     def get_children(self, offset=0, limit=None, include_attachments=True,
                      include_pages=True):
