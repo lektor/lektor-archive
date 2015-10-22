@@ -116,7 +116,7 @@ class PageBuildProgram(BuildProgram):
         if self.source.is_visible:
             self.declare_artifact(
                 posixpath.join(self.source.url_path, 'index.html'),
-                sources=[self.source.source_filename])
+                sources=list(self.source.iter_source_filenames()))
 
     def render_failure(self, exc_info):
         tb = Traceback(*exc_info)
@@ -144,8 +144,7 @@ class AttachmentBuildProgram(BuildProgram):
         if self.source.is_visible:
             self.declare_artifact(
                 self.source.url_path,
-                sources=[self.source.source_filename,
-                         self.source.attachment_filename])
+                sources=list(self.source.iter_source_filenames()))
 
     def build_artifact(self, artifact):
         with artifact.open('wb') as df:

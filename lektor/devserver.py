@@ -221,6 +221,7 @@ class BackgroundBuilder(threading.Thread):
             db = Database(self.env)
             builder = Builder(db.new_pad(), self.output_path)
             builder.build_all()
+            builder.prune()
         except Exception:
             traceback.print_exc()
         else:

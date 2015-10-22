@@ -20,6 +20,9 @@ class SourceObject(object):
         """The primary source filename of this source object."""
         raise NotImplementedError()
 
+    def iter_source_filenames(self):
+        yield self.source_filename
+
     @property
     def url_path(self):
         """The URL path of this source object if available."""

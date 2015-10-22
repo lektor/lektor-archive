@@ -407,10 +407,10 @@ class Page(Record):
         return posixpath.join(self.pad.db.to_fs_path(self['_path']),
                               'contents.lr')
 
-    def _iter_dependent_filenames(self):
+    def iter_source_filenames(self):
         yield self.source_filename
         if self.alt != PRIMARY_ALT:
-            yield posixpath.join(self.pad.db.to_fs_path(self.alt),
+            yield posixpath.join(self.pad.db.to_fs_path(self['_path']),
                                  'contents.lr')
 
     @property
@@ -512,12 +512,8 @@ class Attachment(Record):
     def get_fallback_record_label(self, lang):
         return self['_id']
 
-    def _iter_dependent_filenames(self):
-        # We only want to yield the source filename if it actually exists.
-        # For attachments it's very likely that this is not the case in
-        # case no metadata was defined.
-        if os.path.isfile(self.source_filename):
-            yield self.source_filename
+    def iter_source_filenames(self):
+        yield self.source_filename
         yield self.attachment_filename
 
 
@@ -1021,7 +1017,7 @@ class Database(object):
     def track_record_dependency(self, record):
         ctx = get_ctx()
         if ctx is not None:
-            for filename in record._iter_dependent_filenames():
+            for filename in record.iter_source_filenames():
                 ctx.record_dependency(filename)
             if record.datamodel.filename:
                 ctx.record_dependency(record.datamodel.filename)
