@@ -66,14 +66,14 @@ class BuildProgram(object):
             if ctx is not None:
                 sub_artifacts.extend(ctx.sub_artifacts)
 
-        # Step one is building the artifacts that this build program
-        # knows about.
-        for artifact in self.artifacts:
-            _build(artifact, self.build_artifact)
-
-        # For as long as our ctx keeps producing sub artifacts, we
-        # want to process them as well.
         try:
+            # Step one is building the artifacts that this build program
+            # knows about.
+            for artifact in self.artifacts:
+                _build(artifact, self.build_artifact)
+
+            # For as long as our ctx keeps producing sub artifacts, we
+            # want to process them as well.
             while sub_artifacts:
                 artifact, build_func = sub_artifacts.pop()
                 _build(artifact, build_func)
