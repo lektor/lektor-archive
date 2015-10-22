@@ -6,10 +6,13 @@ import jinja2
 
 from inifile import IniFile
 
-from lektor.utils import tojson_filter, resolve_i18n_for_dict
-from lektor.context import url_to, site_proxy, get_ctx
+from lektor.utils import tojson_filter, get_i18n_block
+from lektor.context import url_to, get_asset_url, site_proxy, \
+     config_proxy, get_ctx
 
 
+# Special value that identifies a target to the primary alt
+PRIMARY_ALT = '_primary'
 DEFAULT_CONFIG = {
     'IMAGEMAGICK_EXECUTABLE': None,
     'LESSC_EXECUTABLE': None,
@@ -36,6 +39,8 @@ DEFAULT_CONFIG = {
         '.pdf': 'document',
         '.doc': 'document',
         '.docx': 'document',
+        '.htm': 'document',
+        '.html': 'document',
 
         '.txt': 'text',
         '.log': 'text',
@@ -44,6 +49,8 @@ DEFAULT_CONFIG = {
         'name': None,
         'language': 'en',
     },
+    'ALTERNATIVES': {},
+    'PRIMARY_ALTERNATIVE': None,
     'SERVERS': {}
 }
 
@@ -66,10 +73,25 @@ def update_config_from_ini(config, inifile):
     config['SITE'].update(inifile.section_as_dict('site'))
 
     for sect in inifile.sections():
-        if not sect.startswith('servers.'):
-            continue
-        server_id = sect.split('.')[1]
-        config['SERVERS'][server_id] = inifile.section_as_dict(sect)
+        if sect.startswith('servers.'):
+            server_id = sect.split('.')[1]
+            config['SERVERS'][server_id] = inifile.section_as_dict(sect)
+        elif sect.startswith('alternatives.'):
+            alt = sect.split('.')[1]
+            config['ALTERNATIVES'][alt] = {
+                'name': get_i18n_block(inifile, 'alternatives.%s.name' % alt),
+                'url_prefix': inifile.get('alternatives.%s.url_prefix' % alt),
+                'url_suffix': inifile.get('alternatives.%s.url_suffix' % alt),
+                'primary': inifile.get_bool('alternatives.%s.primary' % alt),
+            }
+
+    for alt, alt_data in config['ALTERNATIVES'].iteritems():
+        if alt_data['primary']:
+            config['PRIMARY_ALTERNATIVE'] = alt
+            break
+    else:
+        if config['ALTERNATIVES']:
+            raise RuntimeError('Alternatives defined but no primary set.')
 
 
 # Special files that should always be ignored.
@@ -83,11 +105,15 @@ SPECIAL_ARTIFACTS = ['.htaccess', '.htpasswd']
 
 class ServerInfo(object):
 
-    def __init__(self, id, name, target, enabled=True):
+    def __init__(self, id, name_i18n, target, enabled=True):
         self.id = id
-        self.name = name
+        self.name_i18n = name_i18n
         self.target = target
         self.enabled = enabled
+
+    @property
+    def name(self):
+        return self.name_i18n.get('en')
 
     @property
     def short_target(self):
@@ -180,16 +206,82 @@ class Config(object):
         info = self.values['SERVERS'].get(name)
         if info is None:
             return None
-        info = resolve_i18n_for_dict(info, lang)
         target = info.get('target')
         if target is None:
             return None
         return ServerInfo(
             id=name,
-            name=info['name'],
+            name_i18n=get_i18n_block(info, 'name'),
             target=target,
             enabled=info.get('enabled', 'true').lower() in ('true', 'yes', '1'),
         )
+
+    def is_valid_alternative(self, alt):
+        """Checks if an alternative ID is known."""
+        if alt == PRIMARY_ALT:
+            return True
+        return alt in self.values['ALTERNATIVES']
+
+    def list_alternatives(self):
+        """Returns a sorted list of alternative IDs."""
+        return sorted(self.values['ALTERNATIVES'])
+
+    def get_alternative(self, alt):
+        """Returns the config setting of the given alt."""
+        if alt == PRIMARY_ALT:
+            alt = self.primary_alternative
+        return self.values['ALTERNATIVES'].get(alt)
+
+    def get_alternative_url_prefixes(self):
+        """Returns a list of alternative url prefixes by length."""
+        items = [(v['url_prefix'].lstrip('/'), k)
+                 for k, v in self.values['ALTERNATIVES'].iteritems()
+                 if v['url_prefix']]
+        items.sort(key=lambda x: -len(x[0]))
+        return items
+
+    def get_alternative_url_suffixes(self):
+        """Returns a list of alternative url suffixes by length."""
+        items = [(v['url_suffix'].rstrip('/'), k)
+                 for k, v in self.values['ALTERNATIVES'].iteritems()
+                 if v['url_suffix']]
+        items.sort(key=lambda x: -len(x[0]))
+        return items
+
+    def get_alternative_url_span(self, alt=PRIMARY_ALT):
+        """Returns the URL span (prefix, suffix) for an alt."""
+        if alt == PRIMARY_ALT:
+            alt = self.primary_alternative
+        cfg = self.values['ALTERNATIVES'].get(alt)
+        if cfg is not None:
+            return cfg['url_prefix'] or '', cfg['url_suffix'] or ''
+        return '', ''
+
+    @property
+    def primary_alternative_is_rooted(self):
+        """`True` if the primary alternative is sitting at the root of
+        the URL handler.
+        """
+        primary = self.primary_alternative
+        if primary is None:
+            return True
+
+        cfg = self.values['ALTERNATIVES'].get(primary)
+        if not (cfg['url_prefix'] or '').lstrip('/') and \
+           not (cfg['url_suffix'] or '').rstrip('/'):
+            return True
+
+        return False
+
+    @property
+    def primary_alternative(self):
+        """The identifier that acts as primary alternative."""
+        return self.values['PRIMARY_ALTERNATIVE']
+
+
+def lookup_from_bag(*args):
+    pieces = '.'.join(x for x in args if x)
+    return site_proxy.databags.lookup(pieces)
 
 
 class Environment(object):
@@ -212,12 +304,17 @@ class Environment(object):
             # By default filters need to be side-effect free.  This is not
             # the case for this one, so we need to make it as a dummy
             # context filter so that jinja2 will not inline it.
-            url=jinja2.contextfilter(lambda ctx, *a, **kw: url_to(*a, **kw)),
+            url=jinja2.contextfilter(
+                lambda ctx, *a, **kw: url_to(*a, **kw)),
+            asseturl=jinja2.contextfilter(
+                lambda ctx, *a, **kw: url_to(get_asset_url(*a, **kw))),
         )
         self.jinja_env.globals.update(
             F=F,
             url_to=url_to,
             site=site_proxy,
+            config=config_proxy,
+            bag=lookup_from_bag,
         )
 
     @property

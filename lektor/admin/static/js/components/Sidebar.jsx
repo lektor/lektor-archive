@@ -24,6 +24,7 @@ class Sidebar extends RecordComponent {
     return {
       recordAttachments: [],
       recordChildren: [],
+      recordAlts: [],
       canHaveAttachments: false,
       canHaveChildren: false,
       isAttachment: false,
@@ -61,9 +62,16 @@ class Sidebar extends RecordComponent {
 
     utils.loadData('/recordinfo', {path: path})
       .then((resp) => {
+        var alts = resp.alts;
+        alts.sort((a, b) => {
+          var nameA = (a.is_primary ? 'A' : 'B') + i18n.trans(a.name_i18n);
+          var nameB = (b.is_primary ? 'A' : 'B') + i18n.trans(b.name_i18n);
+          return nameA === nameB ? 0 : nameA < nameB ? -1 : 1;
+        });
         this.setState({
           recordAttachments: resp.attachments,
           recordChildren: resp.children,
+          recordAlts: alts,
           canHaveAttachments: resp.can_have_attachments,
           canHaveChildren: resp.can_have_children,
           isAttachment: resp.is_attachment,
@@ -74,7 +82,7 @@ class Sidebar extends RecordComponent {
   }
 
   renderPageActions() {
-    var urlPath = utils.fsToUrlPath(this.getRecordPath());
+    var urlPath = this.getUrlRecordPathWithAlt();
     var links = [];
     var linkParams = {path: urlPath};
     var deleteLink = null;
@@ -127,14 +135,55 @@ class Sidebar extends RecordComponent {
     );
   }
 
+  renderAlts() {
+    if (this.state.recordAlts.length < 2) {
+      return null;
+    }
+
+    var alt = this.getRecordAlt();
+
+    var items = this.state.recordAlts.map((item) => {
+      var title = i18n.trans(item.name_i18n);
+      var className = 'alt';
+      if (item.is_primary) {
+        title += ' (' + i18n.trans('PRIMARY_ALT') + ')';
+      } else if (item.primary_overlay) {
+        title += ' (' + i18n.trans('PRIMARY_OVERLAY') + ')';
+      }
+      if (!item.exists) {
+        className += ' alt-missing';
+      }
+      var routes = this.context.router.getCurrentRoutes();
+      var action = routes.length > 0 && routes[routes.length - 1].name || 'edit';
+      return (
+        <li key={item.alt} className={className}>
+          <Link
+            to={action}
+            params={{path: this.getUrlRecordPathWithAlt(null, item.alt)}}>
+              {title}
+          </Link>
+        </li>
+      );
+    });
+
+    return (
+      <div key="alts" className="section">
+        <h3>{i18n.trans('ALTS')}</h3>
+        <ul className="nav">
+          {items}
+        </ul>
+      </div>
+    );
+  }
+
   renderChildActions() {
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
 
-    var items = this.state.recordChildren.map(function(child) {
-      var urlPath = utils.fsToUrlPath(child.path);
+    var items = this.state.recordChildren.map((child) => {
+      var urlPath = this.getUrlRecordPathWithAlt(child.path);
       return (
-        <li key={child['_id']}>
-          <Link to={target} params={{path: urlPath}}>{child.label}</Link>
+        <li key={child.id}>
+          <Link to={target} params={{path: urlPath}}>{i18n.trans(child.label_i18n)}</Link>
         </li>
       )
     });
@@ -158,11 +207,11 @@ class Sidebar extends RecordComponent {
   }
 
   renderAttachmentActions() {
-    var items = this.state.recordAttachments.map(function(atch) {
-      var urlPath = utils.fsToUrlPath(atch.path);
+    var items = this.state.recordAttachments.map((atch) => {
+      var urlPath = this.getUrlRecordPathWithAlt(atch.path);
       return (
-        <li key={atch['_id']}>
-          <Link to="edit" params={{path: urlPath}}>{atch['_id']} ({atch.type})</Link>
+        <li key={atch.id}>
+          <Link to="edit" params={{path: urlPath}}>{atch.id} ({atch.type})</Link>
         </li>
       )
     });
@@ -191,6 +240,8 @@ class Sidebar extends RecordComponent {
     if (this.getRecordPath() !== null) {
       sections.push(this.renderPageActions());
     }
+
+    sections.push(this.renderAlts());
 
     if (this.state.canHaveChildren) {
       sections.push(this.renderChildActions());

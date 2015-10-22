@@ -3,6 +3,7 @@ import stat
 import posixpath
 
 from lektor.sourceobj import SourceObject
+from lektor.context import get_ctx
 
 
 special_file_assets = {}
@@ -64,7 +65,14 @@ class Asset(SourceObject):
         name = self.name
         if name[:1] == '_':
             name = '.' + name[1:]
-        return name + self.artifact_suffix
+        base, ext = posixpath.splitext(name)
+
+        # If this is a known extension from an attachment then convert it
+        # to lowercase
+        if ext.lower() in self.pad.db.config['ATTACHMENT_TYPES']:
+            ext = ext.lower()
+
+        return base + ext + self.artifact_suffix
 
     @property
     def url_path(self):

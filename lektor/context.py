@@ -16,6 +16,21 @@ def url_to(*args, **kwargs):
     return ctx.source.url_to(*args, **kwargs)
 
 
+def get_asset_url(asset):
+    """Calculates the asset URL relative to the current record."""
+    ctx = get_ctx()
+    if ctx is None:
+        raise RuntimeError('No context found')
+    asset = site_proxy.get_asset(asset)
+    if asset is None:
+        return Undefined('Asset not found')
+    info = ctx.build_state.get_file_info(asset.source_filename)
+    return '%s?h=%s' % (
+        ctx.source.url_to('!' + asset.url_path),
+        info.checksum[:8],
+    )
+
+
 @LocalProxy
 def site_proxy():
     """Returns the current pad."""
@@ -23,6 +38,12 @@ def site_proxy():
     if ctx is None:
         return Undefined(hint='Cannot access the site from here', name='site')
     return ctx.pad
+
+
+@LocalProxy
+def config_proxy():
+    """Returns the current config."""
+    return site_proxy.db.config
 
 
 def get_ctx():

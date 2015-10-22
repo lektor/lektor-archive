@@ -119,7 +119,7 @@ class AddChildPage extends RecordComponent {
         } else if (!resp.valid_id) {
           errMsg(i18n.trans('ERROR_INVALID_ID').replace('%s', id));
         } else {
-          var urlPath = utils.fsToUrlPath(resp.path);
+          var urlPath = this.getUrlRecordPathWithAlt(resp.path);
           this.context.router.transitionTo('edit', {path: urlPath});
         }
       });
@@ -131,7 +131,7 @@ class AddChildPage extends RecordComponent {
     if (!this.state.newChildInfo.implied_model) {
       var choices = this.getAvailableModels().map((model) => {
         return (
-          <option value={model.id} key={model.id}>{model.name}</option>
+          <option value={model.id} key={model.id}>{i18n.trans(model.name_i18n)}</option>
         );
       });
       fields.push(
@@ -154,7 +154,7 @@ class AddChildPage extends RecordComponent {
       }
       fields.push(
         <dl key={field.name}>
-          <dt>{field.label}</dt>
+          <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
           <dd><Widget
             value={value}
             placeholder={placeholder}

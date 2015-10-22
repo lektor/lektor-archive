@@ -1,6 +1,7 @@
 import posixpath
 
 from weakref import ref as weakref
+from lektor.environment import PRIMARY_ALT
 
 
 class SourceObject(object):
@@ -8,6 +9,11 @@ class SourceObject(object):
 
     def __init__(self, pad):
         self._pad = weakref(pad)
+
+    @property
+    def alt(self):
+        """Returns the effective alt of this source object (unresolved)."""
+        return PRIMARY_ALT
 
     @property
     def source_filename(self):
@@ -18,6 +24,11 @@ class SourceObject(object):
     def url_path(self):
         """The URL path of this source object if available."""
         raise NotImplementedError()
+
+    @property
+    def path(self):
+        """Return the full pato to the source object."""
+        return self.url_path.strip('/')
 
     @property
     def pad(self):
@@ -35,17 +46,21 @@ class SourceObject(object):
         if not url_path:
             return self
 
-    def url_to(self, path):
+    def url_to(self, path, alt=None):
         """Calculates the URL from the current source object to the given
         other source object.  Alternatively a path can also be provided
         instead of a source object.  If the path starts with a leading
         bang (``!``) then no resolving is performed.
         """
+        if alt is None:
+            alt = self.alt
+
         resolve = True
         if hasattr(path, 'url_path'):
             path = path.url_path
         elif path[:1] == '!':
             resolve = False
+            path = path[1:]
 
         this = self.url_path
         if this == '/':
@@ -55,11 +70,11 @@ class SourceObject(object):
             depth = ('/' + this.strip('/')).count('/')
             prefix = ''
 
-        path = posixpath.join(this, path)
-
         if resolve:
-            source = self.pad.get(path)
+            source = self.pad.get(posixpath.join(self.path, path), alt=alt)
             if source is not None:
                 path = source.url_path
+
+        path = posixpath.normpath(posixpath.join(this, path))
 
         return (prefix + '../' * depth).rstrip('/') + path

@@ -12,6 +12,7 @@ from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.wsgi import wrap_file, pop_path_info
+from werkzeug.utils import append_slash_redirect
 
 from lektor.db import Database
 from lektor.builder import Builder
@@ -39,7 +40,7 @@ def rewrite_html_for_editing(fp):
         margin: 0;
         font-family: 'Verdana', sans-serif;
         background: #eee;
-        color: #d00;
+        color: #77304c;
         font-weight: normal;
         font-size: 32px;
         padding: 0;
@@ -136,16 +137,15 @@ def safe_join(directory, filename):
 class WsgiApp(object):
 
     def __init__(self, env, output_path, verbosity=0, debug=False,
-                 lang='en'):
+                 ui_lang='en'):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
-        self.admin = WebAdmin(env, debug=debug, lang=lang,
+        self.admin = WebAdmin(env, debug=debug, ui_lang=ui_lang,
                               output_path=output_path)
-        self.lang = lang
 
     def get_pad(self):
-        db = Database(self.env, lang=self.lang)
+        db = Database(self.env)
         pad = db.new_pad()
         return pad
 
@@ -163,6 +163,15 @@ class WsgiApp(object):
         # primary
         source = pad.resolve_url_path(request.path)
         if source is not None:
+            # If the request path does not end with a slash but we
+            # requested a URL that actually wants a trailing slash, we
+            # append it.  This is consistent with what apache and nginx do
+            # and it ensures our relative urls work.
+            if not request.path.endswith('/') and \
+               source.url_path != '/' and \
+               source.url_path.endswith('/'):
+                return append_slash_redirect(request.environ)
+
             with CliReporter(self.env, verbosity=self.verbosity):
                 builder = self.get_builder(pad)
                 prog = builder.build(source)
@@ -197,7 +206,7 @@ class WsgiApp(object):
 
 class BackgroundBuilder(threading.Thread):
 
-    def __init__(self, env, output_path, verbosity=0, lang='en'):
+    def __init__(self, env, output_path, verbosity=0):
         threading.Thread.__init__(self)
         watcher = Watcher(env, output_path)
         watcher.observer.start()
@@ -205,12 +214,11 @@ class BackgroundBuilder(threading.Thread):
         self.watcher = watcher
         self.output_path = output_path
         self.verbosity = verbosity
-        self.lang = lang
         self.last_build = time.time()
 
     def build(self):
         try:
-            db = Database(self.env, lang=self.lang)
+            db = Database(self.env)
             builder = Builder(db.new_pad(), self.output_path)
             builder.build_all()
         except Exception:
@@ -261,21 +269,19 @@ def browse_to_address(addr):
 
 
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
-               lang=None, browse=False):
+               ui_lang='en', browse=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
-    if lang is None:
-        lang = env.load_config().site_language
     wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
     save_for_bg = not lektor_dev or wz_as_main
 
     if save_for_bg:
-        background_builder = BackgroundBuilder(env, output_path, verbosity,
-                                               lang=lang)
+        background_builder = BackgroundBuilder(env, output_path, verbosity)
         background_builder.setDaemon(True)
         background_builder.start()
-    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev, lang=lang)
+    app = WsgiApp(env, output_path, verbosity, debug=lektor_dev,
+                  ui_lang=ui_lang)
 
     dt = None
     if lektor_dev and not wz_as_main:

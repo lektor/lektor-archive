@@ -43,6 +43,7 @@ class EditPage extends RecordEditComponent {
       case '_id':
       case '_path':
       case '_gid':
+      case '_alt':
       case '_model':
       case '_attachment_for':
         return true;
@@ -53,7 +54,10 @@ class EditPage extends RecordEditComponent {
   }
 
   syncEditor() {
-    utils.loadData('/rawrecord', {path: this.getRecordPath()})
+    utils.loadData('/rawrecord', {
+      path: this.getRecordPath(),
+      alt: this.getRecordAlt()
+    })
     .then((resp) => {
         this.setState({
           recordInitialData: resp.data,
@@ -104,21 +108,37 @@ class EditPage extends RecordEditComponent {
 
   saveChanges(event) {
     var path = this.getRecordPath();
+    var alt = this.getRecordAlt();
     var newData = this.getValues();
     utils.apiRequest('/rawrecord', {json: {
-        data: newData, path: path}, method: 'PUT'})
+        data: newData, path: path, alt: alt}, method: 'PUT'})
       .then((resp) => {
         this.setState({
           hasPendingChanges: false
         }, function() {
-          this.context.router.transitionTo('preview', {path: utils.fsToUrlPath(path)});
+          this.context.router.transitionTo('preview', {
+            path: this.getUrlRecordPathWithAlt(path)
+          });
         });
       });
   }
 
+  browseFs(event) {
+    utils.apiRequest('/browsefs', {data: {
+      path: this.getRecordPath(),
+      alt: this.getRecordAlt()
+    }, method: 'POST'})
+      .then((resp) => {
+        if (!resp.okay) {
+          alert(i18n.trans('ERROR_CANNOT_BROWSE_FS'));
+        }
+      });
+  }
+
   deleteRecord(event) {
-    var urlPath = utils.fsToUrlPath(this.getRecordPath());
-    this.context.router.transitionTo('delete', {path: urlPath});
+    this.context.router.transitionTo('delete', {
+      path: this.getUrlRecordPathWithAlt()
+    });
   }
 
   getPlaceholderForField(field) {
@@ -157,7 +177,7 @@ class EditPage extends RecordEditComponent {
 
       var rv = (
         <dl key={field.name} className={className}>
-          <dt>{field.label}</dt>
+          <dt>{i18n.trans(field.label_i18n)}</dt>
           <dd><Widget
             value={value}
             onChange={this.onValueChange.bind(this, field)}
@@ -203,14 +223,20 @@ class EditPage extends RecordEditComponent {
       ? i18n.trans('EDIT_ATTACHMENT_METADATA_OF')
       : i18n.trans('EDIT_PAGE_NAME');
 
+    var label = this.state.recordInfo.label_i18n
+      ? i18n.trans(this.state.recordInfo.label_i18n)
+      : this.state.recordInfo.label;
+
     return (
       <div className="edit-area">
-        <h2>{title.replace('%s', this.state.recordInfo.label)}</h2>
+        <h2>{title.replace('%s', label)}</h2>
         {this.renderFormFields()}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
             onClick={this.saveChanges.bind(this)}>{i18n.trans('SAVE_CHANGES')}</button>
           {deleteButton}
+          <button type="submit" className="btn btn-default"
+            onClick={this.browseFs.bind(this)}>{i18n.trans('BROWSE_FS')}</button>
         </div>
       </div>
     );

@@ -4,7 +4,7 @@ import errno
 from inifile import IniFile
 
 from lektor import types
-from lektor.utils import slugify, get_i18n, resolve_i18n_for_dict
+from lektor.utils import slugify, get_i18n_block
 from lektor.environment import Expression, FormatExpression
 
 
@@ -68,21 +68,26 @@ class AttachmentConfig(object):
 
 class Field(object):
 
-    def __init__(self, env, name, label=None, type=None, options=None):
+    def __init__(self, env, name, label_i18n=None, type=None, options=None):
         if type is None:
             type = types.builtin_types['string']
         self.name = name
-        if label is None:
-            label = name.replace('_', ' ').strip().capitalize()
-        self.label = label
+        if not label_i18n:
+            label_i18n = {'en': name.replace('_', ' ').strip().capitalize()}
+        self.label_i18n = label_i18n
         if options is None:
             options = {}
         self.type = type(env, options)
+
+    @property
+    def label(self):
+        return self.label_i18n.get('en')
 
     def to_json(self, pad):
         return {
             'name': self.name,
             'label': self.label,
+            'label_i18n': self.label_i18n,
             'type': self.type.to_json(pad),
         }
 
@@ -110,7 +115,7 @@ def _iter_all_fields(obj):
 
 class DataModel(object):
 
-    def __init__(self, env, id, name, label=None,
+    def __init__(self, env, id, name_i18n, label_i18n=None,
                  filename=None, hidden=None, protected=None,
                  expose=None, child_config=None, attachment_config=None,
                  pagination_config=None, fields=None,
@@ -118,8 +123,8 @@ class DataModel(object):
         self.env = env
         self.filename = filename
         self.id = id
-        self.name = name
-        self.label = label
+        self.name_i18n = name_i18n
+        self.label_i18n = label_i18n
         if hidden is None:
             hidden = False
         self.hidden = hidden
@@ -155,7 +160,16 @@ class DataModel(object):
 
         self._child_slug_tmpl = None
         self._child_replacements = None
-        self._label_tmpl = None
+        self._label_tmpls = {}
+
+    @property
+    def name(self):
+        name = (self.name_i18n or {}).get('en')
+        return name or self.id.title().replace('_', ' ')
+
+    @property
+    def label(self):
+        return (self.label_i18n or {}).get('en')
 
     def to_json(self, pad):
         """Describes the datamodel as JSON data."""
@@ -163,8 +177,10 @@ class DataModel(object):
             'filename': self.filename,
             'id': self.id,
             'name': self.name,
+            'name_i18n': self.name_i18n,
             'primary_field': self.primary_field,
             'label': self.label,
+            'label_i18n': self.label_i18n,
             'hidden': self.hidden,
             'protected': self.protected,
             'expose': self.expose,
@@ -174,21 +190,22 @@ class DataModel(object):
             'fields': [x.to_json(pad) for x in _iter_all_fields(self)],
         }
 
-    def format_record_label(self, record):
+    def format_record_label(self, record, lang='en'):
         """Returns the label for a given record."""
-        label = self.label
+        label = self.label_i18n.get(lang)
         if label is None:
             return None
 
-        if self._label_tmpl is None or \
-           self._label_tmpl[0] != label:
-            self._label_tmpl = (
+        tmpl = self._label_tmpls.get(lang)
+        if tmpl is None:
+            tmpl = (
                 label,
                 FormatExpression(self.env, label)
             )
+            self._label_tmpls[lang] = tmpl
 
         try:
-            return self._label_tmpl[1].evaluate(record.pad, this=record)
+            return tmpl[1].evaluate(record.pad, this=record)
         except Exception:
             # XXX: log
             return None
@@ -259,10 +276,10 @@ class DataModel(object):
 
 class FlowBlockModel(object):
 
-    def __init__(self, env, id, name, filename=None, fields=None):
+    def __init__(self, env, id, name_i18n, filename=None, fields=None):
         self.env = env
         self.id = id
-        self.name = name
+        self.name_i18n = name_i18n
         self.filename = filename
         if fields is None:
             fields = []
@@ -272,10 +289,15 @@ class FlowBlockModel(object):
         self.field_map['_flowblock'] = Field(
             env, name='_flowblock', type=types.builtin_types['string'])
 
+    @property
+    def name(self):
+        return self.name_i18n.get('en') or self.id.title().replace('_', ' ')
+
     def to_json(self, pad):
         return {
             'id': self.id,
             'name': self.name,
+            'name_i18n': self.name_i18n,
             'filename': self.filename,
             'fields': [x.to_json(pad) for x in _iter_all_fields(self)
                        if x.name != '_flowblock'],
@@ -296,14 +318,14 @@ class FlowBlockModel(object):
         )
 
 
-def fielddata_from_ini(inifile, lang):
+def fielddata_from_ini(inifile):
     return [(
         sect.split('.', 1)[1],
-        resolve_i18n_for_dict(inifile.section_as_dict(sect), lang)
+        inifile.section_as_dict(sect),
     ) for sect in inifile.sections() if sect.startswith('fields.')]
 
 
-def datamodel_data_from_ini(id, inifile, lang='en'):
+def datamodel_data_from_ini(id, inifile):
     def _parse_order(value):
         value = (value or '').strip()
         if not value:
@@ -314,8 +336,8 @@ def datamodel_data_from_ini(id, inifile, lang='en'):
         filename=inifile.filename,
         id=id,
         parent=inifile.get('model.inherits'),
-        name=get_i18n(inifile, 'model.name', lang) or id.title().replace('_', ' '),
-        label=get_i18n(inifile, 'model.label', lang),
+        name_i18n=get_i18n_block(inifile, 'model.name'),
+        label_i18n=get_i18n_block(inifile, 'model.label'),
         primary_field=inifile.get('model.primary_field'),
         hidden=inifile.get_bool('model.hidden', default=None),
         protected=inifile.get_bool('model.protected', default=None),
@@ -337,16 +359,16 @@ def datamodel_data_from_ini(id, inifile, lang='en'):
             per_page=inifile.get_int('pagination.per_page'),
             url_suffix=inifile.get('pagination.url_suffix'),
         ),
-        fields=fielddata_from_ini(inifile, lang),
+        fields=fielddata_from_ini(inifile),
     )
 
 
-def flowblock_data_from_ini(id, inifile, lang):
+def flowblock_data_from_ini(id, inifile):
     return dict(
         filename=inifile.filename,
         id=id,
-        name=get_i18n(inifile, 'block.name', lang) or id.title().replace('_', ' '),
-        fields=fielddata_from_ini(inifile, lang),
+        name_i18n=get_i18n_block(inifile, 'block.name'),
+        fields=fielddata_from_ini(inifile),
     )
 
 
@@ -357,8 +379,8 @@ def fields_from_data(env, data, parent_fields=None):
     for name, options in data:
         ty = types.builtin_types[options.get('type', 'string')]
         fields.append(Field(env=env, name=name,
-                            label=options.get('label'), type=ty,
-                            options=options))
+                            label_i18n=get_i18n_block(options, 'label'),
+                            type=ty, options=options))
         known_fields.add(name)
 
     if parent_fields is not None:
@@ -395,11 +417,11 @@ def datamodel_from_data(env, model_data, parent=None):
         filename=model_data['filename'],
         id=model_data['id'],
         parent=parent,
-        name=model_data['name'],
+        name_i18n=model_data['name_i18n'],
         primary_field=model_data['primary_field'],
 
         # direct data that can inherit
-        label=get_value('label'),
+        label_i18n=get_value('label_i18n'),
         hidden=get_value('hidden'),
         protected=get_value('protected'),
         expose=get_value('expose'),
@@ -429,7 +451,7 @@ def flowblock_from_data(env, block_data):
         env,
         filename=block_data['filename'],
         id=block_data['id'],
-        name=block_data['name'],
+        name_i18n=block_data['name_i18n'],
         fields=fields_from_data(env, block_data['fields']),
     )
 
@@ -449,13 +471,13 @@ def iter_inis(path):
             raise
 
 
-def load_datamodels(env, lang='en'):
+def load_datamodels(env):
     """Loads the datamodels for a specific environment."""
     path = os.path.join(env.root_path, 'models')
     data = {}
 
     for model_id, inifile in iter_inis(path):
-        data[model_id] = datamodel_data_from_ini(model_id, inifile, lang)
+        data[model_id] = datamodel_data_from_ini(model_id, inifile)
 
     rv = {}
 
@@ -482,19 +504,19 @@ def load_datamodels(env, lang='en'):
     for model_id in data.keys():
         get_model(model_id)
 
-    rv['none'] = DataModel(env, 'none', 'None', hidden=True)
+    rv['none'] = DataModel(env, 'none', {'en': 'None'}, hidden=True)
 
     return rv
 
 
-def load_flowblocks(env, lang='en'):
+def load_flowblocks(env):
     """Loads all the flow blocks for a specific environment."""
     path = os.path.join(env.root_path, 'flowblocks')
     rv = {}
 
     for flowblock_id, inifile in iter_inis(path):
         rv[flowblock_id] = flowblock_from_data(env,
-            flowblock_data_from_ini(flowblock_id, inifile, lang))
+            flowblock_data_from_ini(flowblock_id, inifile))
 
     return rv
 
@@ -515,6 +537,9 @@ add_system_field('_id', type='string')
 
 # The global ID (within a folder) of the record
 add_system_field('_gid', type='string')
+
+# The alt key that identifies this record
+add_system_field('_alt', type='string')
 
 # the model that defines the data of the record
 add_system_field('_model', type='string')

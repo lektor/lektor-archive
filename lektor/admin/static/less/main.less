@@ -1,4 +1,5 @@
 @import "./bootstrap-overrides.less";
+@import "./utils.less";
 
 html, body {
   height: 100%;
@@ -24,7 +25,11 @@ div.application {
   header {
     margin: 0 auto;
     padding: 0;
-    background: #eee;
+    background: @header-taint;
+
+    a {
+      color: white;
+    }
 
     /* sidebar toggle button */
     .navbar-toggle {
@@ -32,7 +37,7 @@ div.application {
       margin: 0;
       padding: 4px;
       z-index: 999999;
-      border: 1px solid #888;
+      border: 1px solid @toggle-group-color;
       background: white;
       margin-left: 10px;
       height: 20px!important;
@@ -43,7 +48,7 @@ div.application {
       }
 
       &.active {
-        background: #ccc;
+        background: @panel-border-color;
         .icon-list {
           background: white;
         }
@@ -69,18 +74,24 @@ div.application {
         color: #888;
       }
 
+      li:before {
+        color: @header-sep-color;
+      }
+
       li.new-record-crumb {
         a {
-          background: white;
+          background: @block-item-background;
           padding: 1px 5px;
           font-weight: bold;
-          border: 1px solid #aaa;
-          color: #444;
-          border-radius: 4px;
+          border: 1px solid @header-taint;
+          color: @block-item-color;
+          border-radius: @panel-radius;
+          text-decoration: none!important;
 
           &:hover {
-            color: @brand-primary;
-            border-color: @brand-primary;
+            background: @block-item-active-background;
+            color: @block-item-active-color;
+            border-color: @block-header-background;
             text-decoration: none;
           }
         }
@@ -131,6 +142,10 @@ div.application {
         margin: 0;
         font-weight: bold;
         font-size: 15px;
+        background: @block-header-background;
+        color: white;
+        padding: 3px 7px;
+        display: inline-block;
       }
 
       ul.nav {
@@ -139,25 +154,33 @@ div.application {
         list-style: none;
 
         li {
-          margin: 0;
+          margin: 2px 0 0 20px;
           padding: 0;
-          border-bottom: 1px solid #eee;
 
-          &:first-child {
-            border-top: 1px solid #eee;
+          a:hover {
+            background: @block-item-hover-background;
+            color: @block-item-hover-color;
           }
 
           a, > em {
-            display: block;
+            display: inline-block;
             padding: 5px 10px;
-
+            background: @block-item-background;
+            color: @block-item-color;
             &.active {
               font-weight: 500;
-              color: #555;
-              background: #f4f4f4;
+              background: @block-item-active-background;
+              color: @block-item-active-color;
               outline: none;
             }
           }
+        }
+
+        li.alt-missing a {
+          color: @block-item-missing-color;
+        }
+        li.current-alt a {
+          font-weight: bold;
         }
       }
 
@@ -215,7 +238,7 @@ div.application {
 
 .edit-area {
   dl.system-field dt {
-    color: #666;
+    color: @toggle-group-color;
     font-style: italic;
   }
 
@@ -231,11 +254,11 @@ div.application {
   }
 
   div.flow-block {
-    background: #fafafa;
-    border: 1px solid #ccc;
+    background: @flow-block-panel-background;
+    border: 1px solid @panel-border-color;
     margin: 0;
     padding: 5px 10px;
-    border-radius: 5px;
+    border-radius: @panel-radius;
 
     &+ div.flow-block {
       margin-top: 15px;
@@ -244,7 +267,8 @@ div.application {
     h4 {
       margin: 0;
       font-size: 14px;
-      background: #ccc;
+      background: @flow-block-header-background;
+      color: @flow-block-header-color;
       margin: -5px -10px 5px -10px;
       padding: 5px 10px;
     }
@@ -268,16 +292,16 @@ div.application {
 
   div.flow {
     padding: 10px;
-    background: #f8f8f8;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    background: @flow-panel-background;
+    border: 1px solid @panel-border-color;
+    border-radius: @panel-radius;
 
     div.add-block {
-      background: #eee;
-      border: 1px solid #ccc;
+      background: @background-taint;
+      border: 1px solid @panel-border-color;
       margin-top: 15px;
       padding: 5px 10px;
-      border-radius: 5px;
+      border-radius: @panel-radius;
     }
   }
 }
@@ -285,9 +309,9 @@ div.application {
 div.toggle-group {
   padding: 10px;
   margin: 15px 0;
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  background: @background-taint;
+  border: 1px solid @panel-border-color;
+  border-radius: @panel-radius;
 
   h4 {
     margin: 0;
@@ -304,7 +328,7 @@ div.toggle-group {
       font-size: 12px!important;
       text-align: left;
       text-decoration: none!important;
-      color: #888!important;
+      color: @toggle-group-color!important;
     }
   }
 
@@ -330,8 +354,8 @@ div.toggle-group {
 }
 
 div.actions {
-  background: #eee;
-  border-radius: 5px;
+  background: @background-taint;
+  border-radius: @panel-radius;
   padding: 10px;
   margin: 15px 0;
 

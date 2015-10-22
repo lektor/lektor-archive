@@ -4,6 +4,8 @@ import posixpath
 from flask import Blueprint, g, request, current_app
 from werkzeug.utils import cached_property
 
+from lektor.db import Tree
+
 
 bp = Blueprint('common', __name__)
 
@@ -28,6 +30,10 @@ class AdminContext(object):
     @cached_property
     def pad(self):
         return current_app.lektor_info.get_pad()
+
+    @cached_property
+    def tree(self):
+        return Tree(self.pad)
 
 
 @bp.before_app_request
