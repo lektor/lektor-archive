@@ -135,7 +135,7 @@ class AddChildPage extends RecordComponent {
         );
       });
       fields.push(
-        <dl key="_model">
+        <dl key="_model" className="field">
           <dt>{i18n.trans('MODEL')}</dt>
           <dd><select value={this.state.selectedModel}
               className="form-control"
@@ -153,7 +153,7 @@ class AddChildPage extends RecordComponent {
         value = Widget.deserializeValue(value, field.type);
       }
       fields.push(
-        <dl key={field.name}>
+        <dl key={field.name} className="field">
           <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
           <dd><Widget
             value={value}
@@ -187,7 +187,7 @@ class AddChildPage extends RecordComponent {
     }
 
     return (
-      <div>
+      <div className="edit-area">
         <h2>{i18n.trans('ADD_CHILD_PAGE_TO').replace(
           '%s', this.state.newChildInfo.label)}</h2>
         <p>{i18n.trans('ADD_CHILD_PAGE_NOTE')}</p>
