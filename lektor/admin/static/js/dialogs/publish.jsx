@@ -3,8 +3,10 @@
 var React = require('react');
 var Component = require('../components/Component');
 
+var SlideDialog = require('../components/SlideDialog');
 var utils = require('../utils');
 var i18n = require('../i18n');
+var dialogSystem = require('../dialogSystem');
 
 
 class Publish extends Component {
@@ -29,6 +31,10 @@ class Publish extends Component {
     this.syncDialog();
   }
 
+  preventNavigation() {
+    return !this.isSafeToPublish();
+  }
+
   syncDialog() {
     utils.loadData('/servers')
       .then((resp) => {
@@ -39,15 +45,19 @@ class Publish extends Component {
       });
   }
 
-  isSaveToPublish() {
+  isSafeToPublish() {
     return this.state.currentState === 'IDLE' ||
       this.state.currentState === 'DONE';
   }
 
-  doPublish() {
-    if (this.isSaveToPublish()) {
+  onPublish() {
+    if (this.isSafeToPublish()) {
       this._beginBuild();
     }
+  }
+
+  onCancel() {
+    dialogSystem.dismissDialog();
   }
 
   _beginBuild() {
@@ -122,8 +132,10 @@ class Publish extends Component {
     }
 
     return (
-      <div>
-        <h2>{i18n.trans('PUBLISH')}</h2>
+      <SlideDialog
+        hasCloseButton={false}
+        closeOnEscape={false}
+        title={i18n.trans('PUBLISH')}>
         <p>{i18n.trans('PUBLISH_NOTE')}</p>
         <dl>
           <dt>{i18n.trans('PUBLISH_SERVER')}</dt>
@@ -135,11 +147,15 @@ class Publish extends Component {
         </dl>
         <div className="actions">
           <button type="submit" className="btn btn-primary"
-            disabled={!this.isSaveToPublish()}
-            onClick={this.doPublish.bind(this)}>{i18n.trans('PUBLISH')}</button>
+            disabled={!this.isSafeToPublish()}
+            onClick={this.onPublish.bind(this)}>{i18n.trans('PUBLISH')}</button>
+          <button type="submit" className="btn btn-default"
+            disabled={!this.isSafeToPublish()}
+            onClick={this.onCancel.bind(this)}>{i18n.trans(
+              this.state.currentState === 'DONE' ? 'CLOSE' : 'CANCEL')}</button>
         </div>
         {progress}
-      </div>
+      </SlideDialog>
     );
   }
 }

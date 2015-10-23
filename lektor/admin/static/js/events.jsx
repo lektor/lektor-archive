@@ -41,9 +41,18 @@ class AttachmentsChangedEvent extends RecordEvent {
 }
 
 
+class DialogChangedEvent extends Event {
+
+  constructor(options) {
+    super(options = options || {});
+    this.currentDialog = options.currentDialog;
+  }
+}
+
 
 module.exports = {
   Event: Event,
   RecordEvent: RecordEvent,
-  AttachmentsChangedEvent: AttachmentsChangedEvent
+  AttachmentsChangedEvent: AttachmentsChangedEvent,
+  DialogChangedEvent: DialogChangedEvent,
 };

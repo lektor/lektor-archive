@@ -7,6 +7,9 @@ var {Link, RouteHandler} = Router;
 var RecordComponent = require('./RecordComponent');
 var utils = require('../utils');
 var i18n = require('../i18n');
+var dialogSystem = require('../dialogSystem');
+var FindFiles = require('../dialogs/findFiles');
+var Publish = require('../dialogs/publish');
 
 
 class BreadCrumbs extends RecordComponent {
@@ -65,9 +68,12 @@ class BreadCrumbs extends RecordComponent {
 
   onFindFiles(e) {
     e.preventDefault();
-    if (this.props.onToggleFindFiles) {
-      this.props.onToggleFindFiles();
-    }
+    dialogSystem.showDialog(FindFiles);
+  }
+
+  onPublish(e) {
+    e.preventDefault();
+    dialogSystem.showDialog(Publish);
   }
 
   render() {
@@ -114,7 +120,8 @@ class BreadCrumbs extends RecordComponent {
           <li className="meta">
             <a href="#" onClick={
               this.onFindFiles.bind(this)}>{i18n.trans('FIND_FILES')}</a>
-            <Link to="publish">{i18n.trans('PUBLISH')}</Link>
+            <a href="#" onClick={
+              this.onPublish.bind(this)}>{i18n.trans('PUBLISH')}</a>
             <a href="/" onClick={
               this.onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a>
           </li>
@@ -123,9 +130,5 @@ class BreadCrumbs extends RecordComponent {
     );
   }
 }
-
-BreadCrumbs.propTypes = {
-  onToggleFindFiles: React.PropTypes.func
-};
 
 module.exports = BreadCrumbs;

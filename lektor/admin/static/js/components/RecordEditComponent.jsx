@@ -36,6 +36,7 @@ class RecordEditComponent extends RecordComponent {
 }
 
 RecordEditComponent.willTransitionFrom = function(transition, component) {
+  RecordComponent.willTransitionFrom(transition, component);
   if (component.hasPendingChanges()) {
     var unloadMessage = i18n.trans('UNLOAD_ACTIVE_TAB');
     if (!confirm(unloadMessage)) {

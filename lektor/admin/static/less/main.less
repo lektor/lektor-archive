@@ -28,7 +28,12 @@ div.application {
     background: @header-taint;
 
     a {
-      color: white;
+      color: @header-link-color;
+      text-decoration: underline;
+
+      &:hover {
+        color: @header-link-hover-color;
+      }
     }
 
     /* sidebar toggle button */
@@ -119,6 +124,16 @@ div.application {
     left: 0;
     right: 0;
     bottom: 0;
+
+    div.interface-protector {
+      position: fixed;
+      top: 34px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: @protector-background;
+      z-index: 1000;
+    }
 
     dl {
       .form-group {
@@ -369,7 +384,7 @@ div.sliding-panel {
     z-index: 5000;
     background: @background-taint;
     padding: 15px 20px;
-    box-shadow: 0 0 25px @header-taint;
+    box-shadow: @panel-shadow;
 
     a.close-btn {
       float: right;

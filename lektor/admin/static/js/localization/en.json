@@ -61,6 +61,7 @@
   "REMOVE": "Remove",
   "ID": "ID",
   "CLOSE": "Close",
+  "CANCEL": "Cancel",
   "BACK_TO_OVERVIEW": "Back to Overview",
   "PUBLISH": "Publish",
   "PUBLISH_NOTE": "From here you can publish the current version of the website.",

@@ -6,8 +6,10 @@ var {RouteHandler} = Router;
 
 var BreadCrumbs = require('../components/BreadCrumbs');
 var Sidebar = require('../components/Sidebar');
-var FindFiles = require('../components/FindFiles');
 var Component = require('../components/Component');
+var dialogSystem = require('../dialogSystem');
+var {DialogChangedEvent} = require('../events');
+var hub = require('../hub');
 
 
 class App extends Component {
@@ -15,42 +17,44 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      findFilesOpen: false
+      currentDialog: null
     };
-    this.onKeyDown = this.onKeyDown.bind(this);
-  }
-
-  onToggleFindFiles(newVal) {
-    if (newVal === undefined) {
-      newVal = !this.state.findFilesOpen;
-    }
-    this.setState({
-      findFilesOpen: newVal
-    });
+    this.onDialogChanged = this.onDialogChanged.bind(this);
   }
 
   componentDidMount() {
     super();
-    window.addEventListener('keydown', this.onKeyDown);
+    hub.subscribe(DialogChangedEvent, this.onDialogChanged);
   }
 
   componentWillUnmount() {
     super();
-    window.removeEventListener('keydown', this.onKeyDown);
+    hub.unsubscribe(DialogChangedEvent, this.onDialogChanged);
   }
 
-  onKeyDown(event) {
-    if (event.metaKey && event.which == 71) {
-      event.preventDefault();
-      this.onToggleFindFiles(true);
-    }
+  onDialogChanged(event) {
+    this.setState({
+      currentDialog: event.currentDialog
+    });
   }
 
   render() {
+    // the current dialog is managed from within the application and sent
+    // back into the dialog system.  This makes the app the owner of the
+    // dialog and much easier to deal with.  The dialog system itself then
+    // only needs to exchange messages with the app to update the dialogs.
+    var dialog = null;
+    if (this.state.currentDialog) {
+      dialog = <this.state.currentDialog ref={(ref) =>
+        dialogSystem.notifyDialogInstance(ref)} />;
+    } else {
+      dialogSystem.notifyDialogInstance(null);
+    }
+
     return (
       <div className="application">
         <header>
-          <BreadCrumbs onToggleFindFiles={this.onToggleFindFiles.bind(this)}>
+          <BreadCrumbs>
             <button type="button" className="navbar-toggle"
                 data-toggle="offcanvas"
                 data-target=".sidebar-block">
@@ -61,9 +65,10 @@ class App extends Component {
             </button>
           </BreadCrumbs>
         </header>
-        {this.state.findFilesOpen ? <FindFiles onClose={
-          this.onToggleFindFiles.bind(this, false)}/> : null}
+        {dialog}
         <div className="editor container">
+          {dialog !== null ?
+            <div className="interface-protector"></div> : null}
           <div className="sidebar-block block-offcanvas block-offcanvas-left">
             <nav className="sidebar col-md-2 col-sm-3 sidebar-offcanvas">
               <Sidebar/>
