@@ -17,6 +17,14 @@ i18n.currentLanguage = $LEKTOR_CONFIG.lang;
 
 class BadRoute extends Component {
 
+  componentDidMount() {
+    // shitty hack because react router :(
+    if (this.context.router.getCurrentPath() ==
+        $LEKTOR_CONFIG.admin_root + '/') {
+      this.context.router.transitionTo('preview', {'path': 'root'});
+    }
+  }
+
   render() {
     return (
       <div>
@@ -26,6 +34,10 @@ class BadRoute extends Component {
     );
   }
 }
+
+BadRoute.contextTypes = {
+  router: React.PropTypes.func
+};
 
 var routes = (function() {
   // route targets

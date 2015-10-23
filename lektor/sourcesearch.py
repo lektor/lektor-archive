@@ -70,6 +70,7 @@ def _process_search_results(builder, cur, alt, lang, limit):
     files_needed = set()
 
     for path, infos in mapping.iteritems():
+        print path, infos
         info = _find_best_info(infos, alt, lang)
         if info is None:
             continue
