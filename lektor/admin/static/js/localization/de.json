@@ -60,6 +60,7 @@
   "DOWN": "Nach Unten",
   "REMOVE": "Entfernen",
   "ID": "ID",
+  "CLOSE": "Schließen",
   "BACK_TO_OVERVIEW": "Übersicht",
   "PUBLISH": "Veröffentlichen",
   "PUBLISH_NOTE": "Von hier aus kann der aktuelle Stand der Webseite publiziert werden.",
@@ -69,5 +70,7 @@
   "PUBLISH_DONE": "Veröffentlicht",
   "PUBLISH_STATE_BUILDING": "Änderungen werden gebaut ...",
   "PUBLISH_STATE_PUBLISH": "Änderungen werden publiziert ...",
-  "PUBLISH_STATE_DONE": "Veröffentlichung fertiggestellt."
+  "PUBLISH_STATE_DONE": "Veröffentlichung fertiggestellt.",
+  "FIND_FILES": "Seiten Finden",
+  "FIND_FILES_PLACEHOLDER": "Seitenname eingeben ..."
 }

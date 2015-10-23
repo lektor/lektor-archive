@@ -364,6 +364,49 @@ div.actions {
   }
 }
 
+div.sliding-panel {
+  > div {
+    z-index: 5000;
+    background: @background-taint;
+    padding: 15px 20px;
+    box-shadow: 0 0 25px @header-taint;
+
+    a.close-btn {
+      float: right;
+    }
+
+    h3 {
+      margin: 0;
+    }
+
+    div.form-group {
+      margin: 15px 0;
+    }
+
+    ul.search-results {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+
+      li {
+        margin: 2px 0;
+        padding: 3px 10px;
+        cursor: pointer;
+
+        span.parent {
+          &:after {
+            content: " / ";
+          }
+        }
+      }
+
+      li.active {
+        background: white;
+      }
+    }
+  }
+}
+
 pre.build-log {
   overflow: auto;
   max-height: 200px;

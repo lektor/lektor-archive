@@ -216,12 +216,13 @@ class BackgroundBuilder(threading.Thread):
         self.verbosity = verbosity
         self.last_build = time.time()
 
-    def build(self):
+    def build(self, update_source_info_first=False):
         try:
             db = Database(self.env)
             builder = Builder(db.new_pad(), self.output_path)
+            if update_source_info_first:
+                builder.update_all_source_infos()
             builder.build_all()
-            builder.prune()
         except Exception:
             traceback.print_exc()
         else:
@@ -229,7 +230,7 @@ class BackgroundBuilder(threading.Thread):
 
     def run(self):
         with CliReporter(self.env, verbosity=self.verbosity):
-            self.build()
+            self.build(update_source_info_first=True)
             for ts, _, _ in self.watcher:
                 if self.last_build is None or ts > self.last_build:
                     self.build()

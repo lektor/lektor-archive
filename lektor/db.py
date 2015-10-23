@@ -1119,7 +1119,7 @@ class Pad(object):
         if clean_path is not None:
             if not alt:
                 if alt_fallback:
-                    alt = self.db.config.primary_alternative
+                    alt = self.db.config.primary_alternative or PRIMARY_ALT
                 else:
                     alt = PRIMARY_ALT
             node = self.get_root(alt=alt)

@@ -14,7 +14,7 @@ class BreadCrumbs extends RecordComponent {
   constructor(props) {
     super(props);
     this.state = {
-      recordPathInfo: null
+      recordPathInfo: null,
     };
   }
 
@@ -63,6 +63,13 @@ class BreadCrumbs extends RecordComponent {
     });
   }
 
+  onFindFiles(e) {
+    e.preventDefault();
+    if (this.props.onToggleFindFiles) {
+      this.props.onToggleFindFiles();
+    }
+  }
+
   render() {
     var crumbs = [];
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
@@ -105,6 +112,8 @@ class BreadCrumbs extends RecordComponent {
           ) : null}
           {' ' /* this space is needed for chrome ... */}
           <li className="meta">
+            <a href="#" onClick={
+              this.onFindFiles.bind(this)}>{i18n.trans('FIND_FILES')}</a>
             <Link to="publish">{i18n.trans('PUBLISH')}</Link>
             <a href="/" onClick={
               this.onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a>
@@ -114,5 +123,9 @@ class BreadCrumbs extends RecordComponent {
     );
   }
 }
+
+BreadCrumbs.propTypes = {
+  onToggleFindFiles: React.PropTypes.func
+};
 
 module.exports = BreadCrumbs;

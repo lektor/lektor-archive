@@ -21,7 +21,8 @@ class EditPage extends RecordEditComponent {
       recordData: null,
       recordDataModel: null,
       recordInfo: null,
-      hasPendingChanges: false
+      hasPendingChanges: false,
+      editorOpenForPage: null
     };
   }
 
@@ -55,6 +56,15 @@ class EditPage extends RecordEditComponent {
   }
 
   syncEditor() {
+    var url = this.getUrlRecordPathWithAlt();
+    if (this.state.editorOpenForPage === url) {
+      return;
+    }
+
+    this.setState({
+      editorOpenForPage: url
+    });
+
     utils.loadData('/rawrecord', {
       path: this.getRecordPath(),
       alt: this.getRecordAlt()

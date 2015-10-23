@@ -11,7 +11,9 @@ from itertools import chain
 from lektor.context import Context
 from lektor.build_programs import get_build_program
 from lektor.reporter import reporter
+from lektor.sourcesearch import find_files
 from lektor.utils import prune_file_and_folder
+from lektor.environment import PRIMARY_ALT
 
 from werkzeug.posixemulation import rename
 
@@ -44,11 +46,11 @@ def create_tables(con):
             create table if not exists source_info (
                 path text,
                 alt text,
+                lang text,
                 type text,
                 source text,
-                lang text,
                 title text,
-                primary key (path, alt)
+                primary key (path, alt, lang)
             )
         ''')
     finally:
@@ -57,9 +59,8 @@ def create_tables(con):
 
 class BuildState(object):
 
-    def __init__(self, generator, database_filename):
+    def __init__(self, generator):
         self.builder = generator
-        self.database_filename = database_filename
 
         self.file_info_cache = {}
         self.named_temporaries = set()
@@ -148,8 +149,8 @@ class BuildState(object):
 
     def connect_to_database(self):
         """Returns a database connection for the build state db."""
-        return sqlite3.connect(self.database_filename, timeout=10,
-                               check_same_thread=False)
+        return sqlite3.connect(self.builder.buildstate_database_filename,
+                               timeout=10, check_same_thread=False)
 
     def get_destination_filename(self, artifact_name):
         """Returns the destination filename for an artifact name."""
@@ -209,10 +210,31 @@ class BuildState(object):
             for lang, title in info.title_i18n.iteritems():
                 cur.execute('''
                     insert or replace into source_info
-                        (path, alt, type, source, lang, title)
+                        (path, alt, lang, type, source, title)
                         values (?, ?, ?, ?, ?, ?)
-                ''', [info.path, info.alt, info.type, source, lang, title])
+                ''', [info.path, info.alt, lang, info.type, source, title])
             con.commit()
+        finally:
+            con.close()
+
+    def prune_source_infos(self):
+        """Remove all source infos of files that no longer exist."""
+        con = self.connect_to_database()
+        to_clean = []
+        try:
+            cur = con.cursor()
+            cur.execute('''
+                select distinct source from source_info
+            ''')
+            for source, in cur.fetchall():
+                fs_path = os.path.join(self.env.root_path, source)
+                if not os.path.exists(fs_path):
+                    to_clean.append(source)
+            if to_clean:
+                cur.execute('''
+                    delete from source_info
+                     where source in (%s)
+                ''' % ', '.join(['?'] * len(to_clean)), to_clean)
         finally:
             con.close()
 
@@ -221,15 +243,10 @@ class BuildState(object):
         con = self.connect_to_database()
         try:
             cur = con.cursor()
-            sources = [x[0] for x in cur.execute('''
-                select source from artifacts where artifact = ?
-                   and is_primary_source
-            ''', [artifact_name]).fetchall()]
             cur.execute('''
                 delete from artifacts where artifact = ?
             ''', [artifact_name])
             con.commit()
-            return sources
         finally:
             con.close()
 
@@ -693,13 +710,26 @@ class Builder(object):
         """The environment backing this generator."""
         return self.pad.db.env
 
+    @property
+    def buildstate_database_filename(self):
+        """The filename for the build state database."""
+        return os.path.join(self.meta_path, 'buildstate')
+
+    def find_files(self, query, alt=PRIMARY_ALT, lang=None, limit=50,
+                   types=None):
+        """Returns a list of files that match the query.  This requires that
+        the source info is up to date and is primarily used by the admin to
+        show files that exist.
+        """
+        return find_files(self, query, alt, lang, limit, types)
+
     def new_build_state(self):
         """Creates a new build state."""
         try:
             os.makedirs(self.meta_path)
         except OSError:
             pass
-        return BuildState(self, os.path.join(self.meta_path, 'buildstate'))
+        return BuildState(self)
 
     def get_build_program(self, source, build_state):
         """Finds the right build function for the given source file."""
@@ -722,19 +752,26 @@ class Builder(object):
                     build_func(artifact)
                     return ctx
 
+    def update_source_info(self, prog, build_state):
+        """Updates a single source info based on a program.  This is done
+        automatically as part of a build.
+        """
+        info = prog.describe_source_record()
+        if info is not None:
+            build_state.write_source_info(info)
+
     def prune(self, all=False):
         """This cleans up data left in the build folder that does not
         correspond to known artifacts.
         """
         with reporter.build(all and 'clean' or 'prune', self):
-            sources_used = set()
             with self.new_build_state() as build_state:
                 for aft in build_state.iter_unreferenced_artifacts(all=all):
                     reporter.report_pruned_artifact(aft)
                     filename = build_state.get_destination_filename(aft)
                     prune_file_and_folder(filename, self.destination_path)
-                    sources_used.update(build_state.remove_artifact(aft))
-                build_state.remove_sources(sources_used)
+                    build_state.remove_artifact(aft)
+                build_state.prune_source_infos()
 
             if all:
                 build_state.vacuum()
@@ -744,9 +781,7 @@ class Builder(object):
         with self.new_build_state() as build_state:
             with reporter.process_source(source):
                 prog = self.get_build_program(source, build_state)
-                info = prog.describe_source_record()
-                if info is not None:
-                    build_state.write_source_info(info)
+                self.update_source_info(prog, build_state)
                 prog.build()
                 return prog
 
@@ -758,3 +793,18 @@ class Builder(object):
                 source = to_build.pop()
                 prog = self.build(source)
                 to_build.extend(prog.iter_child_sources())
+
+    def update_all_source_infos(self):
+        """Fast way to update all source infos without having to build
+        everything.
+        """
+        with reporter.build('source info update', self):
+            with self.new_build_state() as build_state:
+                to_build = self.pad.get_all_roots()
+                while to_build:
+                    source = to_build.pop()
+                    with reporter.process_source(source):
+                        prog = self.get_build_program(source, build_state)
+                        self.update_source_info(prog, build_state)
+                    to_build.extend(prog.iter_child_sources())
+            build_state.prune_source_infos()

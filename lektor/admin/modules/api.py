@@ -107,6 +107,17 @@ def get_preview_info():
     )
 
 
+@bp.route('/api/find', methods=['POST'])
+def find():
+    alt = request.values.get('alt') or PRIMARY_ALT
+    lang = request.values.get('lang') or g.admin_context.info.ui_lang
+    q = request.values.get('q')
+    builder = current_app.lektor_info.get_builder()
+    return jsonify(
+        results=builder.find_files(q, alt=alt, lang=lang)
+    )
+
+
 @bp.route('/api/browsefs', methods=['POST'])
 def browsefs():
     alt = request.values.get('alt') or PRIMARY_ALT
@@ -270,6 +281,7 @@ def get_servers():
 def trigger_build():
     builder = current_app.lektor_info.get_builder()
     builder.build_all()
+    builder.prune()
     return jsonify(okay=True)
 
 

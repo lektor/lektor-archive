@@ -99,8 +99,14 @@ def cli(ctx, tree=None, language=None):
               'artifacts should be pruned.  This is the default.')
 @click.option('-v', '--verbose', 'verbosity', count=True,
               help='Increases the verbosity of the logging.')
+@click.option('--source-info-only', is_flag=True,
+              help='Instead of building only updates the source infos.  The '
+              'source info is used by the web admin panel to quickly find '
+              'information about the source files (for instance jump to '
+              'files).')
 @pass_context
-def build_cmd(ctx, output_path, watch, prune, verbosity):
+def build_cmd(ctx, output_path, watch, prune, verbosity,
+              source_info_only):
     """Builds the entire site out."""
     from lektor.builder import Builder
     from lektor.reporter import CliReporter
@@ -112,9 +118,12 @@ def build_cmd(ctx, output_path, watch, prune, verbosity):
 
     def _build():
         builder = Builder(ctx.new_pad(), output_path)
-        builder.build_all()
-        if prune:
-            builder.prune()
+        if source_info_only:
+            builder.update_all_source_infos()
+        else:
+            builder.build_all()
+            if prune:
+                builder.prune()
 
     reporter = CliReporter(env, verbosity=verbosity)
     with reporter:
@@ -225,6 +234,7 @@ def shell_cmd(ctx):
     """Starts a Python shell in the context of the program."""
     import code
     from lektor.db import F, Tree
+    from lektor.builder import Builder
     banner = 'Python %s on %s\nLektor Project: %s' % (
         sys.version,
         sys.platform,
@@ -241,6 +251,8 @@ def shell_cmd(ctx):
         pad=pad,
         tree=Tree(pad),
         config=ctx.get_env().load_config(),
+        make_builder=lambda: Builder(ctx.new_pad(),
+                                     ctx.get_default_output_path()),
         F=F
     )
     code.interact(banner=banner, local=ns)
