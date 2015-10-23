@@ -41,7 +41,8 @@ class Sidebar extends RecordComponent {
       canHaveChildren: false,
       isAttachment: false,
       canBeDeleted: false,
-      recordExists: false
+      recordExists: false,
+      lastRecordRequest: null
     };
   }
 
@@ -72,25 +73,33 @@ class Sidebar extends RecordComponent {
       return;
     }
 
-    utils.loadData('/recordinfo', {path: path})
-      .then((resp) => {
-        var alts = resp.alts;
-        alts.sort((a, b) => {
-          var nameA = (a.is_primary ? 'A' : 'B') + i18n.trans(a.name_i18n);
-          var nameB = (b.is_primary ? 'A' : 'B') + i18n.trans(b.name_i18n);
-          return nameA === nameB ? 0 : nameA < nameB ? -1 : 1;
+    this.setState({
+      lastRecordRequest: path,
+    }, () => {
+      utils.loadData('/recordinfo', {path: path})
+        .then((resp) => {
+          // we're already fetching something else.
+          if (path !== this.state.lastRecordRequest) {
+            return;
+          }
+          var alts = resp.alts;
+          alts.sort((a, b) => {
+            var nameA = (a.is_primary ? 'A' : 'B') + i18n.trans(a.name_i18n);
+            var nameB = (b.is_primary ? 'A' : 'B') + i18n.trans(b.name_i18n);
+            return nameA === nameB ? 0 : nameA < nameB ? -1 : 1;
+          });
+          this.setState({
+            recordAttachments: resp.attachments,
+            recordChildren: resp.children,
+            recordAlts: alts,
+            canHaveAttachments: resp.can_have_attachments,
+            canHaveChildren: resp.can_have_children,
+            isAttachment: resp.is_attachment,
+            canBeDeleted: resp.can_be_deleted,
+            recordExists: resp.exists
+          });
         });
-        this.setState({
-          recordAttachments: resp.attachments,
-          recordChildren: resp.children,
-          recordAlts: alts,
-          canHaveAttachments: resp.can_have_attachments,
-          canHaveChildren: resp.can_have_children,
-          isAttachment: resp.is_attachment,
-          canBeDeleted: resp.can_be_deleted,
-          recordExists: resp.exists
-        });
-      });
+    });
   }
 
   fsOpen(event) {
