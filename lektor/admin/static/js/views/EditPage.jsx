@@ -8,7 +8,6 @@ var RecordEditComponent = require('../components/RecordEditComponent');
 var utils = require('../utils');
 var i18n = require('../i18n');
 var widgets = require('../widgets');
-var {gettext} = utils;
 
 
 class EditPage extends RecordEditComponent {
@@ -24,19 +23,33 @@ class EditPage extends RecordEditComponent {
       hasPendingChanges: false,
       editorOpenForPage: null
     };
+    this._onKeyPress = this._onKeyPress.bind(this);
   }
 
   componentDidMount() {
     super();
     this.syncEditor();
+    window.addEventListener('keydown', this._onKeyPress);
   }
 
   componentWillReceiveProps(nextProps) {
     this.syncEditor();
   }
 
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._onKeyPress);
+  }
+
   hasPendingChanges() {
     return this.state.hasPendingChanges;
+  }
+
+  _onKeyPress(event) {
+    // meta+s is open find files
+    if (event.which == 83 && utils.isMetaKey(event)) {
+      event.preventDefault();
+      this.saveChanges();
+    }
   }
 
   isIllegalField(field) {
@@ -117,7 +130,7 @@ class EditPage extends RecordEditComponent {
     return rv;
   }
 
-  saveChanges(event) {
+  saveChanges() {
     var path = this.getRecordPath();
     var alt = this.getRecordAlt();
     var newData = this.getValues();

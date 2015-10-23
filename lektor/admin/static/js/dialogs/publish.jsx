@@ -27,6 +27,10 @@ class Publish extends Component {
     this.syncDialog();
   }
 
+  componentWillUnmount() {
+    super();
+  }
+
   componentWillReceiveProps(nextProps) {
     this.syncDialog();
   }

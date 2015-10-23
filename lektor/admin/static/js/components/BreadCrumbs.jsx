@@ -19,16 +19,22 @@ class BreadCrumbs extends RecordComponent {
     this.state = {
       recordPathInfo: null,
     };
+    this._onKeyPress = this._onKeyPress.bind(this);
   }
 
   componentDidMount() {
     super();
     this.updateCrumbs();
+    window.addEventListener('keydown', this._onKeyPress);
   }
 
   componentWillReceiveProps(nextProps) {
     super(nextProps);
     this.updateCrumbs();
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._onKeyPress);
   }
 
   updateCrumbs() {
@@ -51,7 +57,14 @@ class BreadCrumbs extends RecordComponent {
       });
   }
 
-  onCloseClick(e) {
+  _onKeyPress(event) {
+    if (event.which == 71 && utils.isMetaKey(event)) {
+      event.preventDefault();
+      dialogSystem.showDialog(FindFiles);
+    }
+  }
+
+  _onCloseClick(e) {
     e.preventDefault();
     utils.loadData('/previewinfo', {
       path: this.getRecordPath(),
@@ -66,12 +79,12 @@ class BreadCrumbs extends RecordComponent {
     });
   }
 
-  onFindFiles(e) {
+  _onFindFiles(e) {
     e.preventDefault();
     dialogSystem.showDialog(FindFiles);
   }
 
-  onPublish(e) {
+  _onPublish(e) {
     e.preventDefault();
     dialogSystem.showDialog(Publish);
   }
@@ -119,11 +132,11 @@ class BreadCrumbs extends RecordComponent {
           {' ' /* this space is needed for chrome ... */}
           <li className="meta">
             <a href="#" onClick={
-              this.onFindFiles.bind(this)}>{i18n.trans('FIND_FILES')}</a>
+              this._onFindFiles.bind(this)}>{i18n.trans('FIND_FILES')}</a>
             <a href="#" onClick={
-              this.onPublish.bind(this)}>{i18n.trans('PUBLISH')}</a>
+              this._onPublish.bind(this)}>{i18n.trans('PUBLISH')}</a>
             <a href="/" onClick={
-              this.onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a>
+              this._onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a>
           </li>
         </ul>
       </div>

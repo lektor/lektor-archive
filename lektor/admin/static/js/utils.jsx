@@ -285,12 +285,12 @@ var utils = {
       >= document.body.scrollHeight;
   },
 
-  gettext: function(string) {
-    return string;
-  },
-
-  ngettext: function(s, p, n) {
-    return n != 1 ? p : s;
+  isMetaKey: function(event) {
+    if (navigator.platform.match(/^mac/i)) {
+      return event.metaKey;
+    } else {
+      return event.ctrlKey;
+    }
   }
 };
 
