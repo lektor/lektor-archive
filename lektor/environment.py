@@ -127,6 +127,7 @@ class ServerInfo(object):
         return {
             'id': self.id,
             'name': self.name,
+            'name_i18n': self.name_i18n,
             'target': self.target,
             'short_target': self.short_target,
             'enabled': self.enabled,
@@ -189,19 +190,19 @@ class Config(object):
         """The language of this site."""
         return self.values['SITE']['language']
 
-    def get_servers(self, lang='en'):
+    def get_servers(self):
         """Returns a list of servers (data translated to the given
         language).
         """
         rv = {}
         for server in self.values['SERVERS']:
-            server_info = self.get_server(server, lang=lang)
+            server_info = self.get_server(server)
             if server_info is None:
                 continue
             rv[server] = server_info
         return rv
 
-    def get_server(self, name, lang='en'):
+    def get_server(self, name):
         """Looks up a server info by name."""
         info = self.values['SERVERS'].get(name)
         if info is None:

@@ -116,7 +116,7 @@ class Publish extends Component {
     var servers = this.state.servers.map((server) => {
       return (
         <option value={server.target} key={server.id}>
-          {server.name + ' (' + server.short_target + ')'}
+          {i18n.trans(server.name_i18n) + ' (' + server.short_target + ')'}
         </option>
       );
     });
