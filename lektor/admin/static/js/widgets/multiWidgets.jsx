@@ -59,7 +59,7 @@ var CheckboxesInputWidget = React.createClass({
       );
     }.bind(this));
     return (
-      <div>
+      <div className="checkboxes">
         {choices}
       </div>
     )

@@ -23,6 +23,19 @@ a.active {
   font-weight: 500;
 }
 
+.protector-open {
+  overflow: hidden;
+  .interface-protector {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: @protector-background;
+    z-index: 1000;
+  }
+}
+
 div.application {
   height: 100%;
   position: relative;
@@ -130,16 +143,6 @@ div.application {
     left: 0;
     right: 0;
     bottom: 0;
-
-    div.interface-protector {
-      position: fixed;
-      top: 34px;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: @protector-background;
-      z-index: 1000;
-    }
 
     dl {
       .form-group {
@@ -266,7 +269,11 @@ div.application {
   dl.field {
     dt {
       font-weight: bold;
-      margin-bottom: 5px;
+      font-size: 13px;
+      display: inline-block;
+      background: @tab-header-background;
+      color: @tab-header-color;
+      padding: 2px 8px;
     }
 
     dd {
@@ -295,7 +302,7 @@ div.application {
     }
 
     dl {
-      margin: 5px 0;
+      margin: 10px 0 5px 0;
     }
 
     ul.actions {
@@ -308,6 +315,16 @@ div.application {
         display: inline-block;
         margin-left: 8px;
       }
+    }
+  }
+
+  div.checkboxes {
+    border: 1px solid @input-group-addon-border-color;
+    border-radius: @border-radius-base;
+    padding: 5px 10px;
+
+    .checkbox {
+      margin: 0;
     }
   }
 

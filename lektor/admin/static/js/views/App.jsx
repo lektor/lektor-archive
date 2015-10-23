@@ -51,8 +51,13 @@ class App extends Component {
       dialogSystem.notifyDialogInstance(null);
     }
 
+    var className = 'application';
+    if (dialog !== null) {
+      className += ' protector-open';
+    }
+
     return (
-      <div className="application">
+      <div className={className}>
         <header>
           <BreadCrumbs>
             <button type="button" className="navbar-toggle"
@@ -67,8 +72,7 @@ class App extends Component {
         </header>
         {dialog}
         <div className="editor container">
-          {dialog !== null ?
-            <div className="interface-protector"></div> : null}
+          <div className="interface-protector"></div>
           <div className="sidebar-block block-offcanvas block-offcanvas-left">
             <nav className="sidebar col-md-2 col-sm-3 sidebar-offcanvas">
               <Sidebar/>
