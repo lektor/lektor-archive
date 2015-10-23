@@ -10,7 +10,8 @@ from lektor.utils import atomic_open, is_valid_id, secure_filename, \
 from lektor.environment import PRIMARY_ALT
 
 
-implied_keys = set(['_id', '_path', '_gid', '_alt', '_attachment_for'])
+implied_keys = set(['_id', '_path', '_gid', '_alt', '_source_alt',
+                    '_attachment_for'])
 possibly_implied_keys = set(['_model', '_template', '_attachment_type'])
 
 

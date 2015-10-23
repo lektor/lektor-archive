@@ -30,10 +30,26 @@ def create_tables(con):
             );
         ''')
         con.execute('''
+            create index if not exists artifacts_source on artifacts (
+                source
+            )
+        ''')
+        con.execute('''
             create table if not exists dirty_sources (
                 source text,
                 primary key (source)
             );
+        ''')
+        con.execute('''
+            create table if not exists source_info (
+                path text,
+                alt text,
+                type text,
+                source text,
+                lang text,
+                title text,
+                primary key (path, alt)
+            )
         ''')
     finally:
         con.close()
@@ -182,13 +198,61 @@ class BuildState(object):
         for filename, mtime, size, checksum in rv:
             yield FileInfo(self.env, filename, mtime, size, checksum)
 
-    def remove_artifact(self, artifact_name):
+    def write_source_info(self, info):
+        """Writes the source info into the database.  The source info is
+        an instance of :class:`lektor.build_programs.SourceInfo`.
+        """
+        source = self.to_source_filename(info.filename)
         con = self.connect_to_database()
         try:
             cur = con.cursor()
+            for lang, title in info.title_i18n.iteritems():
+                cur.execute('''
+                    insert or replace into source_info
+                        (path, alt, type, source, lang, title)
+                        values (?, ?, ?, ?, ?, ?)
+                ''', [info.path, info.alt, info.type, source, lang, title])
+            con.commit()
+        finally:
+            con.close()
+
+    def remove_artifact(self, artifact_name):
+        """Removes an artifact from the build state."""
+        con = self.connect_to_database()
+        try:
+            cur = con.cursor()
+            sources = [x[0] for x in cur.execute('''
+                select source from artifacts where artifact = ?
+                   and is_primary_source
+            ''', [artifact_name]).fetchall()]
             cur.execute('''
                 delete from artifacts where artifact = ?
             ''', [artifact_name])
+            con.commit()
+            return sources
+        finally:
+            con.close()
+
+    def remove_sources(self, sources, force=False):
+        """Removes all the given sources *unless* they are still referenced
+        by some other artifact as primary source.  To forcefully remove them
+        `force` can be set to `True`.
+        """
+        con = self.connect_to_database()
+        try:
+            cur = con.cursor()
+            if force:
+                orphans = list(sources)
+            else:
+                still_referenced = set([x[0] for x in cur.execute('''
+                    select source from artifacts where is_primary_source
+                       and source in (%s)
+                ''' % ', '.join(['?'] * len(sources)),
+                    list(sources))])
+                orphans = list(sources - still_referenced)
+            cur.execute('''
+                delete from source_info where source in (%s)
+            ''' % ', '.join(['?'] * len(orphans)), orphans)
             con.commit()
         finally:
             con.close()
@@ -663,12 +727,14 @@ class Builder(object):
         correspond to known artifacts.
         """
         with reporter.build(all and 'clean' or 'prune', self):
+            sources_used = set()
             with self.new_build_state() as build_state:
                 for aft in build_state.iter_unreferenced_artifacts(all=all):
                     reporter.report_pruned_artifact(aft)
                     filename = build_state.get_destination_filename(aft)
                     prune_file_and_folder(filename, self.destination_path)
-                    build_state.remove_artifact(aft)
+                    sources_used.update(build_state.remove_artifact(aft))
+                build_state.remove_sources(sources_used)
 
             if all:
                 build_state.vacuum()
@@ -678,6 +744,9 @@ class Builder(object):
         with self.new_build_state() as build_state:
             with reporter.process_source(source):
                 prog = self.get_build_program(source, build_state)
+                info = prog.describe_source_record()
+                if info is not None:
+                    build_state.write_source_info(info)
                 prog.build()
                 return prog
 

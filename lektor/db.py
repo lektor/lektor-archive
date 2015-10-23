@@ -865,7 +865,7 @@ class Database(object):
 
         rv = cls()
         choiceiter = _iter_filename_choices(fn_base, [alt], self.config)
-        for fs_path, _, is_attachment in choiceiter:
+        for fs_path, source_alt, is_attachment in choiceiter:
             try:
                 with open(fs_path, 'rb') as f:
                     for key, lines in metaformat.tokenize(f, encoding='utf-8'):
@@ -879,7 +879,8 @@ class Database(object):
             rv['_path'] = path
             rv['_id'] = posixpath.basename(path)
             rv['_gid'] = hashlib.md5(path.encode('utf-8')).hexdigest()
-            rv['_alt'] = alt or PRIMARY_ALT
+            rv['_alt'] = alt
+            rv['_source_alt'] = source_alt
             if is_attachment:
                 rv['_attachment_for'] = posixpath.dirname(path)
             return rv

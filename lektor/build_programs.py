@@ -11,6 +11,7 @@ from werkzeug.debug.tbtools import Traceback
 from lektor.db import Page, Attachment
 from lektor.assets import File, Directory, LessFile
 from lektor.reporter import reporter
+from lektor.environment import PRIMARY_ALT
 from lektor.context import get_ctx
 from lektor.utils import portable_popen
 
@@ -31,6 +32,30 @@ def get_build_program(source, build_state):
             return builder(source, build_state)
 
 
+class SourceInfo(object):
+    """Holds some information about a source file for indexing into the
+    build state.
+    """
+
+    def __init__(self, path, filename, alt=PRIMARY_ALT,
+                 type='unknown', title_i18n=None):
+        self.path = path
+        self.alt = alt
+        self.filename = filename
+        self.type = type
+        self.title_i18n = {}
+
+        en_title = self.path
+        if 'en' in title_i18n:
+            en_title = title_i18n['en']
+        for key, value in title_i18n.iteritems():
+            if key == 'en':
+                continue
+            if value != en_title:
+                self.title_i18n[key] = value
+        self.title_i18n['en'] = en_title
+
+
 class BuildProgram(object):
 
     def __init__(self, source, build_state):
@@ -49,6 +74,14 @@ class BuildProgram(object):
             return self.artifacts[0]
         except IndexError:
             return None
+
+    def describe_source_record(self):
+        """Can be used to describe the source info by returning a
+        :class:`SourceInfo` object.  This is indexed by the builder into
+        the build state so that the UI can quickly find files without
+        having to scan the file system.
+        """
+        pass
 
     def build(self):
         """Invokes the build program."""
@@ -112,6 +145,22 @@ class BuildProgram(object):
 @buildprogram(Page)
 class PageBuildProgram(BuildProgram):
 
+    def describe_source_record(self):
+        # When we describe the source record we need to consider that a
+        # page has multiple source file names but only one will actually
+        # be used.  The order of the source iter is in order the files are
+        # attempted to be read.  So we go with the first that actually
+        # exists and then return that.
+        for filename in self.source.iter_source_filenames():
+            if os.path.isfile(filename):
+                return SourceInfo(
+                    path=self.source.path,
+                    alt=self.source['_source_alt'],
+                    filename=filename,
+                    type='page',
+                    title_i18n=self.source.get_record_label_i18n()
+                )
+
     def produce_artifacts(self):
         if self.source.is_visible:
             self.declare_artifact(
@@ -139,6 +188,15 @@ class PageBuildProgram(BuildProgram):
 
 @buildprogram(Attachment)
 class AttachmentBuildProgram(BuildProgram):
+
+    def describe_source_record(self):
+        return SourceInfo(
+            path=self.source.path,
+            alt=self.source.alt,
+            filename=self.source.attachment_filename,
+            type='attachment',
+            title_i18n={'en': self.source['_id']}
+        )
 
     def produce_artifacts(self):
         if self.source.is_visible:
