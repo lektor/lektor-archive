@@ -11,6 +11,18 @@ var {AttachmentsChangedEvent} = require('../events');
 var RecordComponent = require('./RecordComponent');
 
 
+function getBrowseButtonTitle() {
+  var platform = utils.getPlatform();
+  if (platform === 'mac') {
+    return i18n.trans('BROWSE_FS_MAC');
+  } else if (platform === 'windows') {
+    return i18n.trans('BROWSE_FS_WINDOWS');
+  } else {
+    return i18n.trans('BROWSE_FS');
+  }
+}
+
+
 class Sidebar extends RecordComponent {
 
   constructor(props) {
@@ -123,7 +135,7 @@ class Sidebar extends RecordComponent {
       links.push(
         <li key='fs-open'>
           <a href="#" onClick={this.fsOpen.bind(this)}>
-            {i18n.trans('BROWSE_FS')}
+            {getBrowseButtonTitle()}
           </a>
         </li>
       );

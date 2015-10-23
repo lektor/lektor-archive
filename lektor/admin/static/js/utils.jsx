@@ -285,8 +285,20 @@ var utils = {
       >= document.body.scrollHeight;
   },
 
+  getPlatform: function() {
+    if (navigator.appVersion.indexOf('Win') != -1) {
+      return 'windows';
+    } else if (navigator.appVersion.indexOf('Mac') != -1) {
+      return 'mac';
+    } else if (navigator.appVersion.indexOf('X11') != -1 ||
+        navigator.appVersion.indexOf('Linux') != -1) {
+      return 'linux';
+    }
+    return 'other';
+  },
+
   isMetaKey: function(event) {
-    if (navigator.platform.match(/^mac/i)) {
+    if (utils.getPlatform() == 'mac') {
       return event.metaKey;
     } else {
       return event.ctrlKey;
