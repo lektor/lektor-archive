@@ -30,13 +30,18 @@
 @font-family-serif: 'Roboto Slab', 'Georgia', 'Times New Roman', serif;
 @font-family-base: @font-family-serif;
 
+// Get rid of rounded things
+@border-radius-base: 0;
+@border-radius-large: 0;
+@border-radius-small: 0;
+@panel-radius: @border-radius-small;
+
 // Colors
 @brand-primary: #77304c;
 @input-border-focus: #807177;
 @header-taint: #3d3639;
 @header-sep-color: lighten(@header-taint, 40);
 @background-taint: #eee;
-@panel-radius: 3px;
 @panel-border-color: #ddd;
 @block-header-background: @header-taint;
 @block-item-background: #eee;
