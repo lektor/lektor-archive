@@ -31,9 +31,11 @@ class DialogSystem {
 
   // tells the application to dismiss the current dialog.
   dismissDialog() {
-    hub.emit(new DialogChangedEvent({
-      currentDialog: null
-    }));
+    if (!this.preventNavigation()) {
+      hub.emit(new DialogChangedEvent({
+        currentDialog: null
+      }));
+    }
   }
 
   // returns true if the current dialog prevents navigation.

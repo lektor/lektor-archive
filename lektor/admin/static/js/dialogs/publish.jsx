@@ -134,7 +134,7 @@ class Publish extends Component {
     return (
       <SlideDialog
         hasCloseButton={false}
-        closeOnEscape={false}
+        closeOnEscape={true}
         title={i18n.trans('PUBLISH')}>
         <p>{i18n.trans('PUBLISH_NOTE')}</p>
         <dl>
