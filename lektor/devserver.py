@@ -7,7 +7,7 @@ import threading
 from StringIO import StringIO
 from zlib import adler32
 
-from werkzeug.serving import run_simple
+from werkzeug.serving import run_simple, WSGIRequestHandler
 from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
@@ -24,6 +24,11 @@ from lektor.utils import portable_popen
 
 _os_alt_seps = list(sep for sep in [os.path.sep, os.path.altsep]
                     if sep not in (None, '/'))
+
+
+class SilentWSGIRequestHandler(WSGIRequestHandler):
+    def log(self, type, message, *args):
+        pass
 
 
 def rewrite_html_for_editing(fp):
@@ -296,7 +301,9 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
     try:
         return run_simple(bindaddr[0], bindaddr[1], app,
                           use_debugger=True, threaded=True,
-                          use_reloader=lektor_dev)
+                          use_reloader=lektor_dev,
+                          request_handler=not lektor_dev
+                          and SilentWSGIRequestHandler or WSGIRequestHandler)
     finally:
         if dt is not None:
             dt.stop()
