@@ -13,8 +13,7 @@ class PreviewPage extends RecordComponent {
     super(props);
     this.state = {
       pageUrl: null,
-      pageUrlFor: null,
-      pageUrlForAlt: null,
+      pageUrlFor: null
     };
   }
 
@@ -28,6 +27,10 @@ class PreviewPage extends RecordComponent {
     this.syncState();
   }
 
+  shouldComponentUpdate() {
+    return this.getUrlRecordPathWithAlt() != this.state.pageUrlFor;
+  }
+
   syncState() {
     var alt = this.getRecordAlt();
     var path = this.getRecordPath();
@@ -36,19 +39,18 @@ class PreviewPage extends RecordComponent {
       return;
     }
 
+    var recordUrl = this.getUrlRecordPathWithAlt();
     utils.loadData('/previewinfo', {path: path, alt: alt})
       .then((resp) => {
         this.setState({
           pageUrl: resp.url,
-          pageUrlFor: path,
-          pageUrlForAlt: alt
+          pageUrlFor: recordUrl
         });
       });
   }
 
   getIntendedPath() {
-    if (this.state.pageUrlFor == this.getRecordPath() &&
-        this.state.pageUrlForAlt == this.getRecordAlt()) {
+    if (this.state.pageUrlFor == this.getUrlRecordPathWithAlt()) {
       return this.state.pageUrl;
     }
     return null;
