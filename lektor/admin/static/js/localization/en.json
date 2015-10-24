@@ -30,6 +30,8 @@
   "ERROR": "Error",
   "ERROR_OCURRED": "An Error ocurred",
   "ERROR_REQUEST_FAILED": "Could not send command to server.  Maybe the server was stopped or is unresponsive?",
+  "ERROR_SERVER_UNAVAILABLE": "Server Unavailable",
+  "ERROR_SERVER_UNAVAILABLE_MESSAGE": "The server is not responding.  Either it was stopped or a critical error made it operable and it needs to be restarted.",
   "MODEL": "Model",
   "ADD_CHILD_PAGE_TO": "Add Subpage to “%s”",
   "ADD_CHILD_PAGE_NOTE": "You can add a new subpage to the page here.  Note that the model or ID cannot be easily changed afterwards.",

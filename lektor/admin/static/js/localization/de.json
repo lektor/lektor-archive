@@ -30,6 +30,8 @@
   "ERROR": "Fehler",
   "ERROR_OCURRED": "Ein Fehler ist aufgetreten",
   "ERROR_REQUEST_FAILED": "Ein Befehl konnte nicht an den Server gesendet werden. Eventuell reagiert der Server nicht oder wurde gestoppt.",
+  "ERROR_SERVER_UNAVAILABLE": "Server Unerreichbar",
+  "ERROR_SERVER_UNAVAILABLE_MESSAGE": "Der Server reagiert nicht. Entweder er wurde gestoppt oder ein kritischer Fehler ist aufgetreten und er muss neu gestartet werden.",
   "MODEL": "Modell",
   "ADD_CHILD_PAGE_TO": "Unterseite zu “%s” hinzufügen",
   "ADD_CHILD_PAGE_NOTE": "Du kannst hier eine neue Unterseite hinzufügen.  Beachte, dass die ID und as Modell später nicht mehr verändert werden kann.",

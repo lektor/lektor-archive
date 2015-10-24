@@ -8,6 +8,7 @@ var BreadCrumbs = require('../components/BreadCrumbs');
 var Sidebar = require('../components/Sidebar');
 var Component = require('../components/Component');
 var DialogSlot = require('../components/dialogSlot');
+var ServerStatus = require('../components/serverStatus');
 var dialogSystem = require('../dialogSystem');
 var {DialogChangedEvent} = require('../events');
 var hub = require('../hub');
@@ -18,6 +19,7 @@ class App extends Component {
   render() {
     return (
       <div className="application">
+        <ServerStatus/>
         <header>
           <BreadCrumbs>
             <button type="button" className="navbar-toggle"

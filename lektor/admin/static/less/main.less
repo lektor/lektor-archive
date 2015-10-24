@@ -399,6 +399,32 @@ div.actions {
   }
 }
 
+div.server-down-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 10000;
+  background: @protector-background;
+  padding: 15px 20px;
+
+  div.server-down-dialog {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 370px;
+    height: 170px;
+    margin-left: -200px;
+    margin-top: -75px;
+    vertical-align: middle;
+    padding: 15px;
+    text-align: center;
+    background: @background-taint;
+    box-shadow: @panel-shadow;
+  }
+}
+
 div.dialog-slot {
   position: absolute;
 }

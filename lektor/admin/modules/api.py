@@ -295,3 +295,8 @@ def publish_build():
         for event in event_iter:
             yield {'msg': event}
     return generator()
+
+
+@bp.route('/api/ping')
+def ping():
+    return jsonify(okay=True)
