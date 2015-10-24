@@ -37,11 +37,16 @@ class DialogSlot extends Component {
     });
   }
 
+  initDialogInstance(dialog) {
+    dialogSystem.notifyDialogInstance(dialog);
+    window.scrollTo(0, 0);
+  }
+
   render() {
     var dialog = null;
     if (this.state.currentDialog) {
       dialog = <this.state.currentDialog
-        ref={(ref) => dialogSystem.notifyDialogInstance(ref)}
+        ref={(ref) => this.initDialogInstance(ref)}
         {...this.state.currentDialogOptions}
       />;
     } else {
