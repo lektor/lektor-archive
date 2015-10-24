@@ -23,17 +23,14 @@ a.active {
   font-weight: 500;
 }
 
-.protector-open {
-  overflow: hidden;
-  .interface-protector {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: @protector-background;
-    z-index: 1000;
-  }
+.interface-protector {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: @protector-background;
+  z-index: 1000;
 }
 
 div.application {
@@ -400,6 +397,10 @@ div.actions {
   > * {
     margin-right: 5px;
   }
+}
+
+div.dialog-slot {
+  position: absolute;
 }
 
 div.sliding-panel {

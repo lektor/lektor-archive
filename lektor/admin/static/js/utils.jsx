@@ -1,3 +1,6 @@
+var {makeRichPromise} = require('./richPromise');
+
+
 function slug(string, opts) {
   opts = opts || {};
   string = string.toString();
@@ -215,15 +218,17 @@ var utils = {
 
   loadData: function(url, params, options) {
     options = options || {};
-    return new Promise(function(resolve, reject) {
+    return makeRichPromise((resolve, reject) => {
       jQuery.ajax({
         url: utils.getApiUrl(url),
         data: params,
         method: options.method || 'GET'
-      }).done(function(data) {
+      }).done((data) => {
         resolve(data);
-      }).fail(function() {
-        reject(new Error('Loading of data failed'));
+      }).fail(() => {
+        reject({
+          code: 'REQUEST_FAILED'
+        });
       });
     });
   },
@@ -240,13 +245,15 @@ var utils = {
       options.method = 'GET';
     }
 
-    return new Promise(function(resolve, reject) {
+    return makeRichPromise((resolve, reject) => {
       jQuery.ajax(options)
-        .done(function(data) {
+        .done((data) => {
           resolve(data);
         })
-        .fail(function() {
-          reject(new Error('Loading of data failed'));
+        .fail(() => {
+          reject({
+            code: 'REQUEST_FAILED'
+          });
         });
     });
   },

@@ -19,12 +19,13 @@ class DialogSystem {
 
   // given a dialog class this will instruct the application to bring up
   // the dialog and display it.
-  showDialog(dialog) {
+  showDialog(dialog, options) {
     // if the current dialog prevents navigation, then we just silently
     // will not show the dialog.
     if (!this.preventNavigation()) {
       hub.emit(new DialogChangedEvent({
-        currentDialog: dialog
+        dialog: dialog,
+        dialogOptions: options || {}
       }));
     }
   }
@@ -36,6 +37,11 @@ class DialogSystem {
         currentDialog: null
       }));
     }
+  }
+
+  // indicates if a dialog is shown
+  dialogIsOpen() {
+    return !!this._dialogInstance;
   }
 
   // returns true if the current dialog prevents navigation.

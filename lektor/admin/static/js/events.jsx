@@ -45,7 +45,8 @@ class DialogChangedEvent extends Event {
 
   constructor(options) {
     super(options = options || {});
-    this.currentDialog = options.currentDialog;
+    this.dialog = options.dialog;
+    this.dialogOptions = options.dialogOptions;
   }
 }
 
