@@ -182,8 +182,25 @@ class PageBuildProgram(BuildProgram):
                 self.build_state.mark_artifact_sources_dirty(self.artifacts)
             f.write(rv.encode('utf-8') + b'\n')
 
+    def _iter_paginated_children(self):
+        total = self.source.datamodel.pagination_config.count_pages(self.source)
+        for page_num in xrange(2, total + 1):
+            yield Page(self.source.pad, self.source._data,
+                       page_num=page_num)
+
     def iter_child_sources(self):
-        return chain(self.source.real_children, self.source.attachments)
+        pagination_enabled = self.source.datamodel.pagination_config.enabled
+        child_sources = []
+
+        if pagination_enabled:
+            child_sources.append(self.source.paginated_children)
+            if self.source.page_num == 1:
+                child_sources.append(self._iter_paginated_children())
+        else:
+            child_sources.append(self.source.children)
+        child_sources.append(self.source.attachments)
+
+        return chain(*child_sources)
 
 
 @buildprogram(Attachment)

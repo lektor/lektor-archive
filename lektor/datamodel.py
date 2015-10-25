@@ -1,4 +1,5 @@
 import os
+import math
 import errno
 
 from inifile import IniFile
@@ -34,12 +35,51 @@ class PaginationConfig(object):
 
     def __init__(self, enabled=None, per_page=None, url_suffix=None):
         if enabled is None:
-            enabled = True
+            enabled = False
         self.enabled = enabled
+        if per_page is None:
+            per_page = 20
         self.per_page = per_page
         if url_suffix is None:
             url_suffix = 'page'
         self.url_suffix = url_suffix
+
+    def count_pages(self, record):
+        """Returns the total number of pages for the children of a record."""
+        total = record.children.count()
+        return int(math.ceil(total / float(self.per_page)))
+
+    def slice_query_for_page(self, query, page):
+        """Slices the query so it returns the children for a given page."""
+        if not self.enabled:
+            return query
+        return query.limit(self.per_page).offset((page - 1) * self.per_page)
+
+    def match_pagination(self, record, url_path):
+        """Matches the pagination from the URL path."""
+        if not self.enabled:
+            return
+        suffixes = self.url_suffix.strip('/').split('/')
+        if url_path[:len(suffixes)] != suffixes:
+            return
+
+        try:
+            page_num = int(url_path[len(suffixes)])
+        except (ValueError, IndexError):
+            return
+
+        # It's important we do not allow "1" here as the first page is always
+        # on the root.  Changing this would mean the URLs are incorrectly
+        # generated if someone manually went to /page/1/.
+        if page_num == 1 or len(url_path) != len(suffixes) + 1:
+            return
+
+        cls = record.__class__
+        rv = cls(record.pad, record._data, page_num=page_num)
+
+        # Page needs to have at least a single child.
+        if rv.paginated_children.first() is not None:
+            return rv
 
     def to_json(self):
         return {

@@ -399,6 +399,13 @@ class Page(Record):
     """This represents a loaded record."""
     is_attachment = False
 
+    def __init__(self, pad, data, page_num=None):
+        Record.__init__(self, pad, data)
+        if page_num is None and \
+           self.datamodel.pagination_config.enabled:
+            page_num = 1
+        self.page_num = page_num
+
     @property
     def source_filename(self):
         if self.alt != PRIMARY_ALT:
@@ -415,7 +422,14 @@ class Page(Record):
 
     @property
     def url_path(self):
-        return Record.url_path.__get__(self).rstrip('/') + '/'
+        rv = Record.url_path.__get__(self).rstrip('/') + '/'
+        if self.page_num == 1:
+            return rv
+        return '%s%s/%d/' % (
+            rv,
+            self.datamodel.pagination_config.url_suffix.strip('/'),
+            self.page_num,
+        )
 
     def is_child_of(self, path):
         this_path = cleanup_path(self['_path']).split('/')
@@ -440,6 +454,13 @@ class Page(Record):
             rv = node.resolve_url_path(url_path[idx + 1:])
             if rv is not None:
                 return rv
+
+            # Try to resolve pagination here.
+            pg = node.datamodel.pagination_config
+            if pg.enabled:
+                rv = pg.match_pagination(node, url_path[idx + 1:])
+                if rv is not None:
+                    return rv
 
     @property
     def parent(self):
@@ -467,6 +488,14 @@ class Page(Record):
         return self.all_children.visible_only
 
     @property
+    def paginated_children(self):
+        """Returns the correctly paginated children if there is pagination
+        on the page.
+        """
+        return self.datamodel.pagination_config.slice_query_for_page(
+            self.children, self.page_num)
+
+    @property
     def real_children(self):
         """A query over all real children of this page.  This includes
         hidden.
@@ -485,6 +514,15 @@ class Page(Record):
         """Returns a query for the attachments of this record."""
         return AttachmentsQuery(path=self['_path'], pad=self.pad,
                                 alt=self.alt)
+
+    def __repr__(self):
+        rv = Record.__repr__(self)
+        if self.page_num is not None:
+            rv = '%s page_num=%r>' % (
+                rv[:-1],
+                self.page_num
+            )
+        return rv
 
 
 class Attachment(Record):
@@ -717,7 +755,7 @@ class Query(object):
     def count(self):
         """Counts all matched objects."""
         rv = 0
-        for item in self._iterate():
+        for item in self:
             rv += 1
         return rv
 
@@ -742,7 +780,8 @@ class Query(object):
                 iterable, key=lambda x: x.get_sort_key(order_by))
 
         if self._offset is not None or self._limit is not None:
-            iterable = islice(iterable, self._offset or 0, self._limit)
+            iterable = islice(iterable, self._offset or 0,
+                              (self._offset or 0) + self._limit + 1)
 
         for item in iterable:
             yield item
