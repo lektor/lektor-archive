@@ -423,7 +423,7 @@ class Page(Record):
     @property
     def url_path(self):
         rv = Record.url_path.__get__(self).rstrip('/') + '/'
-        if self.page_num not in (1, None):
+        if self.page_num in (1, None):
             return rv
         return '%s%s/%d/' % (
             rv,
