@@ -114,7 +114,11 @@ class MultiType(Type):
 
 
 class SelectType(MultiType):
-    pass
+
+    def value_from_raw(self, raw):
+        if raw.value is None:
+            return raw.missing_value('Missing select value')
+        return raw.value
 
 
 class CheckboxesType(MultiType):
