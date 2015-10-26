@@ -70,22 +70,23 @@ var CheckboxesInputWidget = React.createClass({
 var SelectInputWidget = React.createClass({
   mixins: [BasicWidgetMixin],
 
-  onChange: function(field, event) {
+  onChange: function(event) {
     if (this.props.onChange) {
       this.props.onChange(event.target.value);
     }
   },
 
   render: function() {
-    var {className, ...otherProps} = this.props;
+    var {className, type, onChange, ...otherProps} = this.props;
 
-    var choices = this.props.type.choices.map(function(item) {
+    var choices = this.props.type.choices.map((item) => {
       return (
         <option key={item[0]} value={item[0]}>
         {i18n.trans(item[1])}
         </option>
       );
-    }.bind(this));
+    });
+
     return (
       <div className="form-group">
         <div className={className}>
