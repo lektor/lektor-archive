@@ -20,7 +20,8 @@ var widgetComponents = {
   'markdown': primitiveWidgets.MultiLineTextInputWidget,
   'flow': flowWidget.FlowWidget,
   'sortkey': primitiveWidgets.IntegerInputWidget,
-  'checkboxes': multiWidgets.CheckboxesInputWidget
+  'checkboxes': multiWidgets.CheckboxesInputWidget,
+  'select': multiWidgets.SelectInputWidget,
 }
 
 

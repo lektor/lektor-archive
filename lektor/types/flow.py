@@ -6,6 +6,7 @@ from markupsafe import Markup
 from lektor.types import Type
 from lektor.metaformat import tokenize
 from lektor.context import get_ctx
+from lektor.environment import PRIMARY_ALT
 
 
 _block_re = re.compile(r'^####\s*(.*?)\s*####\s*$')
@@ -166,8 +167,8 @@ class FlowType(Type):
 
         return Flow(rv)
 
-    def to_json(self, pad):
-        rv = Type.to_json(self, pad)
-        rv['flowblocks'] = dict((k, v.to_json(pad)) for k, v in
+    def to_json(self, pad, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, alt)
+        rv['flowblocks'] = dict((k, v.to_json(pad, alt)) for k, v in
                                 pad.db.flowblocks.iteritems())
         return rv

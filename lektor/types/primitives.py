@@ -4,6 +4,7 @@ from datetime import date
 from markupsafe import Markup
 
 from lektor.types import Type
+from lektor.environment import PRIMARY_ALT
 
 
 class StringType(Type):
@@ -71,8 +72,8 @@ class FloatType(Type):
 
 class BooleanType(Type):
 
-    def to_json(self, pad):
-        rv = Type.to_json(self, pad)
+    def to_json(self, pad, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, alt)
         rv['checkbox_label'] = self.options.get('checkbox_label')
         return rv
 

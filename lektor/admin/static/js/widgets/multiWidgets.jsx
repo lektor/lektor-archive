@@ -2,6 +2,7 @@
 
 var React = require('react');
 var utils = require('../utils');
+var i18n = require('../i18n');
 var {BasicWidgetMixin} = require('./mixins');
 
 
@@ -53,7 +54,7 @@ var CheckboxesInputWidget = React.createClass({
               {...otherProps}
               checked={this.isActive(item[0])}
               onChange={this.onChange.bind(this, item[0])} />
-            {item[1]}
+            {i18n.trans(item[1])}
           </label>
         </div>
       );
@@ -66,6 +67,41 @@ var CheckboxesInputWidget = React.createClass({
   }
 });
 
+var SelectInputWidget = React.createClass({
+  mixins: [BasicWidgetMixin],
+
+  onChange: function(field, event) {
+    if (this.props.onChange) {
+      this.props.onChange(event.target.value);
+    }
+  },
+
+  render: function() {
+    var {className, ...otherProps} = this.props;
+
+    var choices = this.props.type.choices.map(function(item) {
+      return (
+        <option key={item[0]} value={item[0]}>
+        {i18n.trans(item[1])}
+        </option>
+      );
+    }.bind(this));
+    return (
+      <div className="form-group">
+        <div className={className}>
+          <select
+            className="form-control"
+            onChange={this.onChange}>
+            {choices}
+          </select>
+        </div>
+      </div>
+    )
+  }
+});
+
+
 module.exports = {
-  CheckboxesInputWidget: CheckboxesInputWidget
+  CheckboxesInputWidget: CheckboxesInputWidget,
+  SelectInputWidget: SelectInputWidget,
 };

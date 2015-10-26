@@ -1,39 +1,48 @@
 from lektor.types import Type
-from lektor.environment import Expression, FormatExpression
+from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
+from lektor.utils import get_i18n_block
 
 
-def parse_choices(s):
+def _reflow_and_split_labels(labels):
+    rv = []
+    for lang, string in labels.iteritems():
+        for idx, item in enumerate(string.split(',')):
+            try:
+                d = rv[idx]
+            except LookupError:
+                d = {}
+                rv.append(d)
+            d[lang] = item.strip()
+    return rv
+
+
+def _parse_choices(options):
+    s = options.get('choices')
     if not s:
         return None
 
-    rv = []
+    choices = []
     items = s.split(',')
-
-    missing_keys = False
+    user_labels = get_i18n_block(options, 'choice_labels')
+    implied_labels = []
 
     for item in items:
         if '=' in item:
-            key, value = item.split('=', 1)
-            key = key.strip()
-            if key.isdigit():
-                key = int(key)
-            rv.append((key, value.strip()))
+            choice, value = item.split('=', 1)
+            choice = choice.strip()
+            if choice.isdigit():
+                choice = int(choice)
+            implied_labels.append(value.strip())
+            choices.append(choice)
         else:
-            rv.append((None, item.strip()))
-            missing_keys = True
+            choices.append(item.strip())
+            implied_labels.append(item.strip())
 
-    if missing_keys and items:
-        last_integer = None
-        for idx, (key, value) in enumerate(rv):
-            if isinstance(key, (int, long)):
-                last_integer = key
-            elif last_integer is not None:
-                last_integer += 1
-            if key is None:
-                if last_integer is not None:
-                    rv[idx] = (last_integer, value)
-                else:
-                    rv[idx] = (value, value)
+    if user_labels:
+        rv = list(zip(choices, _reflow_and_split_labels(user_labels)))
+    else:
+        rv = [(key, {'en': label}) for key, label in
+              zip(choices, implied_labels)]
 
     return rv
 
@@ -46,28 +55,48 @@ class ChoiceSource(object):
             self.source = Expression(env, source)
             self.choices = None
             item_key = options.get('item_key') or '{{ this._id }}'
-            item_label = options.get('item_label') or '{{ this._id }}'
+            item_label = options.get('item_label')
         else:
             self.source = None
-            self.choices = parse_choices(options.get('choices'))
+            self.choices = _parse_choices(options)
             item_key = options.get('item_key') or '{{ this.0 }}'
-            item_label = options.get('item_label') or '{{ this.1 }}'
+            item_label = options.get('item_label')
         self.item_key = FormatExpression(env, item_key)
-        self.item_label = FormatExpression(env, item_label)
+        if item_label is not None:
+            item_label = FormatExpression(env, item_label)
+        self.item_label = item_label
 
     @property
     def has_choices(self):
         return self.source is not None or self.choices is not None
 
-    def iter_choices(self, pad):
+    def iter_choices(self, pad, alt=PRIMARY_ALT):
         if self.choices is not None:
             iterable = self.choices
         else:
-            iterable = self.source.evaluate(pad)
+            iterable = self.source.evaluate(pad, alt=alt)
 
         for item in iterable or ():
-            key = self.item_key.evaluate(pad, this=item)
-            label = self.item_label.evaluate(pad, this=item)
+            key = self.item_key.evaluate(pad, this=item, alt=alt)
+
+            # If there is a label expression, use it.  Since in that case
+            # we only have one language to fill in, we fill it in for the
+            # default language
+            if self.item_label is not None:
+                label = {
+                    'en': self.item_label.evaluate(pad, this=item, alt=alt)
+                }
+
+            # Otherwise we create a proper internationalized key out of
+            # our target label
+            else:
+                if isinstance(item, (tuple, list)) and len(item) == 2:
+                    label = item[1]
+                elif hasattr(item, 'get_record_label_i18n'):
+                    label = item.get_record_label_i18n()
+                else:
+                    label = item['_id']
+
             yield key, label
 
 
@@ -77,11 +106,10 @@ class MultiType(Type):
         Type.__init__(self, env, options)
         self.source = ChoiceSource(env, options)
 
-    def to_json(self, pad):
-        rv = Type.to_json(self, pad)
+    def to_json(self, pad, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, alt)
         if self.source.has_choices:
-            rv['choices'] = [[key, value] for key, value in
-                             self.source.iter_choices(pad)]
+            rv['choices'] = list(self.source.iter_choices(pad, alt))
         return rv
 
 

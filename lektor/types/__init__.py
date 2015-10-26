@@ -1,5 +1,7 @@
 from jinja2 import Undefined
 
+from lektor.environment import PRIMARY_ALT
+
 
 class BadValue(Undefined):
     __slots__ = ()
@@ -50,7 +52,7 @@ class Type(object):
             rv = rv[:-4]
         return rv.lower()
 
-    def to_json(self, pad):
+    def to_json(self, pad, alt=PRIMARY_ALT):
         return {
             'name': self.name,
         }

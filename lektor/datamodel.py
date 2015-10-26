@@ -6,7 +6,7 @@ from inifile import IniFile
 
 from lektor import types
 from lektor.utils import slugify, get_i18n_block
-from lektor.environment import Expression, FormatExpression
+from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
 
 
 class ChildConfig(object):
@@ -123,12 +123,12 @@ class Field(object):
     def label(self):
         return self.label_i18n.get('en')
 
-    def to_json(self, pad):
+    def to_json(self, pad, alt=PRIMARY_ALT):
         return {
             'name': self.name,
             'label': self.label,
             'label_i18n': self.label_i18n,
-            'type': self.type.to_json(pad),
+            'type': self.type.to_json(pad, alt),
         }
 
     def deserialize_value(self, value, pad=None):
@@ -211,10 +211,11 @@ class DataModel(object):
     def label(self):
         return (self.label_i18n or {}).get('en')
 
-    def to_json(self, pad):
+    def to_json(self, pad, alt=PRIMARY_ALT):
         """Describes the datamodel as JSON data."""
         return {
             'filename': self.filename,
+            'alt': alt,
             'id': self.id,
             'name': self.name,
             'name_i18n': self.name_i18n,
@@ -227,7 +228,7 @@ class DataModel(object):
             'child_config': self.child_config.to_json(),
             'attachment_config': self.attachment_config.to_json(),
             'pagination_config': self.pagination_config.to_json(),
-            'fields': [x.to_json(pad) for x in _iter_all_fields(self)],
+            'fields': [x.to_json(pad, alt) for x in _iter_all_fields(self)],
         }
 
     def format_record_label(self, record, lang='en'):
@@ -333,13 +334,13 @@ class FlowBlockModel(object):
     def name(self):
         return self.name_i18n.get('en') or self.id.title().replace('_', ' ')
 
-    def to_json(self, pad):
+    def to_json(self, pad, alt=PRIMARY_ALT):
         return {
             'id': self.id,
             'name': self.name,
             'name_i18n': self.name_i18n,
             'filename': self.filename,
-            'fields': [x.to_json(pad) for x in _iter_all_fields(self)
+            'fields': [x.to_json(pad, alt) for x in _iter_all_fields(self)
                        if x.name != '_flowblock'],
         }
 

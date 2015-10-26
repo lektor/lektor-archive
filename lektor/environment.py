@@ -140,12 +140,12 @@ class Expression(object):
         self.env = env
         self.tmpl = env.jinja_env.from_string('{{ __result__(%s) }}' % expr)
 
-    def evaluate(self, pad=None, this=None, values=None):
+    def evaluate(self, pad=None, this=None, values=None, alt=None):
         result = []
         def result_func(value):
             result.append(value)
             return u''
-        values = self.env.make_default_tmpl_values(pad, this, values)
+        values = self.env.make_default_tmpl_values(pad, this, values, alt)
         values['__result__'] = result_func
         self.tmpl.render(values)
         return result[0]
@@ -157,8 +157,8 @@ class FormatExpression(object):
         self.env = env
         self.tmpl = env.jinja_env.from_string(expr)
 
-    def evaluate(self, pad=None, this=None, values=None):
-        values = self.env.make_default_tmpl_values(pad, this, values)
+    def evaluate(self, pad=None, this=None, values=None, alt=None):
+        values = self.env.make_default_tmpl_values(pad, this, values, alt)
         return self.tmpl.render(values)
 
 
@@ -348,12 +348,23 @@ class Environment(object):
             return False
         return fn[:1] in '._' or fn in IGNORED_FILES
 
-    def render_template(self, name, pad=None, this=None, values=None):
-        ctx = self.make_default_tmpl_values(pad, this, values)
+    def render_template(self, name, pad=None, this=None, values=None, alt=None):
+        ctx = self.make_default_tmpl_values(pad, this, values, alt)
         return self.jinja_env.get_or_select_template(name).render(ctx)
 
-    def make_default_tmpl_values(self, pad=None, this=None, values=None):
+    def make_default_tmpl_values(self, pad=None, this=None, values=None, alt=None):
         values = dict(values or ())
+
+        # If not provided, pick the alt from the provided "this" object.
+        # As there is no mandatory format for it, we make sure that we can
+        # deal with a bad attribute there.
+        if alt is None:
+            if this is not None:
+                alt = getattr(this, 'alt', None)
+                if not isinstance(alt, basestring):
+                    alt = None
+            if alt is None:
+                alt = PRIMARY_ALT
 
         # This is already a global variable but we can inject it as a
         # local override if available.

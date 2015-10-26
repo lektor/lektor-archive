@@ -133,7 +133,7 @@ class EditorSession(object):
                 'implied_attachment_type': self.implied_attachment_type,
                 'default_template': self.datamodel.get_default_template_name(),
             },
-            'datamodel': self.datamodel.to_json(self.pad),
+            'datamodel': self.datamodel.to_json(self.pad, self.alt),
         }
 
     def __contains__(self, key):
