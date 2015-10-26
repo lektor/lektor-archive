@@ -95,7 +95,7 @@ def update_config_from_ini(config, inifile):
 
 
 # Special files that should always be ignored.
-IGNORED_FILES = ['thumbs.db', 'desktop.ini']
+IGNORED_FILES = ['thumbs.db', 'desktop.ini', 'Icon\r']
 
 # These files are important for artifacts and must not be ignored when
 # they are built even though they start with dots.
