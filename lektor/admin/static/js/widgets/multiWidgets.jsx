@@ -91,7 +91,8 @@ var SelectInputWidget = React.createClass({
         <div className={className}>
           <select
             className="form-control"
-            onChange={this.onChange}>
+            onChange={this.onChange}
+            {...otherProps}>
             {choices}
           </select>
         </div>
