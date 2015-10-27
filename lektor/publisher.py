@@ -189,6 +189,14 @@ class FtpConnection(object):
         except Exception as e:
             self.log_buffer.append(str(e))
 
+    def delete_folder(self, filename):
+        if isinstance(filename, unicode):
+            filename = filename.encode('utf-8')
+        try:
+            self.con.rmd(filename)
+        except Exception as e:
+            self.log_buffer.append(str(e))
+
 
 class FtpPublisher(Publisher):
 
@@ -247,7 +255,7 @@ class FtpPublisher(Publisher):
     def upload_artifact(self, con, artifact_name, source_file, checksum):
         source = open(source_file, 'rb')
         tmp_dst = self.get_temp_filename(artifact_name)
-        self.log_buffer.append('000 Updating %s' % artifact_name)
+        con.log_buffer.append('000 Updating %s' % artifact_name)
         con.upload_file(tmp_dst, source, mkdir=True)
         con.rename_file(tmp_dst, artifact_name)
         con.append('.lektor/listing', '%s|%s\n' % (
@@ -256,10 +264,18 @@ class FtpPublisher(Publisher):
 
     def consolidate_listing(self, con, current_artifacts):
         server_artifacts, duplicates = self.read_existing_artifacts(con)
+        known_folders = set()
+        for artifact_name in current_artifacts.iterkeys():
+            known_folders.add(posixpath.dirname(artifact_name))
+
         for artifact_name, checksum in server_artifacts.iteritems():
             if artifact_name not in current_artifacts:
-                self.log_buffer.append('000 Deleting %s' % artifact_name)
+                con.log_buffer.append('000 Deleting %s' % artifact_name)
                 con.delete_file(artifact_name)
+                folder = posixpath.dirname(artifact_name)
+                if folder not in known_folders:
+                    con.log_buffer.append('000 Deleting %s' % folder)
+                    con.delete_folder(folder)
 
         if duplicates or server_artifacts != current_artifacts:
             listing = []
