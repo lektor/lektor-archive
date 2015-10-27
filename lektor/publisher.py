@@ -160,7 +160,6 @@ class FtpConnection(object):
                 self.mkdir(directory, recursive=True)
         if isinstance(filename, unicode):
             filename = filename.encode('utf-8')
-        self.log_buffer.append('000 Updating %s' % filename)
         try:
             self.con.storbinary('STOR ' + filename, src)
         except Exception as e:
@@ -248,6 +247,7 @@ class FtpPublisher(Publisher):
     def upload_artifact(self, con, artifact_name, source_file, checksum):
         source = open(source_file, 'rb')
         tmp_dst = self.get_temp_filename(artifact_name)
+        self.log_buffer.append('000 Updating %s' % artifact_name)
         con.upload_file(tmp_dst, source, mkdir=True)
         con.rename_file(tmp_dst, artifact_name)
         con.append('.lektor/listing', '%s|%s\n' % (
@@ -258,6 +258,7 @@ class FtpPublisher(Publisher):
         server_artifacts, duplicates = self.read_existing_artifacts(con)
         for artifact_name, checksum in server_artifacts.iteritems():
             if artifact_name not in current_artifacts:
+                self.log_buffer.append('000 Deleting %s' % artifact_name)
                 con.delete_file(artifact_name)
 
         if duplicates or server_artifacts != current_artifacts:
