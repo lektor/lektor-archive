@@ -5,6 +5,7 @@ import click
 import hashlib
 
 from .i18n import get_default_lang, is_valid_language
+from .utils import secure_url
 
 
 class Context(object):
@@ -189,7 +190,7 @@ def deploy_cmd(ctx, server, output_path):
 
     click.echo('Deploying to %s' % server_info.name)
     click.echo('  Build cache: %s' % output_path)
-    click.echo('  Target: %s' % server_info.target)
+    click.echo('  Target: %s' % secure_url(server_info.target))
     for line in event_iter:
         click.echo('  %s' % click.style(line, fg='cyan'))
     click.echo('Done!')

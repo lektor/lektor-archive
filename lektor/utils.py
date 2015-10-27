@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from urlparse import urlparse
 
 from werkzeug.http import http_date
+from werkzeug import urls
 from werkzeug.posixemulation import rename
 from jinja2 import is_undefined
 from markupsafe import Markup
@@ -421,3 +422,13 @@ def get_i18n_block(inifile_or_dict, key, default_lang='en'):
         elif k.startswith(key + '['):
             rv[k[len(key) + 1:-1]] = v
     return rv
+
+
+def secure_url(url):
+    url = urls.url_parse(url)
+    if url.password is not None:
+        url = url.replace(netloc='%s@%s' % (
+            url.username,
+            url.netloc.split('@')[-1],
+        ))
+    return url.to_url()
