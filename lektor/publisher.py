@@ -61,10 +61,14 @@ class RsyncPublisher(ExternalPublisher):
 class FtpConnection(object):
 
     def __init__(self, url):
-        from ftplib import FTP
-        self.con = FTP()
+        self.con = self.make_connection()
         self.url = url
         self.log_buffer = []
+        self._known_folders = set()
+
+    def make_connection(self):
+        from ftplib import FTP
+        return FTP()
 
     def drain_log(self):
         log = self.log_buffer[:]
@@ -112,6 +116,8 @@ class FtpConnection(object):
     def mkdir(self, path, recursive=True):
         if isinstance(path, unicode):
             path = path.encode('utf-8')
+        if path in self._known_folders:
+            return
         dirname, basename = posixpath.split(path)
         if dirname and recursive:
             self.mkdir(dirname)
@@ -121,6 +127,8 @@ class FtpConnection(object):
             msg = str(e)
             if msg[:4] != '550 ':
                 self.log_buffer.append(e)
+                return
+        self._known_folders.add(path)
 
     def append(self, filename, data):
         if isinstance(filename, unicode):
@@ -196,9 +204,18 @@ class FtpConnection(object):
             self.con.rmd(filename)
         except Exception as e:
             self.log_buffer.append(str(e))
+        self._known_folders.discard(filename)
+
+
+class FtpTlsConnection(FtpConnection):
+
+    def make_connection(self):
+        from ftplib import FTP_TLS
+        return FTP_TLS()
 
 
 class FtpPublisher(Publisher):
+    connection_class = FtpConnection
 
     def read_existing_artifacts(self, con):
         contents = con.get_file('.lektor/listing')
@@ -286,7 +303,7 @@ class FtpPublisher(Publisher):
             con.rename_file('.lektor/.listing.tmp', '.lektor/listing')
 
     def publish(self, target_url):
-        con = FtpConnection(target_url)
+        con = self.connection_class(target_url)
         connected = con.connect()
         for event in con.drain_log():
             yield event
@@ -317,9 +334,14 @@ class FtpPublisher(Publisher):
         yield '000 All done!'
 
 
+class FtpTlsPublisher(FtpPublisher):
+    connection_class = FtpTlsConnection
+
+
 publishers = {
     'rsync': RsyncPublisher,
     'ftp': FtpPublisher,
+    'ftps': FtpTlsPublisher,
 }
 
 
