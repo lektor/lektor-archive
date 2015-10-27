@@ -44,7 +44,7 @@ class Publish extends Component {
       .then((resp) => {
         this.setState({
           servers: resp.servers,
-          activeTarget: resp.servers[0].target
+          activeTarget: resp.servers[0].id
         })
       });
   }
@@ -82,7 +82,7 @@ class Publish extends Component {
     });
 
     var es = new EventSource(utils.getApiUrl('/publish') +
-      '?target=' + encodeURIComponent(this.state.activeTarget));
+      '?server=' + encodeURIComponent(this.state.activeTarget));
     es.addEventListener('message', (event) => {
       var data = JSON.parse(event.data);
       if (data === null) {
@@ -115,7 +115,7 @@ class Publish extends Component {
   render() {
     var servers = this.state.servers.map((server) => {
       return (
-        <option value={server.target} key={server.id}>
+        <option value={server.id} key={server.id}>
           {i18n.trans(server.name_i18n) + ' (' + server.short_target + ')'}
         </option>
       );

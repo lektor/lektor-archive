@@ -169,7 +169,8 @@ class FtpConnection(object):
         if isinstance(filename, unicode):
             filename = filename.encode('utf-8')
         try:
-            self.con.storbinary('STOR ' + filename, src)
+            self.con.storbinary('STOR ' + filename, src,
+                                blocksize=32768)
         except Exception as e:
             self.log_buffer.append(str(e))
             return False
@@ -270,14 +271,14 @@ class FtpPublisher(Publisher):
         return posixpath.join(dirname, '.' + basename + '.tmp')
 
     def upload_artifact(self, con, artifact_name, source_file, checksum):
-        source = open(source_file, 'rb')
-        tmp_dst = self.get_temp_filename(artifact_name)
-        con.log_buffer.append('000 Updating %s' % artifact_name)
-        con.upload_file(tmp_dst, source, mkdir=True)
-        con.rename_file(tmp_dst, artifact_name)
-        con.append('.lektor/listing', '%s|%s\n' % (
-            artifact_name.encode('utf-8'), checksum
-        ))
+        with open(source_file, 'rb') as source:
+            tmp_dst = self.get_temp_filename(artifact_name)
+            con.log_buffer.append('000 Updating %s' % artifact_name)
+            con.upload_file(tmp_dst, source, mkdir=True)
+            con.rename_file(tmp_dst, artifact_name)
+            con.append('.lektor/listing', '%s|%s\n' % (
+                artifact_name.encode('utf-8'), checksum
+            ))
 
     def consolidate_listing(self, con, current_artifacts):
         server_artifacts, duplicates = self.read_existing_artifacts(con)

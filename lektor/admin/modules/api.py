@@ -272,7 +272,7 @@ def update_raw_record():
 def get_servers():
     db = g.admin_context.pad.db
     config = db.env.load_config()
-    servers = config.get_servers()
+    servers = config.get_servers(public=True)
     return jsonify(servers=sorted([x.to_json() for x in servers.values()],
                                   key=lambda x: x['name'].lower()))
 
@@ -287,11 +287,15 @@ def trigger_build():
 
 @bp.route('/api/publish')
 def publish_build():
-    target = request.values['target']
+    db = g.admin_context.pad.db
+    server = request.values['server']
+    config = db.env.load_config()
+    server_info = config.get_server(server)
     info = current_app.lektor_info
     @eventstream
     def generator():
-        event_iter = publish(info.env, target, info.output_path) or ()
+        event_iter = publish(info.env, server_info.target,
+                             info.output_path) or ()
         for event in event_iter:
             yield {'msg': event}
     return generator()

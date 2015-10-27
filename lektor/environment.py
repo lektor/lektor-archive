@@ -6,7 +6,7 @@ import jinja2
 
 from inifile import IniFile
 
-from lektor.utils import tojson_filter, get_i18n_block
+from lektor.utils import tojson_filter, get_i18n_block, secure_url
 from lektor.context import url_to, get_asset_url, site_proxy, \
      config_proxy, get_ctx
 
@@ -190,19 +190,19 @@ class Config(object):
         """The language of this site."""
         return self.values['SITE']['language']
 
-    def get_servers(self):
+    def get_servers(self, public=False):
         """Returns a list of servers (data translated to the given
         language).
         """
         rv = {}
         for server in self.values['SERVERS']:
-            server_info = self.get_server(server)
+            server_info = self.get_server(server, public=public)
             if server_info is None:
                 continue
             rv[server] = server_info
         return rv
 
-    def get_server(self, name):
+    def get_server(self, name, public=False):
         """Looks up a server info by name."""
         info = self.values['SERVERS'].get(name)
         if info is None:
@@ -210,6 +210,8 @@ class Config(object):
         target = info.get('target')
         if target is None:
             return None
+        if public:
+            target = secure_url(target)
         return ServerInfo(
             id=name,
             name_i18n=get_i18n_block(info, 'name'),
