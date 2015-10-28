@@ -65,8 +65,8 @@ class Type(object):
 
 
 from lektor.types.primitives import \
-     StringType, UuidType, TextType, HtmlType, IntegerType, FloatType, \
-     BooleanType, DateType
+     StringType, StringsType, UuidType, TextType, HtmlType, IntegerType, \
+     FloatType, BooleanType, DateType
 from lektor.types.multi import CheckboxesType, SelectType
 from lektor.types.special import SortKeyType, SlugType, UrlType
 from lektor.types.formats import MarkdownType
@@ -76,6 +76,7 @@ from lektor.types.flow import FlowType
 builtin_types = {
     # Primitive
     'string': StringType,
+    'strings': StringsType,
     'text': TextType,
     'html': HtmlType,
     'uuid': UuidType,

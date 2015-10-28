@@ -325,6 +325,18 @@ div.application {
     }
   }
 
+  .multi-text-input + .multi-text-input {
+    margin-top: -1px;
+  }
+
+  .multi-text-input + .multi-text-input input {
+    z-index: 10;
+  }
+
+  .multi-text-input input:focus {
+    z-index: 20;
+  }
+
   div.flow {
     padding: 10px;
     background: @flow-panel-background;

@@ -78,6 +78,63 @@ var SingleLineTextInputWidget = React.createClass({
   }
 });
 
+var MultiTextInputWidget = React.createClass({
+  mixins: [BasicWidgetMixin],
+
+  onChange: function(idx, event) {
+    var lines = this.getLines();
+    lines[idx] = event.target.value;
+    this.props.onChange(lines.join('\n').trimRight());
+  },
+
+  removeLine: function(idx) {
+    var lines = this.getLines();
+    lines.splice(idx, 1);
+    if (this.props.onChange) {
+      this.props.onChange(lines.join('\n').trimRight());
+    }
+  },
+
+  getLines: function() {
+    var rv = (this.props.value || '').split(/\r?\n/g);
+    if (rv.length == 0 || rv[rv.length - 1] != '') {
+      rv.push('');
+    }
+    return rv;
+  },
+
+  render: function() {
+    var {className, type, onChange, ...otherProps} = this.props;
+    var className = (className || '');
+
+    var items = this.getLines().map((line, idx, arr) => {
+      return (
+        <div className="input-group multi-text-input" key={idx}>
+          <input
+            type="text"
+            key={idx}
+            value={line}
+            onChange={onChange ? this.onChange.bind(this, idx) : undefined}
+            className="form-control" />
+          <span className="input-group-btn">
+            <button
+              className="btn btn-primary"
+              disabled={idx === arr.length - 1 && line === ''}
+              onClick={this.removeLine.bind(this, idx)}
+              type="button">x</button>
+          </span>
+        </div>
+      );
+    });
+
+    return (
+      <div className={className}>
+        {items}
+      </div>
+    );
+  }
+});
+
 var SlugInputWidget = React.createClass({
   mixins: [InputWidgetMixin],
 
@@ -300,6 +357,7 @@ var BooleanInputWidget = React.createClass({
 
 module.exports = {
   SingleLineTextInputWidget: SingleLineTextInputWidget,
+  MultiTextInputWidget: MultiTextInputWidget,
   SlugInputWidget: SlugInputWidget,
   IntegerInputWidget: IntegerInputWidget,
   DateInputWidget: DateInputWidget,

@@ -95,7 +95,7 @@ class ChoiceSource(object):
                 elif hasattr(item, 'get_record_label_i18n'):
                     label = item.get_record_label_i18n()
                 else:
-                    label = item['_id']
+                    label = {'en': item['_id']}
 
             yield key, label
 
@@ -105,6 +105,9 @@ class MultiType(Type):
     def __init__(self, env, options):
         Type.__init__(self, env, options)
         self.source = ChoiceSource(env, options)
+
+    def get_labels(self, pad, alt=PRIMARY_ALT):
+        return dict(self.source.iter_choices(pad, alt))
 
     def to_json(self, pad, alt=PRIMARY_ALT):
         rv = Type.to_json(self, pad, alt)

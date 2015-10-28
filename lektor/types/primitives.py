@@ -18,6 +18,12 @@ class StringType(Type):
             return u''
 
 
+class StringsType(Type):
+
+    def value_from_raw(self, raw):
+        return [x.strip() for x in (raw.value or '').splitlines()]
+
+
 class UuidType(Type):
 
     def value_from_raw(self, raw):

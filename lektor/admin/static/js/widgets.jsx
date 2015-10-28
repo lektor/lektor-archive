@@ -10,6 +10,7 @@ var {BasicWidgetMixin} = require('./widgets/mixins');
 
 var widgetComponents = {
   'string': primitiveWidgets.SingleLineTextInputWidget,
+  'strings': primitiveWidgets.MultiTextInputWidget,
   'date': primitiveWidgets.DateInputWidget,
   'integer': primitiveWidgets.IntegerInputWidget,
   'boolean': primitiveWidgets.BooleanInputWidget,
