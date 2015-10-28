@@ -78,6 +78,9 @@ class SourceObject(object):
             if source is not None:
                 path = source.url_path
 
+        ends_in_slash = path[-1:] == '/'
         path = posixpath.normpath(posixpath.join(this, path))
+        if ends_in_slash and path[-1:] != '/':
+            path += '/'
 
         return (prefix + '../' * depth).rstrip('/') + path
