@@ -235,6 +235,7 @@ class BuildState(object):
                     delete from source_info
                      where source in (%s)
                 ''' % ', '.join(['?'] * len(to_clean)), to_clean)
+                con.commit()
         finally:
             con.close()
 
