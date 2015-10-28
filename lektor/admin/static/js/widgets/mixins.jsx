@@ -16,6 +16,16 @@ var BasicWidgetMixin = {
     onChange: React.PropTypes.func
   },
 
+  getInputClass() {
+    var rv = 'form-control';
+    if (this.props.type.size === 'small') {
+      rv = 'input-sm ' + rv;
+    } else if (this.props.type.size === 'large') {
+      rv = 'input-lg ' + rv;
+    }
+    return rv;
+  },
+
   getValidationFailure: function() {
     if (this.getValidationFailureImpl) {
       return this.getValidationFailureImpl();

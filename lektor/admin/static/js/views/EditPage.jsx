@@ -173,31 +173,45 @@ class EditPage extends RecordEditComponent {
         return;
       }
 
+      var rv;
       var className = 'field';
       if (field.name.substr(0, 1) == '_') {
         className += ' system-field';
       }
 
       var Widget = widgets.getWidgetComponentWithFallback(field.type);
-      var value = this.state.recordData[field.name];
-      if (value === undefined) {
-        var value = this.state.recordInitialData[field.name] || '';
-        if (Widget.deserializeValue) {
-          value = Widget.deserializeValue(value, field.type);
+      if (Widget.isFakeWidget) {
+        rv = <Widget type={field.type} field={field} />
+      } else {
+        var value = this.state.recordData[field.name];
+        if (value === undefined) {
+          var value = this.state.recordInitialData[field.name] || '';
+          if (Widget.deserializeValue) {
+            value = Widget.deserializeValue(value, field.type);
+          }
         }
-      }
 
-      var rv = (
-        <dl key={field.name} className={className}>
-          <dt>{i18n.trans(field.label_i18n)}</dt>
-          <dd><Widget
-            value={value}
-            onChange={this.onValueChange.bind(this, field)}
-            type={field.type}
-            placeholder={this.getPlaceholderForField(field)}
-          /></dd>
-        </dl>
-      );
+        var description = null;
+        if (field.description_i18n) {
+          description = (
+            <div className="help-text">
+              {i18n.trans(field.description_i18n)}
+            </div>
+          );
+        }
+
+        var rv = (
+          <dl key={field.name} className={className}>
+            <dt>{i18n.trans(field.label_i18n)}</dt>
+            <dd>{description}<Widget
+              value={value}
+              onChange={this.onValueChange.bind(this, field)}
+              type={field.type}
+              placeholder={this.getPlaceholderForField(field)}
+            /></dd>
+          </dl>
+        );
+      }
 
       if (field.name.substr(0, 1) == '_') {
         systemFields.push(rv);

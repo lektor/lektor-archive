@@ -44,6 +44,10 @@ class Type(object):
     def __init__(self, env, options):
         self.env = env
         self.options = options
+        size = options.get('size') or 'normal'
+        if size not in ('normal', 'small', 'large'):
+            size = 'normal'
+        self.size = size
 
     @property
     def name(self):
@@ -55,6 +59,7 @@ class Type(object):
     def to_json(self, pad, alt=PRIMARY_ALT):
         return {
             'name': self.name,
+            'size': self.size,
         }
 
     def value_from_raw(self, raw):
@@ -71,6 +76,7 @@ from lektor.types.multi import CheckboxesType, SelectType
 from lektor.types.special import SortKeyType, SlugType, UrlType
 from lektor.types.formats import MarkdownType
 from lektor.types.flow import FlowType
+from lektor.types.fake import LineType, SpacingType, InfoType, HeadingType
 
 
 builtin_types = {
@@ -99,4 +105,10 @@ builtin_types = {
 
     # Flow
     'flow': FlowType,
+
+    # Fake
+    'line': LineType,
+    'spacing': SpacingType,
+    'info': InfoType,
+    'heading': HeadingType,
 }

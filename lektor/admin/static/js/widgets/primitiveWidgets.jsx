@@ -54,7 +54,7 @@ var InputWidgetMixin = {
         <div className={className}>
           <input
             type={this.getInputType()}
-            className="form-control"
+            className={this.getInputClass()}
             onChange={onChange ? this.onChange : undefined}
             {...otherProps} />
           {addon}
@@ -115,7 +115,7 @@ var MultiTextInputWidget = React.createClass({
             key={idx}
             value={line}
             onChange={onChange ? this.onChange.bind(this, idx) : undefined}
-            className="form-control" />
+            className={this.getInputClass()} />
           <span className="input-group-btn">
             <button
               className="btn btn-primary"
@@ -321,7 +321,7 @@ var MultiLineTextInputWidget = React.createClass({
       <div className={className}>
         <textarea
           ref="ta"
-          className="form-control"
+          className={this.getInputClass()}
           onChange={onChange ? this.onChange : undefined}
           style={style}
           {...otherProps} />
@@ -348,7 +348,7 @@ var BooleanInputWidget = React.createClass({
             {...otherProps}
             checked={isTrue(value)}
             onChange={onChange ? this.onChange : undefined} />
-          {type.checkbox_label}
+          {type.checkbox_label_i18n ? i18n.trans(type.checkbox_label_i18n) : null}
         </label>
       </div>
     )

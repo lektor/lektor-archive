@@ -214,7 +214,7 @@ var FlowWidget = React.createClass({
 
         return (
           <dl key={field.name}>
-            <dt>{field.label}</dt>
+            <dt>{i18n.trans(field.label_i18n)}</dt>
             <dd><Widget
               value={value}
               onChange={this.props.onChange ? onValueChange.bind(this) : undefined}
@@ -231,7 +231,7 @@ var FlowWidget = React.createClass({
             <li><a href="#" onClick={this.moveBlock.bind(this, idx, 1)}>{i18n.trans('DOWN')}</a></li>
             <li><a href="#" onClick={this.removeBlock.bind(this, idx)}>{i18n.trans('REMOVE')}</a></li>
           </ul>
-          <h4 className="block-name">{blockInfo.flowBlockModel.name}</h4>
+          <h4 className="block-name">{i18n.trans(blockInfo.flowBlockModel.name_i18n)}</h4>
           {fields}
         </div>
       );

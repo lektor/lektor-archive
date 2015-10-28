@@ -108,15 +108,17 @@ class AttachmentConfig(object):
 
 class Field(object):
 
-    def __init__(self, env, name, label_i18n=None, type=None, options=None):
+    def __init__(self, env, name, type=None, options=None):
         if type is None:
             type = types.builtin_types['string']
+        if options is None:
+            options = {}
         self.name = name
+        label_i18n = get_i18n_block(options, 'label')
         if not label_i18n:
             label_i18n = {'en': name.replace('_', ' ').strip().capitalize()}
         self.label_i18n = label_i18n
-        if options is None:
-            options = {}
+        self.description_i18n = get_i18n_block(options, 'description') or None
         self.type = type(env, options)
 
     @property
@@ -128,6 +130,7 @@ class Field(object):
             'name': self.name,
             'label': self.label,
             'label_i18n': self.label_i18n,
+            'description_i18n': self.description_i18n,
             'type': self.type.to_json(pad, alt),
         }
 
@@ -419,9 +422,7 @@ def fields_from_data(env, data, parent_fields=None):
 
     for name, options in data:
         ty = types.builtin_types[options.get('type', 'string')]
-        fields.append(Field(env=env, name=name,
-                            label_i18n=get_i18n_block(options, 'label'),
-                            type=ty, options=options))
+        fields.append(Field(env=env, name=name, type=ty, options=options))
         known_fields.add(name)
 
     if parent_fields is not None:
@@ -565,40 +566,44 @@ def load_flowblocks(env):
 system_fields = {}
 
 
-def add_system_field(name, **opts):
+def add_system_field(name, opts):
     ty = types.builtin_types[opts.pop('type')]
     system_fields[name] = (ty, opts)
 
 
 # The full path of the record
-add_system_field('_path', type='string')
+add_system_field('_path', dict(type='string'))
 
 # The local ID (within a folder) of the record
-add_system_field('_id', type='string')
+add_system_field('_id', dict(type='string'))
 
 # The global ID (within a folder) of the record
-add_system_field('_gid', type='string')
+add_system_field('_gid', dict(type='string'))
 
 # The alt key that identifies this record
-add_system_field('_alt', type='string')
+add_system_field('_alt', dict(type='string'))
 
 # The alt key for the file that was actually referenced.
-add_system_field('_source_alt', type='string')
+add_system_field('_source_alt', dict(type='string'))
 
 # the model that defines the data of the record
-add_system_field('_model', type='string')
+add_system_field('_model', dict(type='string'))
 
 # the template that should be used for rendering if not hidden
-add_system_field('_template', type='string')
+add_system_field('_template', dict(type='string'))
 
 # the slug that should be used for this record.  This is added below the
 # slug of the parent.
-add_system_field('_slug', type='slug')
+add_system_field('_slug', dict(type='slug'))
 
 # This can be used to hide an individual record.
-add_system_field('_hidden', type='boolean',
-                 checkbox_label='Should this page be hidden?')
+add_system_field('_hidden', {
+    'type': 'boolean',
+    # XXX: i18n
+    'checkbox_label': 'Should this page be hidden?',
+    'checkbox_label[de]': 'Soll diese Seite versteckt werden?',
+})
 
 # Useful fields for attachments.
-add_system_field('_attachment_for', type='string')
-add_system_field('_attachment_type', type='string')
+add_system_field('_attachment_for', dict(type='string'))
+add_system_field('_attachment_type', dict(type='string'))
