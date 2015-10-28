@@ -378,6 +378,8 @@ class Environment(object):
             values['site'] = pad
         if this is not None:
             values['this'] = this
+        if alt is not None:
+            values['alt'] = alt
         return values
 
     def select_jinja_autoescape(self, filename):

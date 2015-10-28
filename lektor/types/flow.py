@@ -67,12 +67,14 @@ class FlowBlock(object):
 
     def __html__(self):
         try:
+            record = find_record_for_flowblock(self)
             return self.pad.db.env.render_template(
                 ['blocks/%s.html' % self._data['_flowblock'],
                  'blocks/default.html'],
                 pad=self.pad,
                 this=self,
-                values={'record': find_record_for_flowblock(self)},
+                alt=record and record.alt or None,
+                values={'record': record}
             )
         except TemplateNotFound:
             return Markup('[could not find snippet template]')
