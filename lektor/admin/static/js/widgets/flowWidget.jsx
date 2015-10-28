@@ -56,7 +56,7 @@ function serializeFlowFormat(blocks) {
   var rv = [];
   blocks.forEach(function(block) {
     var [blockName, lines] = block;
-    rv.push('#### ' + blockName + '####\n');
+    rv.push('#### ' + blockName + ' ####\n');
     rv.push.apply(rv, lines);
   });
 

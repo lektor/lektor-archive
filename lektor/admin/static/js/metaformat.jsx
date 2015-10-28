@@ -55,10 +55,10 @@ function tokenize(lines) {
       }
       buf.push(line);
     } else {
-      var bits = line.split(/:/, 2);
-      if (bits.length == 2) {
-        key = bits[0].match(/^\s*(.*?)\s*$/m)[1];
-        var firstBit = bits[1].match(/^[\t ]*(.*?)[\t ]*$/m)[1];
+      var bits = line.split(':');
+      if (bits.length >= 2) {
+        key = bits.shift().match(/^\s*(.*?)\s*$/m)[1];
+        var firstBit = bits.join(':').match(/^[\t ]*(.*?)[\t ]*$/m)[1];
         if (!firstBit.match(/^\s*$/)) {
           buf = [firstBit];
         } else {

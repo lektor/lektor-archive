@@ -86,6 +86,9 @@ var SelectInputWidget = React.createClass({
         </option>
       );
     });
+    choices.unshift(
+      <option key="" value="">{'----'}</option>
+    );
 
     return (
       <div className="form-group">
