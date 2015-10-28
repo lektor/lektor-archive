@@ -71,9 +71,7 @@ var SelectInputWidget = React.createClass({
   mixins: [BasicWidgetMixin],
 
   onChange: function(event) {
-    if (this.props.onChange) {
-      this.props.onChange(event.target.value);
-    }
+    this.props.onChange(event.target.value);
   },
 
   render: function() {
@@ -82,7 +80,7 @@ var SelectInputWidget = React.createClass({
     var choices = this.props.type.choices.map((item) => {
       return (
         <option key={item[0]} value={item[0]}>
-        {i18n.trans(item[1])}
+          {i18n.trans(item[1])}
         </option>
       );
     });
@@ -95,7 +93,7 @@ var SelectInputWidget = React.createClass({
         <div className={className}>
           <select
             className="form-control"
-            onChange={this.onChange}
+            onChange={onChange ? this.onChange : null}
             {...otherProps}>
             {choices}
           </select>
