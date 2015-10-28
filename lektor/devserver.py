@@ -228,6 +228,7 @@ class BackgroundBuilder(threading.Thread):
             if update_source_info_first:
                 builder.update_all_source_infos()
             builder.build_all()
+            builder.prune()
         except Exception:
             traceback.print_exc()
         else:
