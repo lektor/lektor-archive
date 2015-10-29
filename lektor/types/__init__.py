@@ -44,10 +44,17 @@ class Type(object):
     def __init__(self, env, options):
         self.env = env
         self.options = options
-        size = options.get('size') or 'normal'
+
+    @property
+    def size(self):
+        size = self.options.get('size') or 'normal'
         if size not in ('normal', 'small', 'large'):
             size = 'normal'
-        self.size = size
+        return size
+
+    @property
+    def width(self):
+        return self.options.get('width') or '1/1'
 
     @property
     def name(self):
@@ -60,6 +67,7 @@ class Type(object):
         return {
             'name': self.name,
             'size': self.size,
+            'width': self.width,
         }
 
     def value_from_raw(self, raw):

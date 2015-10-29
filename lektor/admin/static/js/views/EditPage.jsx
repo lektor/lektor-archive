@@ -169,69 +169,125 @@ class EditPage extends RecordEditComponent {
     return null;
   }
 
-  renderFormFields() {
+  renderFormField(field) {
+    if (this.isIllegalField(field)) {
+      return null;
+    }
+
+    var className = 'field';
+    if (field.name.substr(0, 1) == '_') {
+      className += ' system-field';
+    }
+
+    var Widget = widgets.getWidgetComponentWithFallback(field.type);
+    if (Widget.isFakeWidget) {
+      return <Widget key={field.name} type={field.type} field={field} />;
+    }
+
+    var value = this.state.recordData[field.name];
+    if (value === undefined) {
+      var value = this.state.recordInitialData[field.name] || '';
+      if (Widget.deserializeValue) {
+        value = Widget.deserializeValue(value, field.type);
+      }
+    }
+
+    var description = null;
+    if (field.description_i18n) {
+      description = (
+        <div className="help-text">
+          {i18n.trans(field.description_i18n)}
+        </div>
+      );
+    }
+
+    return (
+      <dl key={field.name} className={className}>
+        <dt>{i18n.trans(field.label_i18n)}</dt>
+        <dd>{description}<Widget
+          value={value}
+          onChange={this.onValueChange.bind(this, field)}
+          type={field.type}
+          placeholder={this.getPlaceholderForField(Widget, field)}
+        /></dd>
+      </dl>
+    );
+  }
+
+  getFieldColumns(field) {
+    var widthSpec = (field.type.width || '1/1').split('/');
+    return Math.min(12, Math.max(2, parseInt(
+      12 * +widthSpec[0] / +widthSpec[1])));
+  }
+
+  getFieldRows() {
     var fields = [];
     var systemFields = [];
-    
+
     this.state.recordDataModel.fields.forEach((field) => {
-      if (this.isIllegalField(field)) {
-        return;
-      }
-
-      var rv;
-      var className = 'field';
-      if (field.name.substr(0, 1) == '_') {
-        className += ' system-field';
-      }
-
-      var Widget = widgets.getWidgetComponentWithFallback(field.type);
-      if (Widget.isFakeWidget) {
-        rv = <Widget type={field.type} field={field} />
-      } else {
-        var value = this.state.recordData[field.name];
-        if (value === undefined) {
-          var value = this.state.recordInitialData[field.name] || '';
-          if (Widget.deserializeValue) {
-            value = Widget.deserializeValue(value, field.type);
-          }
+      if (!this.isIllegalField(field)) {
+        if (field.name.substr(0, 1) == '_') {
+          systemFields.push(field);
+        } else {
+          fields.push(field);
         }
+      }
+    });
 
-        var description = null;
-        if (field.description_i18n) {
-          description = (
-            <div className="help-text">
-              {i18n.trans(field.description_i18n)}
-            </div>
-          );
+    var processFields = (rv, rowType, fields) => {
+      var currentColumns = 0;
+      var row = [];
+
+      fields.forEach((field) => {
+        var columns = this.getFieldColumns(field);
+        if (columns + currentColumns > 12) {
+          rv.push([rowType, row]);
+          currentColumns = 0;
+          row = [];
         }
+        row.push(field);
+        currentColumns += columns;
+      });
 
-        var rv = (
-          <dl key={field.name} className={className}>
-            <dt>{i18n.trans(field.label_i18n)}</dt>
-            <dd>{description}<Widget
-              value={value}
-              onChange={this.onValueChange.bind(this, field)}
-              type={field.type}
-              placeholder={this.getPlaceholderForField(Widget, field)}
-            /></dd>
-          </dl>
+      if (row.length > 0) {
+        rv.push([rowType, row]);
+      }
+    }
+
+    var rv = [];
+    processFields(rv, 'normal', fields);
+    processFields(rv, 'system', systemFields);
+    return rv;
+  }
+
+  renderFormFields() {
+    var rv = {
+      'normal': [],
+      'system': [],
+    };
+
+    this.getFieldRows().forEach((item, idx) => {
+      var [rowType, row] = item;
+      var cols = [];
+
+      row.forEach((field, idx) => {
+        var className = 'col-md-' + this.getFieldColumns(field) + ' field-box';
+        cols.push(
+          <div className={className} key={idx}>
+            {this.renderFormField(field)}
+          </div>
         );
-      }
+      });
 
-      if (field.name.substr(0, 1) == '_') {
-        systemFields.push(rv);
-      } else {
-        fields.push(rv);
-      }
-
+      rv[rowType].push(<div className="row" key={idx}>{cols}</div>);
     });
 
     return (
       <div>
-        {fields}
+        {rv.normal}
         <ToggleGroup
           groupTitle={i18n.trans('SYSTEM_FIELDS')}
-          defaultVisibility={false}>{systemFields}</ToggleGroup>
+          defaultVisibility={false}>{rv.system}</ToggleGroup>
       </div>
     );
   }
