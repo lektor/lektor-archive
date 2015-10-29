@@ -595,15 +595,24 @@ add_system_field('_source_alt', dict(type='string'))
 add_system_field('_model', dict(type='string'))
 
 # the template that should be used for rendering if not hidden
-add_system_field('_template', dict(type='string'))
+add_system_field('_template', {
+    'type': 'string',
+    'label': 'Template',
+    'label[de]': 'Vorlage',
+})
 
 # the slug that should be used for this record.  This is added below the
 # slug of the parent.
-add_system_field('_slug', dict(type='slug'))
+add_system_field('_slug', {
+    'type': 'slug',
+    'label': 'URL Slug',
+})
 
 # This can be used to hide an individual record.
 add_system_field('_hidden', {
     'type': 'boolean',
+    'label': 'Hide page',
+    'label[de]': 'Seite verstecken',
     # XXX: i18n
     'checkbox_label': 'Should this page be hidden?',
     'checkbox_label[de]': 'Soll diese Seite versteckt werden?',
