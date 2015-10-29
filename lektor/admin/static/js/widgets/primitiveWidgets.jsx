@@ -47,7 +47,17 @@ var InputWidgetMixin = {
       help = <div className={valClassName}>{failure.message}</div>;
     }
 
-    var addon = this.getInputAddon ? this.getInputAddon() : null;
+    var addon = null;
+    var configuredAddon = type.addon_text_i18n;
+    if (configuredAddon) {
+      addon = (
+        <span className="input-group-addon">
+          {i18n.trans(configuredAddon)}
+        </span>
+      );
+    } else if (this.getInputAddon) {
+      addon = this.getInputAddon();
+    }
 
     return (
       <div className="form-group">
@@ -116,6 +126,31 @@ var IntegerInputWidget = React.createClass({
 
   getInputAddon: function() {
     return <span className="input-group-addon">0</span>;
+  }
+});
+
+var FloatInputWidget = React.createClass({
+  mixins: [InputWidgetMixin],
+
+  postprocessValue: function(value) {
+    return value.match(/^\s*(.*?)\s*$/)[1];
+  },
+
+  getValidationFailureImpl: function() {
+    if (this.props.value && parseFloat(this.props.value) == NaN) {
+      return new ValidationFailure({
+        message: i18n.trans('ERROR_INVALID_NUMBER')
+      });
+    }
+    return null;
+  },
+
+  getInputType: function() {
+    return 'text';
+  },
+
+  getInputAddon: function() {
+    return <span className="input-group-addon">0.0</span>;
   }
 });
 
@@ -313,8 +348,9 @@ module.exports = {
   SingleLineTextInputWidget: SingleLineTextInputWidget,
   SlugInputWidget: SlugInputWidget,
   IntegerInputWidget: IntegerInputWidget,
+  FloatInputWidget: FloatInputWidget,
   DateInputWidget: DateInputWidget,
   UrlInputWidget: UrlInputWidget,
   MultiLineTextInputWidget: MultiLineTextInputWidget,
-  BooleanInputWidget: BooleanInputWidget
+  BooleanInputWidget: BooleanInputWidget,
 };

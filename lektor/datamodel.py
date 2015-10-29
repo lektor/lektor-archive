@@ -5,7 +5,7 @@ import errno
 from inifile import IniFile
 
 from lektor import types
-from lektor.utils import slugify, get_i18n_block
+from lektor.utils import slugify, get_i18n_block, bool_from_string
 from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
 
 
@@ -113,6 +113,7 @@ class Field(object):
             type = types.builtin_types['string']
         if options is None:
             options = {}
+        self.options = options
         self.name = name
         label_i18n = get_i18n_block(options, 'label')
         if not label_i18n:
@@ -131,6 +132,8 @@ class Field(object):
             'name': self.name,
             'label': self.label,
             'label_i18n': self.label_i18n,
+            'hide_label': bool_from_string(self.options.get('hide_label'),
+                                           default=False),
             'description_i18n': self.description_i18n,
             'type': self.type.to_json(pad, alt),
             'default': self.default,

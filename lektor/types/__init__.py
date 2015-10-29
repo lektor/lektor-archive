@@ -88,7 +88,7 @@ class Type(object):
 
 
 from lektor.types.primitives import \
-     StringType, StringsType, UuidType, TextType, HtmlType, IntegerType, \
+     StringType, StringsType, TextType, HtmlType, IntegerType, \
      FloatType, BooleanType, DateType
 from lektor.types.multi import CheckboxesType, SelectType
 from lektor.types.special import SortKeyType, SlugType, UrlType
@@ -103,7 +103,6 @@ builtin_types = {
     'strings': StringsType,
     'text': TextType,
     'html': HtmlType,
-    'uuid': UuidType,
     'integer': IntegerType,
     'float': FloatType,
     'boolean': BooleanType,

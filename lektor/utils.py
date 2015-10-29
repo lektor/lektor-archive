@@ -432,3 +432,11 @@ def secure_url(url):
             url.netloc.split('@')[-1],
         ))
     return url.to_url()
+
+
+def bool_from_string(val, default=None):
+    if val in (True, 1, 'true', 'yes', '1'):
+        return True
+    elif val in (False, 0, 'false', 'no', '0'):
+        return False
+    return None

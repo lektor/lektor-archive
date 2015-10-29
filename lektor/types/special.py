@@ -1,8 +1,8 @@
-from lektor.types import Type
 from lektor.utils import slugify, Url
+from lektor.types.primitives import SingleInputType
 
 
-class SortKeyType(Type):
+class SortKeyType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -13,7 +13,7 @@ class SortKeyType(Type):
             return raw.bad_value('Bad sort key value')
 
 
-class SlugType(Type):
+class SlugType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -21,7 +21,7 @@ class SlugType(Type):
         return slugify(raw.value)
 
 
-class UrlType(Type):
+class UrlType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:

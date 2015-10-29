@@ -1,14 +1,22 @@
-import uuid
 from datetime import date
 
 from markupsafe import Markup
 
 from lektor.types import Type
 from lektor.environment import PRIMARY_ALT
-from lektor.utils import get_i18n_block
+from lektor.utils import get_i18n_block, bool_from_string
 
 
-class StringType(Type):
+class SingleInputType(Type):
+
+    def to_json(self, pad, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad)
+        rv['addon_text_i18n'] = get_i18n_block(
+            self.options, 'addon_text') or None
+        return rv
+
+
+class StringType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -23,17 +31,6 @@ class StringsType(Type):
 
     def value_from_raw(self, raw):
         return [x.strip() for x in (raw.value or '').splitlines()]
-
-
-class UuidType(Type):
-
-    def value_from_raw(self, raw):
-        if raw.value is None:
-            return raw.missing_value('Missing UUID')
-        try:
-            return uuid.UUID(raw.value)
-        except Exception:
-            return raw.bad_value('Invalid UUID')
 
 
 class TextType(Type):
@@ -52,7 +49,7 @@ class HtmlType(Type):
         return Markup(raw.value)
 
 
-class IntegerType(Type):
+class IntegerType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -66,7 +63,7 @@ class IntegerType(Type):
                 return raw.bad_value('Not an integer')
 
 
-class FloatType(Type):
+class FloatType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -88,16 +85,13 @@ class BooleanType(Type):
     def value_from_raw(self, raw):
         if raw.value is None:
             return raw.missing_value('Missing boolean')
-        val = raw.value.strip().lower()
-        if val in ('true', 'yes', '1'):
-            return True
-        elif val in ('false', 'no', '0'):
-            return False
-        else:
+        val = bool_from_string(raw.value.strip().lower())
+        if val is None:
             return raw.bad_value('Bad boolean value')
+        return val
 
 
-class DateType(Type):
+class DateType(SingleInputType):
 
     def value_from_raw(self, raw):
         if raw.value is None:

@@ -263,7 +263,7 @@ div.application {
     font-style: italic;
   }
 
-  div.row {
+  div.field-row {
     margin-top: 15px;
     margin-bottom: 15px;
   }
@@ -289,19 +289,27 @@ div.application {
     background: @flow-block-panel-background;
     border: 1px solid @panel-border-color;
     margin: 0;
-    padding: 5px 10px;
+    padding: 0 10px;
     border-radius: @panel-radius;
 
     &+ div.flow-block {
       margin-top: 15px;
     }
 
+    div.field-row {
+      margin: 5px -10px;
+
+      [class*="col-"] {
+        padding-left: 10px!important;
+        padding-right: 10px!important;
+      }
+    }
+
     h4 {
-      margin: 0;
       font-size: 14px;
       background: @flow-block-header-background;
       color: @flow-block-header-color;
-      margin: -5px -10px 5px -10px;
+      margin: 0 -10px 0 -10px;
       padding: 5px 10px;
     }
 
@@ -312,6 +320,7 @@ div.application {
     ul.actions {
       margin: 0;
       padding: 0;
+      line-height: 30px;
       list-style: none;
       float: right;
 

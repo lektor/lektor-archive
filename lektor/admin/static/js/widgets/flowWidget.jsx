@@ -12,6 +12,10 @@ function getWidgetComponent(type) {
   return widgets.getWidgetComponent(type);
 }
 
+function getWidgets() {
+  return require('../widgets');
+}
+
 
 function parseFlowFormat(value) {
   var blocks = [];
@@ -83,6 +87,9 @@ function deserializeFlowBlock(flowBlockModel, lines, localId) {
 
     if (field !== undefined) {
       Widget = getWidgetComponent(field.type);
+      if (!value && field['default']) {
+        value = field['default'];
+      }
       if (Widget && Widget.deserializeValue) {
         value = Widget.deserializeValue(value, field.type);
       }
@@ -182,7 +189,7 @@ var FlowWidget = React.createClass({
   addNewBlock: function(event) {
     event.preventDefault();
 
-    var key = this.refs.new_block_choice.getDOMNode().value;
+    var key = React.findDOMNode(this.refs.new_block_choice).value;
     var flowBlockModel = this.props.type.flowblocks[key];
 
     // this is a rather ugly way to do this, but hey, it works.
@@ -193,36 +200,45 @@ var FlowWidget = React.createClass({
     }
   },
 
+  renderFormField: function(blockInfo, field, idx) {
+    var widgets = getWidgets();
+    var value = blockInfo.data[field.name];
+    var placeholder = field['default'];
+    var Widget = widgets.getWidgetComponentWithFallback(field.type);
+    if (Widget.deserializeValue && placeholder != null) {
+      placeholder = Widget.deserializeValue(value, field.type);
+    }
+
+    var onChange = !this.props.onChange ? null : (value) => {
+      blockInfo.data[field.name] = value;
+      this.props.onChange(this.props.value);
+    };
+
+    return (
+      <widgets.FieldBox
+        key={idx}
+        value={value}
+        placeholder={placeholder}
+        field={field}
+        onChange={onChange}
+      />
+    );
+  },
+
   renderBlocks: function() {
-    return this.props.value.map(function(blockInfo, idx) {
+    var widgets = getWidgets();
+
+    return this.props.value.map((blockInfo, idx) => {
       // bad block is no block
       if (blockInfo === null) {
         return null;
       }
 
-      var fields = blockInfo.flowBlockModel.fields.map(function(field) {
-        var value = blockInfo.data[field.name];
-        var Widget = getWidgetComponent(field.type);
-        if (!Widget) {
-          return null;
-        }
-
-        function onValueChange(value) {
-          blockInfo.data[field.name] = value;
-          this.props.onChange(this.props.value);
-        }
-
-        return (
-          <dl key={field.name}>
-            <dt>{i18n.trans(field.label_i18n)}</dt>
-            <dd><Widget
-              value={value}
-              onChange={this.props.onChange ? onValueChange.bind(this) : undefined}
-              type={field.type}
-            /></dd>
-          </dl>
-        );
-      }.bind(this));
+      var fields = widgets.renderFieldRows(
+        blockInfo.flowBlockModel.fields,
+        null,
+        this.renderFormField.bind(this, blockInfo)
+      );
 
       return (
         <div key={blockInfo.localId} className="flow-block">
@@ -235,7 +251,7 @@ var FlowWidget = React.createClass({
           {fields}
         </div>
       );
-    }.bind(this));
+    });
   },
 
   renderAddBlockSection: function() {

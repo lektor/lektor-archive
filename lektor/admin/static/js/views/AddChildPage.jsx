@@ -135,14 +135,18 @@ class AddChildPage extends RecordComponent {
         );
       });
       fields.push(
-        <dl key="_model" className="field">
-          <dt>{i18n.trans('MODEL')}</dt>
-          <dd><select value={this.state.selectedModel}
-              className="form-control"
-              onChange={this.onModelSelected.bind(this)}>
-            {choices}
-          </select></dd>
-        </dl>
+        <div className="row" key="_model">
+          <div className="field-box col-md-12">
+            <dl className="field">
+              <dt>{i18n.trans('MODEL')}</dt>
+              <dd><select value={this.state.selectedModel}
+                  className="form-control"
+                  onChange={this.onModelSelected.bind(this)}>
+                {choices}
+              </select></dd>
+            </dl>
+          </div>
+        </div>
       );
     }
 
@@ -153,15 +157,19 @@ class AddChildPage extends RecordComponent {
         value = Widget.deserializeValue(value, field.type);
       }
       fields.push(
-        <dl key={field.name} className="field">
-          <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
-          <dd><Widget
-            value={value}
-            placeholder={placeholder}
-            onChange={this.onValueChange.bind(this, id)}
-            type={field.type}
-          /></dd>
-        </dl>
+        <div className="row" key={field.name}>
+          <div className="field-box col-md-12">
+            <dl className="field">
+              <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
+              <dd><Widget
+                value={value}
+                placeholder={placeholder}
+                onChange={this.onValueChange.bind(this, id)}
+                type={field.type}
+              /></dd>
+            </dl>
+          </div>
+        </div>
       );
     };
 
