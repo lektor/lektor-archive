@@ -139,7 +139,7 @@ class AddChildPage extends RecordComponent {
           <dt>{i18n.trans('MODEL')}</dt>
           <dd><select value={this.state.selectedModel}
               className="form-control"
-              onChange={this.onModelSelected}>
+              onChange={this.onModelSelected.bind(this)}>
             {choices}
           </select></dd>
         </dl>

@@ -11,6 +11,9 @@ var CheckboxesInputWidget = React.createClass({
 
   statics: {
     deserializeValue: function(value) {
+      if (value === '') {
+        return null;
+      }
       var rv = value.split(',').map(function(x) {
         return x.match(/^\s*(.*?)\s*$/)[1];
       });
@@ -21,7 +24,7 @@ var CheckboxesInputWidget = React.createClass({
     },
 
     serializeValue: function(value) {
-      return value.join(', ');
+      return (value || '').join(', ');
     }
   },
 
@@ -34,8 +37,15 @@ var CheckboxesInputWidget = React.createClass({
   },
 
   isActive: function(field) {
-    for (var i = 0; i < this.props.value.length; i++) {
-      if (this.props.value[i] === field) {
+    var value = this.props.value;
+    if (value == null) {
+      value = this.props.placeholder;
+      if (value == null) {
+        return false;
+      }
+    }
+    for (var i = 0; i < value.length; i++) {
+      if (value[i] === field) {
         return true;
       }
     }
@@ -43,7 +53,7 @@ var CheckboxesInputWidget = React.createClass({
   },
 
   render: function() {
-    var {className, value, type, ...otherProps} = this.props;
+    var {className, value, placeholder, type, ...otherProps} = this.props;
     className = (className || '') + ' checkbox';
 
     var choices = this.props.type.choices.map(function(item) {
@@ -75,7 +85,8 @@ var SelectInputWidget = React.createClass({
   },
 
   render: function() {
-    var {className, type, onChange, ...otherProps} = this.props;
+    var {className, type, value, placeholder, onChange, ...otherProps} = this.props;
+    value = value || placeholder;
 
     var choices = this.props.type.choices.map((item) => {
       return (
@@ -92,8 +103,9 @@ var SelectInputWidget = React.createClass({
       <div className="form-group">
         <div className={className}>
           <select
-            className="form-control"
+            className={this.getInputClass()}
             onChange={onChange ? this.onChange : null}
+            value={value}
             {...otherProps}>
             {choices}
           </select>

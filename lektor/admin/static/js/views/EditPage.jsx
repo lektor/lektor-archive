@@ -153,8 +153,13 @@ class EditPage extends RecordEditComponent {
     });
   }
 
-  getPlaceholderForField(field) {
-    if (field.name == '_slug') {
+  getPlaceholderForField(widget, field) {
+    if (field['default'] !== null) {
+      if (widget.deserializeValue) {
+        return widget.deserializeValue(field['default'], field['type']);
+      }
+      return field['default'];
+    } else if (field.name == '_slug') {
       return this.state.recordInfo.slug_format;
     } else if (field.name == '_template') {
       return this.state.recordInfo.default_template;
@@ -207,7 +212,7 @@ class EditPage extends RecordEditComponent {
               value={value}
               onChange={this.onValueChange.bind(this, field)}
               type={field.type}
-              placeholder={this.getPlaceholderForField(field)}
+              placeholder={this.getPlaceholderForField(Widget, field)}
             /></dd>
           </dl>
         );

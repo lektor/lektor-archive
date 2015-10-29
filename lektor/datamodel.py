@@ -119,6 +119,7 @@ class Field(object):
             label_i18n = {'en': name.replace('_', ' ').strip().capitalize()}
         self.label_i18n = label_i18n
         self.description_i18n = get_i18n_block(options, 'description') or None
+        self.default = options.get('default')
         self.type = type(env, options)
 
     @property
@@ -132,11 +133,12 @@ class Field(object):
             'label_i18n': self.label_i18n,
             'description_i18n': self.description_i18n,
             'type': self.type.to_json(pad, alt),
+            'default': self.default,
         }
 
     def deserialize_value(self, value, pad=None):
         raw_value = types.RawValue(self.name, value, field=self, pad=pad)
-        return self.type.value_from_raw(raw_value)
+        return self.type.value_from_raw_with_default(raw_value)
 
     def serialize_value(self, value):
         return self.type.value_to_raw(value)

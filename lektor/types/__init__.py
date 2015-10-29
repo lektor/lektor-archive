@@ -65,6 +65,16 @@ class Type(object):
     def value_from_raw(self, raw):
         return raw
 
+    def value_from_raw_with_default(self, raw):
+        value = self.value_from_raw(raw)
+        if isinstance(value, Undefined) and \
+           not isinstance(value, BadValue) and \
+           raw.field is not None and \
+           raw.field.default is not None:
+            return self.value_from_raw(RawValue(raw.name, raw.field.default,
+                                                field=raw.field, pad=raw.pad))
+        return value
+
     def __repr__(self):
         return '%s()' % self.__class__.__name__
 

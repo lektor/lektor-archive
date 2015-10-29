@@ -78,63 +78,6 @@ var SingleLineTextInputWidget = React.createClass({
   }
 });
 
-var MultiTextInputWidget = React.createClass({
-  mixins: [BasicWidgetMixin],
-
-  onChange: function(idx, event) {
-    var lines = this.getLines();
-    lines[idx] = event.target.value;
-    this.props.onChange(lines.join('\n').trimRight());
-  },
-
-  removeLine: function(idx) {
-    var lines = this.getLines();
-    lines.splice(idx, 1);
-    if (this.props.onChange) {
-      this.props.onChange(lines.join('\n').trimRight());
-    }
-  },
-
-  getLines: function() {
-    var rv = (this.props.value || '').split(/\r?\n/g);
-    if (rv.length == 0 || rv[rv.length - 1] != '') {
-      rv.push('');
-    }
-    return rv;
-  },
-
-  render: function() {
-    var {className, type, onChange, ...otherProps} = this.props;
-    var className = (className || '');
-
-    var items = this.getLines().map((line, idx, arr) => {
-      return (
-        <div className="input-group multi-text-input" key={idx}>
-          <input
-            type="text"
-            key={idx}
-            value={line}
-            onChange={onChange ? this.onChange.bind(this, idx) : undefined}
-            className={this.getInputClass()} />
-          <span className="input-group-btn">
-            <button
-              className="btn btn-primary"
-              disabled={idx === arr.length - 1 && line === ''}
-              onClick={this.removeLine.bind(this, idx)}
-              type="button">x</button>
-          </span>
-        </div>
-      );
-    });
-
-    return (
-      <div className={className}>
-        {items}
-      </div>
-    );
-  }
-});
-
 var SlugInputWidget = React.createClass({
   mixins: [InputWidgetMixin],
 
@@ -337,8 +280,18 @@ var BooleanInputWidget = React.createClass({
     this.props.onChange(event.target.checked ? 'yes' : 'no');
   },
 
+  componentDidMount: function() {
+    var checkbox = React.findDOMNode(this.refs.checkbox);
+    if (!this.props.value && this.props.placeholder) {
+      checkbox.indeterminate = true;
+      checkbox.checked = isTrue(this.props.placeholder);
+    } else {
+      checkbox.indeterminate = false;
+    }
+  },
+
   render: function() {
-    var {className, type, onChange, value, ...otherProps} = this.props;
+    var {className, type, placeholder, onChange, value, ...otherProps} = this.props;
     className = (className || '') + ' checkbox';
 
     return (
@@ -346,6 +299,7 @@ var BooleanInputWidget = React.createClass({
         <label>
           <input type="checkbox"
             {...otherProps}
+            ref='checkbox'
             checked={isTrue(value)}
             onChange={onChange ? this.onChange : undefined} />
           {type.checkbox_label_i18n ? i18n.trans(type.checkbox_label_i18n) : null}
@@ -357,7 +311,6 @@ var BooleanInputWidget = React.createClass({
 
 module.exports = {
   SingleLineTextInputWidget: SingleLineTextInputWidget,
-  MultiTextInputWidget: MultiTextInputWidget,
   SlugInputWidget: SlugInputWidget,
   IntegerInputWidget: IntegerInputWidget,
   DateInputWidget: DateInputWidget,
