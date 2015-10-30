@@ -1,10 +1,9 @@
 'use strict';
 
 var React = require('react');
-var Router = require("react-router");
-var {Link, RouteHandler} = Router;
 
 var RecordComponent = require('./RecordComponent');
+var Link = require('./Link');
 var utils = require('../utils');
 var i18n = require('../i18n');
 var dialogSystem = require('../dialogSystem');
@@ -28,9 +27,11 @@ class BreadCrumbs extends RecordComponent {
     window.addEventListener('keydown', this._onKeyPress);
   }
 
-  componentWillReceiveProps(nextProps) {
-    super(nextProps);
-    this.updateCrumbs();
+  componentDidUpdate(prevProps, prevState) {
+    super(prevProps, prevState);
+    if (prevProps.params.path !== this.props.params.path) {
+      this.updateCrumbs();
+    }
   }
 
   componentWillUnmount() {
@@ -92,7 +93,7 @@ class BreadCrumbs extends RecordComponent {
 
   render() {
     var crumbs = [];
-    var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
+    var target = this.isRecordPreviewActive() ? '.preview' : '.edit';
     var lastItem = null;
 
     if (this.state.recordPathInfo != null) {
@@ -107,15 +108,18 @@ class BreadCrumbs extends RecordComponent {
         }
         lastItem = item;
 
+        var adminPath = this.getPathToAdminPage(target, {path: urlPath});
+
         return (
           <li key={item.path} className={className}>
-            <Link to={target} params={{path: urlPath}}>{label}</Link>
+            <Link to={adminPath}>{label}</Link>
           </li>
         );
       });
     } else {
       crumbs = (
-        <li><Link to={'edit'} params={{path: 'root'}}>{i18n.trans('BACK_TO_OVERVIEW')}</Link></li>
+        <li><Link to={this.getPathToAdminPage('.edit', {path: 'root'})}>
+          {i18n.trans('BACK_TO_OVERVIEW')}</Link></li>
       )
     }
 
@@ -126,8 +130,9 @@ class BreadCrumbs extends RecordComponent {
           {crumbs}
           {lastItem && lastItem.can_have_children ? (
             <li className="new-record-crumb">
-              <Link to="add-child" params={{path: this.getUrlRecordPathWithAlt(
-                lastItem.path)}}>+</Link>
+              <Link to={this.getPathToAdminPage('.add-child', {
+                path: this.getUrlRecordPathWithAlt(
+                lastItem.path)})}>+</Link>
             </li>
           ) : null}
           {' ' /* this space is needed for chrome ... */}

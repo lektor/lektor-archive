@@ -8,16 +8,13 @@ class Dash extends Component {
 
   componentDidMount() {
     super();
-    this.context.router.transitionTo('preview', {'path': 'root'});
+    var rootPreview = $LEKTOR_CONFIG.admin_root + '/root/preview';
+    this.props.history.pushState(null, rootPreview);
   }
 
   render() {
     return null;
   }
 }
-
-Dash.contextTypes = {
-  router: React.PropTypes.any.isRequired
-};
 
 module.exports = Dash;

@@ -64,13 +64,13 @@ class DeletePage extends RecordComponent {
             attachmentsRemoved: [this.state.recordInfo.id]
           }));
         }
-        this.context.router.transitionTo('edit', {path: targetPath});
+        this.transitionToAdminPage('.edit', {path: targetPath});
       });
   }
 
   cancelDelete(event) {
     var urlPath = this.getUrlRecordPathWithAlt();
-    this.context.router.transitionTo('edit', {path: urlPath});
+    this.transitionToAdminPage('.edit', {path: urlPath});
   }
 
   onDeleteAllAltsChange(event) {

@@ -1,10 +1,12 @@
 'use strict';
 
 var React = require('react');
-var Router = require("react-router");
-var {Route, DefaultRoute, NotFoundRoute} = Router;
+var ReactDOM = require('react-dom');
+var {Router, Route, IndexRoute} = require('react-router');
 var Component = require('./components/Component');
 var i18n = require('./i18n');
+var {useBeforeUnload} = require('history');
+var createBrowserHistory = require('history/lib/createBrowserHistory');
 
 require('bootstrap');
 require('./bootstrap-extras');
@@ -16,14 +18,6 @@ require('event-source-polyfill');
 i18n.currentLanguage = $LEKTOR_CONFIG.lang;
 
 class BadRoute extends Component {
-
-  componentDidMount() {
-    // shitty hack because react router :(
-    if (this.context.router.getCurrentPath() ==
-        $LEKTOR_CONFIG.admin_root + '/') {
-      this.context.router.transitionTo('preview', {'path': 'root'});
-    }
-  }
 
   render() {
     return (
@@ -51,24 +45,20 @@ var routes = (function() {
 
   // route setup
   return (
-    <Route name="dash" path={$LEKTOR_CONFIG.admin_root} handler={App}>
-      <Route name="edit" path=":path/edit" handler={EditPage}/>
-      <Route name="delete" path=":path/delete" handler={DeletePage}/>
-      <Route name="preview" path=":path/preview" handler={PreviewPage}/>
-      <Route name="add-child" path=":path/add-child" handler={AddChildPage}/>
-      <Route name="add-attachment" path=":path/upload" handler={AddAttachmentPage}/>
-      <DefaultRoute handler={Dash}/>
-      <NotFoundRoute handler={BadRoute}/>
+    <Route name="app" path={$LEKTOR_CONFIG.admin_root} component={App}>
+      <Route name="edit" path=":path/edit" component={EditPage}/>
+      <Route name="delete" path=":path/delete" component={DeletePage}/>
+      <Route name="preview" path=":path/preview" component={PreviewPage}/>
+      <Route name="add-child" path=":path/add-child" component={AddChildPage}/>
+      <Route name="upload" path=":path/upload" component={AddAttachmentPage}/>
+      <IndexRoute component={Dash}/>
+      <route path="*" component={BadRoute}/>
     </Route>
   );
 })();
 
-var router = Router.create({
-  routes: routes,
-  location: Router.HistoryLocation,
-  scrollBehavior: Router.ImitateBrowserBehavior
-});
-
-router.run(function(Handler) {
-  React.render(<Handler/>, document.getElementById('dash'));
-});
+ReactDOM.render((
+  <Router history={useBeforeUnload(createBrowserHistory)()}>
+    {routes}
+  </Router>
+), document.getElementById('dash'));

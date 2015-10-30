@@ -251,7 +251,7 @@ var MultiLineTextInputWidget = React.createClass({
       return;
     }
     var diff;
-    var node = this.refs.ta.getDOMNode();
+    var node = this.refs.ta;
 
     if (window.getComputedStyle) {
       var s = window.getComputedStyle(node);
@@ -316,7 +316,7 @@ var BooleanInputWidget = React.createClass({
   },
 
   componentDidMount: function() {
-    var checkbox = React.findDOMNode(this.refs.checkbox);
+    var checkbox = this.refs.checkbox;
     if (!this.props.value && this.props.placeholder) {
       checkbox.indeterminate = true;
       checkbox.checked = isTrue(this.props.placeholder);

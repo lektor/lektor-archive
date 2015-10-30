@@ -120,7 +120,7 @@ class AddChildPage extends RecordComponent {
           errMsg(i18n.trans('ERROR_INVALID_ID').replace('%s', id));
         } else {
           var urlPath = this.getUrlRecordPathWithAlt(resp.path);
-          this.context.router.transitionTo('edit', {path: urlPath});
+          this.transitionToAdminPage('.edit', {path: urlPath});
         }
       });
   }

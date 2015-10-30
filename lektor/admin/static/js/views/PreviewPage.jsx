@@ -19,7 +19,7 @@ class PreviewPage extends RecordComponent {
 
   componentWillReceiveProps(nextProps) {
     super(nextProps);
-    this.syncState();
+    this.setState({}, this.syncState.bind(this));
   }
 
   componentDidMount() {
@@ -57,7 +57,7 @@ class PreviewPage extends RecordComponent {
   }
 
   componentDidUpdate() {
-    var frame = React.findDOMNode(this.refs.iframe);
+    var frame = this.refs.iframe;
     var intendedPath = this.getIntendedPath();
     if (intendedPath !== null) {
       var framePath = this.getFramePath();
@@ -73,7 +73,7 @@ class PreviewPage extends RecordComponent {
   }
 
   getFramePath() {
-    var frame = React.findDOMNode(this.refs.iframe);
+    var frame = this.refs.iframe;
     return utils.fsPathFromAdminObservedPath(
       frame.contentWindow.location.pathname);
   }
@@ -87,7 +87,7 @@ class PreviewPage extends RecordComponent {
       .then((resp) => {
         if (resp.exists) {
           var urlPath = this.getUrlRecordPathWithAlt(resp.path, resp.alt);
-          this.context.router.transitionTo('preview', {path: urlPath});
+          this.transitionToAdminPage('.preview', {path: urlPath});
         }
       });
   }

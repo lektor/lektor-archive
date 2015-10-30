@@ -47,6 +47,7 @@ class DialogSlot extends Component {
     if (this.state.currentDialog) {
       dialog = <this.state.currentDialog
         ref={(ref) => this.initDialogInstance(ref)}
+        {...this.getRoutingProps()}
         {...this.state.currentDialogOptions}
       />;
     } else {

@@ -355,7 +355,10 @@ class EditorSession(object):
             self._page_delete_impl()
 
     def _save_impl(self):
-        if not self._changed and self.exists:
+        # When creating a new alt from a primary self.exists is True but
+        # the file does not exist yet.  In this case we want to explicitly
+        # create it anyways instead of bailing.
+        if not self._changed and self.exists and os.path.exists(self.fs_path):
             return
 
         try:

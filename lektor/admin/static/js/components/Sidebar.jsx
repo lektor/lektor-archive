@@ -1,14 +1,13 @@
 'use strict';
 
 var React = require('react');
-var Router = require("react-router");
-var {Link} = Router;
 
 var utils = require('../utils');
 var i18n = require('../i18n');
 var hub = require('../hub');
 var {AttachmentsChangedEvent} = require('../events');
 var RecordComponent = require('./RecordComponent');
+var Link = require('../components/Link');
 
 
 function getBrowseButtonTitle() {
@@ -47,16 +46,21 @@ class Sidebar extends RecordComponent {
   }
 
   componentDidMount() {
+    super();
     this._updateRecordInfo();
 
     hub.subscribe(AttachmentsChangedEvent, this.onAttachmentsChanged);
   }
 
-  componentWillReceiveProps(nextProps) {
-    this._updateRecordInfo();
+  componentDidUpdate(prevProps, prevState) {
+    super(prevProps, prevState);
+    if (prevProps.params.path !== this.props.params.path) {
+      this._updateRecordInfo();
+    }
   }
 
   componentWillUnmount() {
+    super();
     hub.unsubscribe(AttachmentsChangedEvent, this.onAttachmentsChanged);
   }
 
@@ -122,22 +126,25 @@ class Sidebar extends RecordComponent {
     var deleteLink = null;
 
     links.push(
-      <li key='edit'><Link to="edit" params={linkParams
-        }>{this.state.isAttachment ?
-          i18n.trans('EDIT_METADATA') :
-          i18n.trans('EDIT')}</Link></li>
+      <li key='edit'>
+        <Link to={`${urlPath}/edit`}>
+          {this.state.isAttachment ?
+           i18n.trans('EDIT_METADATA') :
+           i18n.trans('EDIT')}
+         </Link>
+       </li>
     );
 
     if (this.state.canBeDeleted) {
       links.push(
-        <li key='delete'><Link to="delete" params={
-          linkParams}>{i18n.trans('DELETE')}</Link></li>
+        <li key='delete'><Link to={`${urlPath}/delete`}>
+          {i18n.trans('DELETE')}</Link></li>
       );
     }
 
     links.push(
-      <li key='preview'><Link to="preview" params={linkParams
-        }>{i18n.trans('PREVIEW')}</Link></li>
+      <li key='preview'><Link to={`${urlPath}/preview`}>
+        {i18n.trans('PREVIEW')}</Link></li>
     );
 
     if (this.state.recordExists) {
@@ -152,15 +159,15 @@ class Sidebar extends RecordComponent {
 
     if (this.state.canHaveChildren) {
       links.push(
-        <li key='add-child'><Link to="add-child" params={linkParams
-          }>{i18n.trans('ADD_CHILD_PAGE')}</Link></li>
+        <li key='add-child'><Link to={`${urlPath}/add-child`}>
+          {i18n.trans('ADD_CHILD_PAGE')}</Link></li>
       );
     }
 
     if (this.state.canHaveAttachments) {
       links.push(
-        <li key='add-attachment'><Link to="add-attachment" params={linkParams
-          }>{i18n.trans('ADD_ATTACHMENT')}</Link></li>
+        <li key='add-attachment'><Link to={`${urlPath}/upload`}>
+          {i18n.trans('ADD_ATTACHMENT')}</Link></li>
       );
     }
 
@@ -197,15 +204,13 @@ class Sidebar extends RecordComponent {
       if (!item.exists) {
         className += ' alt-missing';
       }
-      var routes = this.context.router.getCurrentRoutes();
-      var action = routes.length > 0 && routes[routes.length - 1].name || 'edit';
+
+      var path = this.getPathToAdminPage(null, {
+        path: this.getUrlRecordPathWithAlt(null, item.alt)
+      });
       return (
         <li key={item.alt} className={className}>
-          <Link
-            to={action}
-            params={{path: this.getUrlRecordPathWithAlt(null, item.alt)}}>
-              {title}
-          </Link>
+          <Link to={path}>{title}</Link>
         </li>
       );
     });
@@ -227,7 +232,8 @@ class Sidebar extends RecordComponent {
       var urlPath = this.getUrlRecordPathWithAlt(child.path);
       return (
         <li key={child.id}>
-          <Link to={target} params={{path: urlPath}}>{i18n.trans(child.label_i18n)}</Link>
+          <Link to={`${urlPath}/${target}`}>
+            {i18n.trans(child.label_i18n)}</Link>
         </li>
       )
     });
@@ -255,7 +261,8 @@ class Sidebar extends RecordComponent {
       var urlPath = this.getUrlRecordPathWithAlt(atch.path);
       return (
         <li key={atch.id}>
-          <Link to="edit" params={{path: urlPath}}>{atch.id} ({atch.type})</Link>
+          <Link to={`${urlPath}/edit`}>
+            {atch.id} ({atch.type})</Link>
         </li>
       )
     });

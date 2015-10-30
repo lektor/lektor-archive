@@ -106,7 +106,7 @@ class Publish extends Component {
 
   componentDidUpdate() {
     super();
-    var node = React.findDOMNode(this.refs.log);
+    var node = this.refs.log;
     if (node !== null) {
       node.scrollTop = node.scrollHeight;
     }

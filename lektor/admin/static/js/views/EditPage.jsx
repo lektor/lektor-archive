@@ -2,6 +2,7 @@
 
 var React = require('react');
 var Router = require('react-router');
+var update = require('react-addons-update');
 
 var RecordEditComponent = require('../components/RecordEditComponent');
 var utils = require('../utils');
@@ -19,8 +20,7 @@ class EditPage extends RecordEditComponent {
       recordData: null,
       recordDataModel: null,
       recordInfo: null,
-      hasPendingChanges: false,
-      editorOpenForPage: null
+      hasPendingChanges: false
     };
     this._onKeyPress = this._onKeyPress.bind(this);
   }
@@ -32,7 +32,17 @@ class EditPage extends RecordEditComponent {
   }
 
   componentWillReceiveProps(nextProps) {
-    this.syncEditor();
+    /*
+    if (nextProps.params.path !== this.props.params.path) {
+      this.syncEditor();
+    }
+    */
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevProps.params.path !== this.props.params.path) {
+      this.syncEditor();
+    }
   }
 
   componentWillUnmount() {
@@ -68,34 +78,25 @@ class EditPage extends RecordEditComponent {
   }
 
   syncEditor() {
-    var url = this.getUrlRecordPathWithAlt();
-    if (this.state.editorOpenForPage === url) {
-      return;
-    }
-
-    this.setState({
-      editorOpenForPage: url
-    });
-
     utils.loadData('/rawrecord', {
       path: this.getRecordPath(),
       alt: this.getRecordAlt()
     })
     .then((resp) => {
-        this.setState({
-          recordInitialData: resp.data,
-          recordData: {},
-          recordDataModel: resp.datamodel,
-          recordInfo: resp.record_info,
-          hasPendingChanges: false
-        });
+      this.setState({
+        recordInitialData: resp.data,
+        recordData: {},
+        recordDataModel: resp.datamodel,
+        recordInfo: resp.record_info,
+        hasPendingChanges: false
       });
+    });
   }
 
   onValueChange(field, value) {
     var updates = {};
     updates[field.name] = {$set: value || ''};
-    var rd = React.addons.update(this.state.recordData, updates);
+    var rd = update(this.state.recordData, updates);
     this.setState({
       recordData: rd,
       hasPendingChanges: true
@@ -139,7 +140,7 @@ class EditPage extends RecordEditComponent {
         this.setState({
           hasPendingChanges: false
         }, function() {
-          this.context.router.transitionTo('preview', {
+          this.transitionToAdminPage('.preview', {
             path: this.getUrlRecordPathWithAlt(path)
           });
         });
@@ -147,7 +148,7 @@ class EditPage extends RecordEditComponent {
   }
 
   deleteRecord(event) {
-    this.context.router.transitionTo('delete', {
+    this.transitionToAdminPage('.delete', {
       path: this.getUrlRecordPathWithAlt()
     });
   }

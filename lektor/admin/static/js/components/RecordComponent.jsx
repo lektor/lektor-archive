@@ -13,22 +13,26 @@ class RecordComponent extends Component {
 
   /* checks if the record preview is active. */
   isRecordPreviewActive() {
-    var routes = this.context.router.getCurrentRoutes();
-    return routes.length > 0 && routes[routes.length - 1].name === 'preview';
+    var routes = this.props.routes;
+    return (
+      routes.length > 0 &&
+      routes[routes.length - 1].component.name === 'PreviewPage'
+    );
   }
 
   /* this returns the current record path segments as array */
   getRecordPathSegments() {
-    var path = this.context.router.getCurrentParams().path;
+    var path = this.props.params.path;
     return path ? utils.urlPathToSegments(path) : [];
   }
 
   _getRecordPathAndAlt() {
-    var path = this.context.router.getCurrentParams().path;
+    var path = this.props.params.path;
     if (!path) {
       return [null, null];
     }
     var items = path.split(/\+/, 2);
+    console.log(items);
     return [utils.urlToFsPath(items[0]), items[1]];
   }
 
@@ -94,9 +98,5 @@ class RecordComponent extends Component {
     return rv;
   }
 }
-
-RecordComponent.contextTypes = {
-  router: React.PropTypes.func
-};
 
 module.exports = RecordComponent;

@@ -21,6 +21,7 @@ class ServerStatus extends Component {
   }
 
   componentDidMount() {
+    super();
     this.intervalId = window.setInterval(this.onInterval, 2000);
   }
 
@@ -29,6 +30,7 @@ class ServerStatus extends Component {
       window.clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    super();
   }
 
   onInterval() {

@@ -22,8 +22,8 @@ class SlideDialog extends Component {
   }
 
   componentWillUnmount() {
-    super();
     window.removeEventListener('keydown', this._onKeyPress);
+    super();
   }
 
   _onKeyPress(event) {

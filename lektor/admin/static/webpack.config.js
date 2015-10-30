@@ -11,15 +11,16 @@ module.exports = {
       'querystring',
       'bootstrap',
       'react',
-      'react-router',
-      'react/addons'
+      'react-dom',
+      'react-addons-update',
+      'react-router'
     ]
   },
   output: {
     path: __dirname,
     filename: 'gen/[name].js'
   },
-  devtool: '#source-map',
+  devtool: '#cheap-module-eval-source-map',
   resolve: {
     modulesDirectories: ['../node_modules'],
     extensions: ['', '.jsx', '.js', '.json']

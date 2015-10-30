@@ -52,7 +52,7 @@ class AddAttachmentPage extends RecordComponent {
   }
 
   uploadFile(event) {
-    React.findDOMNode(this.refs.file).click();
+    this.refs.file.click();
   }
 
   onUploadProgress(event) {
@@ -83,7 +83,7 @@ class AddAttachmentPage extends RecordComponent {
       return;
     }
 
-    var files = React.findDOMNode(this.refs.file).files;
+    var files = this.refs.file.files;
     this.setState({
       currentFiles: Array.prototype.slice.call(files, 0),
       isUploading: true

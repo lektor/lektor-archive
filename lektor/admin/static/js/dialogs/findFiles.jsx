@@ -24,7 +24,7 @@ class FindFiles extends RecordComponent {
 
   componentDidMount() {
     super();
-    React.findDOMNode(this.refs.q).focus();
+    this.refs.q.focus();
   }
 
   onInputChange(e) {
@@ -78,10 +78,10 @@ class FindFiles extends RecordComponent {
   onActiveItem(index) {
     var item = this.state.results[index];
     if (item !== undefined) {
-      var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
+      var target = this.isRecordPreviewActive() ? '.preview' : '.edit';
       var urlPath = this.getUrlRecordPathWithAlt(item.path);
       dialogSystem.dismissDialog();
-      this.context.router.transitionTo(target, {path: urlPath});
+      this.transitionToAdminPage(target, {path: urlPath});
     }
   }
 
@@ -95,9 +95,9 @@ class FindFiles extends RecordComponent {
     var rv = [];
 
     var rv = this.state.results.map((result, idx) => {
-      var parents = result.parents.map((item) => {
+      var parents = result.parents.map((item, idx) => {
         return (
-          <span className="parent">
+          <span className="parent" key={idx}>
             {item.title}
           </span>
         );
