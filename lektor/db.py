@@ -409,16 +409,16 @@ class Page(Record):
     @property
     def source_filename(self):
         if self.alt != PRIMARY_ALT:
-            return posixpath.join(self.pad.db.to_fs_path(self['_path']),
-                                  'contents+%s.lr' % self.alt)
-        return posixpath.join(self.pad.db.to_fs_path(self['_path']),
-                              'contents.lr')
+            return os.path.join(self.pad.db.to_fs_path(self['_path']),
+                                'contents+%s.lr' % self.alt)
+        return os.path.join(self.pad.db.to_fs_path(self['_path']),
+                            'contents.lr')
 
     def iter_source_filenames(self):
         yield self.source_filename
         if self.alt != PRIMARY_ALT:
-            yield posixpath.join(self.pad.db.to_fs_path(self['_path']),
-                                 'contents.lr')
+            yield os.path.join(self.pad.db.to_fs_path(self['_path']),
+                               'contents.lr')
 
     @property
     def url_path(self):
