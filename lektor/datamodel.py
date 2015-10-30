@@ -599,6 +599,7 @@ add_system_field('_template', {
     'type': 'string',
     'label': 'Template',
     'label[de]': 'Vorlage',
+    'width': '1/2',
 })
 
 # the slug that should be used for this record.  This is added below the
@@ -606,6 +607,7 @@ add_system_field('_template', {
 add_system_field('_slug', {
     'type': 'slug',
     'label': 'URL Slug',
+    'width': '1/2',
 })
 
 # This can be used to hide an individual record.

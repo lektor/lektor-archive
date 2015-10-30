@@ -157,7 +157,7 @@ class AddChildPage extends RecordComponent {
         value = Widget.deserializeValue(value, field.type);
       }
       fields.push(
-        <div className="row" key={field.name}>
+        <div className="row field-row" key={field.name}>
           <div className="field-box col-md-12">
             <dl className="field">
               <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
