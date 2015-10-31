@@ -203,6 +203,23 @@ div.application {
         li.current-alt a {
           font-weight: bold;
         }
+
+        li.pagination {
+          > * {
+            display: inline-block;
+            text-align: center;
+            font-style: normal;
+            width: 20%;
+            font-weight: bold;
+          }
+          span.page {
+            width: 60%;
+            font-weight: normal;
+          }
+          *:last-child {
+            float: right;
+          }
+        }
       }
 
       .section + .section {

@@ -282,7 +282,7 @@ class Sidebar extends RecordComponent {
         {page > 1
           ? <a href="#" onClick={goToPage.bind(this, -1)}>«</a>
           : <em>«</em>}
-        <span className="page">{page}</span>
+        <span className="page">{page + ' / ' + pages}</span>
         {page < pages
           ? <a href="#" onClick={goToPage.bind(this, +1)}>»</a>
           : <em>»</em>}
@@ -319,8 +319,8 @@ class Sidebar extends RecordComponent {
       <div key="children" className="section">
         <h3>{i18n.trans('CHILD_PAGES')}</h3>
         <ul className="nav record-children">
-          {items}
           {this.renderChildPagination()}
+          {items}
         </ul>
       </div>
     );
