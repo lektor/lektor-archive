@@ -138,6 +138,10 @@ class FlowType(Type):
 
     def __init__(self, env, options):
         Type.__init__(self, env, options)
+        self.flow_blocks = set(
+            x.strip() for x in options.get('flow_blocks', '').split(',')
+            if x.strip()) or None
+        self.default_flow_block = options.get('default_flow_block')
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -153,6 +157,9 @@ class FlowType(Type):
         try:
             for block, block_lines in process_flowblock_data(raw.value):
                 # Unknown flow blocks are skipped for the moment
+                if self.flow_blocks is not None and \
+                   block not in self.flow_blocks:
+                    continue
                 flowblock = db.flowblocks.get(block)
                 if flowblock is None:
                     continue
@@ -171,6 +178,18 @@ class FlowType(Type):
 
     def to_json(self, pad, alt=PRIMARY_ALT):
         rv = Type.to_json(self, pad, alt)
-        rv['flowblocks'] = dict((k, v.to_json(pad, alt)) for k, v in
-                                pad.db.flowblocks.iteritems())
+
+        blocks = {}
+        default = self.default_flow_block
+        for block_name, flowblock in pad.db.flowblocks.iteritems():
+            if self.flow_blocks is not None \
+               and block_name not in self.flow_blocks:
+                continue
+            if default is None and flowblock.default:
+                default = block_name
+            blocks[block_name] = flowblock.to_json(pad, alt)
+
+        rv['flowblocks'] = blocks
+        rv['default_flowblock'] = default
+
         return rv

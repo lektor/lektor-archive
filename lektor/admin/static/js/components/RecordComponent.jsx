@@ -32,7 +32,6 @@ class RecordComponent extends Component {
       return [null, null];
     }
     var items = path.split(/\+/, 2);
-    console.log(items);
     return [utils.urlToFsPath(items[0]), items[1]];
   }
 
