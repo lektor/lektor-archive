@@ -22,12 +22,47 @@ function getBrowseButtonTitle() {
 }
 
 
+const CHILDREN_PER_PAGE = 15;
+
+
+class ChildPosCache {
+
+  constructor() {
+    this.memo = [];
+  }
+
+  rememberPosition(record, page) {
+    for (let i = 0; i < this.memo.length; i++) {
+      if (this.memo[i][0] === record) {
+        this.memo[i][1] = page;
+        return;
+      }
+    }
+    this.memo.unshift([record, page]);
+    if (this.memo.length > 5) {
+      this.memo.length = 5;
+    }
+  }
+
+  getPosition(record) {
+    console.log(this.memo);
+    for (let i = 0; i < this.memo.length; i++) {
+      if (this.memo[i][0] === record) {
+        return this.memo[i][1];
+      }
+    }
+    return 1;
+  }
+}
+
+
 class Sidebar extends RecordComponent {
 
   constructor(props) {
     super(props);
 
     this.state = this._getInitialState();
+    this.childPosCache = new ChildPosCache();
     this.onAttachmentsChanged = this.onAttachmentsChanged.bind(this);
   }
 
@@ -41,7 +76,8 @@ class Sidebar extends RecordComponent {
       isAttachment: false,
       canBeDeleted: false,
       recordExists: false,
-      lastRecordRequest: null
+      lastRecordRequest: null,
+      childrenPage: 1
     };
   }
 
@@ -100,7 +136,8 @@ class Sidebar extends RecordComponent {
             canHaveChildren: resp.can_have_children,
             isAttachment: resp.is_attachment,
             canBeDeleted: resp.can_be_deleted,
-            recordExists: resp.exists
+            recordExists: resp.exists,
+            childrenPage: this.childPosCache.getPosition(path),
           });
         });
     });
@@ -225,10 +262,42 @@ class Sidebar extends RecordComponent {
     );
   }
 
+  renderChildPagination() {
+    let pages = Math.ceil(this.state.recordChildren.length / CHILDREN_PER_PAGE);
+    if (pages <= 1) {
+      return null;
+    }
+    let page = this.state.childrenPage;
+    let goToPage = (diff, event) => {
+      event.preventDefault();
+      let newPage = page +diff;
+      this.childPosCache.rememberPosition(this.getRecordPath(), newPage);
+      this.setState({
+        childrenPage: newPage
+      });
+    };
+
+    return (
+      <li className="pagination">
+        {page > 1
+          ? <a href="#" onClick={goToPage.bind(this, -1)}>«</a>
+          : <em>«</em>}
+        <span className="page">{page}</span>
+        {page < pages
+          ? <a href="#" onClick={goToPage.bind(this, +1)}>»</a>
+          : <em>»</em>}
+      </li>
+    );
+  }
+
   renderChildActions() {
     var target = this.isRecordPreviewActive() ? 'preview' : 'edit';
 
-    var items = this.state.recordChildren.map((child) => {
+    var children = this.state.recordChildren.slice(
+      (this.state.childrenPage - 1) * CHILDREN_PER_PAGE,
+      this.state.childrenPage * CHILDREN_PER_PAGE);
+
+    var items = children.map((child) => {
       var urlPath = this.getUrlRecordPathWithAlt(child.path);
       return (
         <li key={child.id}>
@@ -251,6 +320,7 @@ class Sidebar extends RecordComponent {
         <h3>{i18n.trans('CHILD_PAGES')}</h3>
         <ul className="nav record-children">
           {items}
+          {this.renderChildPagination()}
         </ul>
       </div>
     );
