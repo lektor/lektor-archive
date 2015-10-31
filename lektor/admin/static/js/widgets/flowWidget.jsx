@@ -186,10 +186,9 @@ var FlowWidget = React.createClass({
     }
   },
 
-  addNewBlock: function(event) {
+  addNewBlock: function(key, event) {
     event.preventDefault();
 
-    var key = React.findDOMNode(this.refs.new_block_choice).value;
     var flowBlockModel = this.props.type.flowblocks[key];
 
     // this is a rather ugly way to do this, but hey, it works.
@@ -256,38 +255,34 @@ var FlowWidget = React.createClass({
 
   renderAddBlockSection: function() {
     var choices = [];
-    var defaultValue = this.props.type.default_flowblock;
-
     for (var key in this.props.type.flowblocks) {
       var flowBlockModel = this.props.type.flowblocks[key];
       var label = i18n.trans(flowBlockModel.name_i18n) || flowBlockModel.name;
       choices.push([flowBlockModel.id, label]);
     }
-    choices.sort(function(a, b) {
+
+    choices.sort((a, b) => {
       return a[1].toLowerCase().localeCompare(b[1].toLowerCase());
     });
-    choices = choices.map(function(item) {
-      var [value, title] = item;
-      return <option key={value} value={value}>{title}</option>
+
+    var buttons = choices.map((item) => {
+      var [key, title] = item;
+      return (
+        <button
+          className="btn btn-default"
+          onClick={this.addNewBlock.bind(this, key)}
+          key={key}>{title}</button>
+      );
     });
 
-    // XXX: column layout -> something better
     return (
       <div className="add-block">
-        <div className="row row-inline-thin-padding">
-          <div className="col-md-4">
-            <select ref="new_block_choice" className="form-control"
-              defaultValue={defaultValue}>
-              {choices}
-            </select>
-          </div>
-          <div className="col-md-2">
-            <button className="btn btn-default"
-              onClick={this.addNewBlock}>{i18n.trans('ADD_FLOWBLOCK')}</button>
-          </div>
+        <label>{i18n.trans('ADD_FLOWBLOCK') + ': '}</label>
+        <div className="btn-group">
+          {buttons}
         </div>
       </div>
-    )
+    );
   },
 
   render: function() {
