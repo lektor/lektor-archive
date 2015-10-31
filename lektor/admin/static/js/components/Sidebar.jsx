@@ -44,11 +44,14 @@ class ChildPosCache {
     }
   }
 
-  getPosition(record) {
-    console.log(this.memo);
+  getPosition(record, childCount) {
     for (let i = 0; i < this.memo.length; i++) {
       if (this.memo[i][0] === record) {
-        return this.memo[i][1];
+        let rv = this.memo[i][1];
+        if (childCount !== undefined) {
+          rv = Math.min(rv, Math.ceil(childCount / CHILDREN_PER_PAGE));
+        }
+        return rv;
       }
     }
     return 1;
@@ -137,7 +140,8 @@ class Sidebar extends RecordComponent {
             isAttachment: resp.is_attachment,
             canBeDeleted: resp.can_be_deleted,
             recordExists: resp.exists,
-            childrenPage: this.childPosCache.getPosition(path),
+            childrenPage: this.childPosCache.getPosition(
+              path, resp.children.length),
           });
         });
     });

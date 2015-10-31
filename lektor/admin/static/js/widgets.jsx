@@ -169,21 +169,20 @@ function renderFieldRows(fields, isIllegalField, renderFunc) {
   rows.forEach((item, idx) => {
     var [rowType, row] = item;
     rv[rowType].push(
-      <div className="row field-row" key={idx}>
+      <div className="row field-row" key={rowType + '-' + idx}>
         {row.map(renderFunc)}
       </div>
     );
   });
 
-  return (
-    <div>
-      {rv.normal}
-      {rv.system.length > 1 ?
-        <ToggleGroup
-          groupTitle={i18n.trans('SYSTEM_FIELDS')}
-          defaultVisibility={false}>{rv.system}</ToggleGroup> : null}
-    </div>
-  );
+  return [
+    rv.normal,
+    rv.system.length > 1 ?
+      <ToggleGroup
+        key='sys'
+        groupTitle={i18n.trans('SYSTEM_FIELDS')}
+        defaultVisibility={false}>{rv.system}</ToggleGroup> : null
+  ];
 }
 
 

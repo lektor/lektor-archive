@@ -306,19 +306,33 @@ div.application {
     }
   }
 
+  div.flow {
+    padding: 0;
+    background: @flow-panel-background;
+    border: 1px solid @panel-border-color;
+    border-radius: @panel-radius;
+
+    div.add-block {
+      background: @background-taint;
+      border: 1px solid @panel-border-color;
+      margin: 10px 10px 10px 10px;
+      padding: 5px 10px;
+      border-radius: @panel-radius;
+    }
+  }
+
   div.flow-block {
     background: @flow-block-panel-background;
-    border: 1px solid @panel-border-color;
     margin: 0;
     padding: 0 10px;
     border-radius: @panel-radius;
 
     &+ div.flow-block {
-      margin-top: 15px;
+      border-top: 1px solid @panel-border-color;
     }
 
     div.field-row {
-      margin: 5px -10px;
+      margin: 0 -10px;
 
       [class*="col-"] {
         padding-left: 10px!important;
@@ -327,15 +341,13 @@ div.application {
     }
 
     h4 {
-      font-size: 14px;
-      background: @flow-block-header-background;
-      color: @flow-block-header-color;
+      font-size: 15px;
       margin: 0 -10px 0 -10px;
-      padding: 5px 10px;
+      padding: 5px 10px 0 10px;
     }
 
     dl {
-      margin: 10px 0 5px 0;
+      margin: 10px 0;
     }
 
     ul.actions {
@@ -383,24 +395,9 @@ div.application {
     z-index: 20;
   }
 
-  div.flow {
-    padding: 10px;
-    background: @flow-panel-background;
-    border: 1px solid @panel-border-color;
-    border-radius: @panel-radius;
-
-    div.add-block {
-      background: @background-taint;
-      border: 1px solid @panel-border-color;
-      margin-top: 15px;
-      padding: 5px 10px;
-      border-radius: @panel-radius;
-    }
-  }
-
   /* fake types */
   div.info {
-    color: @flow-block-header-color;
+    color: @header-taint;
     margin: 15px 0 15px 0;
   }
 
