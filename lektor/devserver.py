@@ -101,6 +101,8 @@ def send_file(request, filename):
         file = rewrite_html_for_editing(file)
         del headers['Content-Length']
 
+    headers['Cache-Control'] = 'no-cache, no-store'
+
     data = wrap_file(request.environ, file)
 
     rv = Response(data, mimetype=mimetype, headers=headers,
