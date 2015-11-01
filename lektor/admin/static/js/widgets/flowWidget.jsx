@@ -246,12 +246,14 @@ var FlowWidget = React.createClass({
             <button
               className="btn btn-default btn-xs"
               title={i18n.trans('UP')}
+              disabled={idx == 0}
               onClick={this.moveBlock.bind(this, idx, -1)}>
               <i className="fa fa-fw fa-chevron-up"></i>
             </button>
             <button
               className="btn btn-default btn-xs"
               title={i18n.trans('DOWN')}
+              disabled={idx >= this.props.value.length - 1}
               onClick={this.moveBlock.bind(this, idx, 1)}>
               <i className="fa fa-fw fa-chevron-down"></i>
             </button>
