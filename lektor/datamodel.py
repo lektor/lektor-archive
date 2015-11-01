@@ -620,7 +620,7 @@ add_system_field('_template', type='string',
 
 # the slug that should be used for this record.  This is added below the
 # slug of the parent.
-add_system_field('_slug', type='slug', label='URL Slug',
+add_system_field('_slug', type='slug', label_i18n='URL_SLUG',
                  width='1/2')
 
 # This can be used to hide an individual record.
