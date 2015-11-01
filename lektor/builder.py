@@ -251,30 +251,6 @@ class BuildState(object):
         finally:
             con.close()
 
-    def remove_sources(self, sources, force=False):
-        """Removes all the given sources *unless* they are still referenced
-        by some other artifact as primary source.  To forcefully remove them
-        `force` can be set to `True`.
-        """
-        con = self.connect_to_database()
-        try:
-            cur = con.cursor()
-            if force:
-                orphans = list(sources)
-            else:
-                still_referenced = set([x[0] for x in cur.execute('''
-                    select source from artifacts where is_primary_source
-                       and source in (%s)
-                ''' % ', '.join(['?'] * len(sources)),
-                    list(sources))])
-                orphans = list(sources - still_referenced)
-            cur.execute('''
-                delete from source_info where source in (%s)
-            ''' % ', '.join(['?'] * len(orphans)), orphans)
-            con.commit()
-        finally:
-            con.close()
-
     def any_sources_are_dirty(self, sources):
         """Given a list of sources this checks if any of them are marked
         as dirty.
@@ -294,30 +270,6 @@ class BuildState(object):
             con.close()
 
         return len(rv) > 0
-
-    def mark_artifact_sources_dirty(self, artifacts):
-        """Given a list of artifacts this will mark all of their sources
-        as dirty so that they will be rebuilt next time.
-        """
-        sources = set()
-        for artifact in artifacts:
-            for source in artifact.sources:
-                sources.add(self.to_source_filename(source))
-
-        if not sources:
-            return
-
-        con = self.connect_to_database()
-        try:
-            cur = con.cursor()
-            cur.executemany('''
-                insert or replace into dirty_sources (source) values (?)
-            ''', [(x,) for x in sources])
-            con.commit()
-        finally:
-            con.close()
-
-        reporter.report_dirty_flag(True)
 
     def iter_unreferenced_artifacts(self, all=False):
         """Finds all unreferenced artifacts in the build folder and yields
@@ -365,7 +317,9 @@ class BuildState(object):
             cur.execute('''
                 select distinct artifact from artifacts order by artifact
             ''')
-            for artifact_name, in cur.fetchall():
+            rows = cur.fetchall()
+            con.close()
+            for artifact_name, in rows:
                 path = self.get_destination_filename(artifact_name)
                 info = FileInfo(self.builder.env, path)
                 if info.exists:
@@ -624,16 +578,53 @@ class Artifact(object):
 
     def clear_dirty_flag(self):
         """Clears the dirty flag for all sources."""
-        sources = [self.build_state.to_source_filename(x)
-                   for x in self.sources]
-        con = self.get_connection()
-        cur = con.cursor()
-        cur.execute('''
-            delete from dirty_sources where source in (%s)
-        ''' % ', '.join(['?'] * len(sources)), sources)
-        cur.close()
-
+        with self._auto_transaction() as con:
+            sources = [self.build_state.to_source_filename(x)
+                       for x in self.sources]
+            cur = con.cursor()
+            cur.execute('''
+                delete from dirty_sources where source in (%s)
+            ''' % ', '.join(['?'] * len(sources)), list(sources))
+            cur.close()
         reporter.report_dirty_flag(False)
+
+    def set_dirty_flag(self):
+        """Given a list of artifacts this will mark all of their sources
+        as dirty so that they will be rebuilt next time.
+        """
+        with self._auto_transaction() as con:
+            sources = set()
+            for source in self.sources:
+                sources.add(self.build_state.to_source_filename(source))
+
+            if not sources:
+                return
+
+            cur = con.cursor()
+            cur.executemany('''
+                insert or replace into dirty_sources (source) values (?)
+            ''', [(x,) for x in sources])
+            cur.close()
+
+            reporter.report_dirty_flag(True)
+
+    @contextmanager
+    def _auto_transaction(self):
+        """Helper for a few functions that can either operate standalone
+        (outside of an update block) or within one.  In the latter case the
+        connection is re-used and a commit is skipped, otherwise a new
+        connection is made and automatically committed or rolled back.
+        """
+        if self.in_update_block:
+            yield self.get_connection()
+            return
+        con = self.build_state.connect_to_database()
+        try:
+            yield con
+        except:
+            con.rollback()
+            raise
+        con.commit()
 
     def commit(self):
         """Commits the artifact changes."""
@@ -685,6 +676,7 @@ class Artifact(object):
         ctx = Context(self)
         ctx.push()
         self.in_update_block = True
+        self.clear_dirty_flag()
         return ctx
 
     def finish_update(self, ctx):
@@ -693,7 +685,6 @@ class Artifact(object):
             raise RuntimeError('Artifact is not open for updates.')
         ctx.pop()
         self.memorize_dependencies(ctx.referenced_dependencies)
-        self.clear_dirty_flag()
         self.in_update_block = False
         self.updated = True
 

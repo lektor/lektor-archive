@@ -114,7 +114,8 @@ class BuildProgram(object):
             # If we fail here, we want to mark the sources of our own
             # artifacts as dirty so that we do not miss out on that next
             # time.
-            self.build_state.mark_artifact_sources_dirty(self.artifacts)
+            for artifact in self.artifacts:
+                artifact.set_dirty_flag()
             raise
 
     def produce_artifacts(self):
@@ -179,7 +180,7 @@ class PageBuildProgram(BuildProgram):
                     this=self.source)
             except Exception:
                 rv = self.render_failure(sys.exc_info())
-                self.build_state.mark_artifact_sources_dirty(self.artifacts)
+                artifact.set_dirty_flag()
             f.write(rv.encode('utf-8') + b'\n')
 
     def _iter_paginated_children(self):
