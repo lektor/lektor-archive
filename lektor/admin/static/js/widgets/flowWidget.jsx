@@ -271,22 +271,22 @@ var FlowWidget = React.createClass({
 
   renderAddBlockSection: function() {
     var choices = [];
-    for (var key in this.props.type.flowblocks) {
-      var flowBlockModel = this.props.type.flowblocks[key];
-      var label = userLabel.format(flowBlockModel.name_i18n);
-      choices.push([flowBlockModel.id, label, i18n.trans(flowBlockModel.name_i18n)]);
-    }
 
-    choices.sort((a, b) => {
-      return a[2].toLowerCase().localeCompare(b[2].toLowerCase());
+    this.props.type.flowblock_order.forEach((key) => {
+      let flowBlockModel = this.props.type.flowblocks[key];
+      let label = flowBlockModel.button_label
+        ? userLabel.format(flowBlockModel.button_label)
+        : userLabel.format(flowBlockModel.name_i18n);
+      choices.push([flowBlockModel.id, label, i18n.trans(flowBlockModel.name_i18n)]);
     });
 
     var buttons = choices.map((item) => {
-      var [key, label, _] = item;
+      var [key, label, title] = item;
       return (
         <button
           className="btn btn-default"
           onClick={this.addNewBlock.bind(this, key)}
+          title={title}
           key={key}>{label}</button>
       );
     });

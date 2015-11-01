@@ -326,7 +326,7 @@ class DataModel(object):
 class FlowBlockModel(object):
 
     def __init__(self, env, id, name_i18n, filename=None, fields=None,
-                 default=False):
+                 order=None, button_label=None):
         self.env = env
         self.id = id
         self.name_i18n = name_i18n
@@ -334,7 +334,10 @@ class FlowBlockModel(object):
         if fields is None:
             fields = []
         self.fields = fields
-        self.default = default
+        if order is None:
+            order = 100
+        self.order = order
+        self.button_label = button_label
 
         self.field_map = dict((x.name, x) for x in fields)
         self.field_map['_flowblock'] = Field(
@@ -352,7 +355,8 @@ class FlowBlockModel(object):
             'filename': self.filename,
             'fields': [x.to_json(pad, alt) for x in _iter_all_fields(self)
                        if x.name != '_flowblock'],
-            'default': self.default,
+            'order': self.order,
+            'button_label': self.button_label,
         }
 
     def process_raw_data(self, raw_data, pad=None):
@@ -421,7 +425,8 @@ def flowblock_data_from_ini(id, inifile):
         id=id,
         name_i18n=get_i18n_block(inifile, 'block.name'),
         fields=fielddata_from_ini(inifile),
-        default=inifile.get_bool('block.default'),
+        order=inifile.get_int('block.order'),
+        button_label=inifile.get('block.button_label'),
     )
 
 
@@ -504,7 +509,8 @@ def flowblock_from_data(env, block_data):
         id=block_data['id'],
         name_i18n=block_data['name_i18n'],
         fields=fields_from_data(env, block_data['fields']),
-        default=block_data['default'],
+        order=block_data['order'],
+        button_label=block_data['button_label'],
     )
 
 

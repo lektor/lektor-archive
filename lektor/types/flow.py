@@ -138,9 +138,9 @@ class FlowType(Type):
 
     def __init__(self, env, options):
         Type.__init__(self, env, options)
-        self.flow_blocks = set(
+        self.flow_blocks = [
             x.strip() for x in options.get('flow_blocks', '').split(',')
-            if x.strip()) or None
+            if x.strip()] or None
         self.default_flow_block = options.get('default_flow_block')
 
     def value_from_raw(self, raw):
@@ -180,16 +180,18 @@ class FlowType(Type):
         rv = Type.to_json(self, pad, alt)
 
         blocks = {}
-        default = self.default_flow_block
         for block_name, flowblock in pad.db.flowblocks.iteritems():
             if self.flow_blocks is not None \
                and block_name not in self.flow_blocks:
                 continue
-            if default is None and flowblock.default:
-                default = block_name
             blocks[block_name] = flowblock.to_json(pad, alt)
 
         rv['flowblocks'] = blocks
-        rv['default_flowblock'] = default
+
+        block_order = self.flow_blocks
+        if block_order is None:
+            block_order = [k for k, v in sorted(pad.db.flowblocks.items(),
+                                                key=lambda x: x[1].order)]
+        rv['flowblock_order'] = block_order
 
         return rv
