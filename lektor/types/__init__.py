@@ -76,7 +76,6 @@ class Type(object):
     def value_from_raw_with_default(self, raw):
         value = self.value_from_raw(raw)
         if isinstance(value, Undefined) and \
-           not isinstance(value, BadValue) and \
            raw.field is not None and \
            raw.field.default is not None:
             return self.value_from_raw(RawValue(raw.name, raw.field.default,
