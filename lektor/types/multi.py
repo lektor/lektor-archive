@@ -1,6 +1,6 @@
 from lektor.types import Type
 from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
-from lektor.utils import get_i18n_block
+from lektor.i18n import get_i18n_block
 
 
 def _reflow_and_split_labels(labels):

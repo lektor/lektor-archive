@@ -1,11 +1,17 @@
 'use strict';
 
+function loadTranslations() {
+  var ctx = require.context('../../../translations', true, /\.json$/);
+  var rv = {};
+  ctx.keys().forEach((key) => {
+    var langIdMatch = key.match(/([a-z]+)/);
+    rv[langIdMatch[1]] = ctx(key);
+  });
+  return rv;
+}
+
 var i18n = {
-  // XXX: lazy load this somehow
-  translations: {
-    "en": require('./localization/en.json'),
-    "de": require('./localization/de.json'),
-  },
+  translations: loadTranslations(),
 
   currentLanguage: 'en',
 

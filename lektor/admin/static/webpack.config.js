@@ -1,4 +1,5 @@
 var webpack = require('webpack');
+var path = require('path');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
 
 module.exports = {
@@ -79,5 +80,8 @@ module.exports = {
   externals: {},
   resolve: {
     extensions: ['', '.js', '.jsx']
+  },
+  resolveLoader: {
+    root: path.join(__dirname, '..', 'node_modules')
   }
 }

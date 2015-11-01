@@ -79,5 +79,8 @@
   "PUBLISH_STATE_PUBLISH": "Changes are being published ...",
   "PUBLISH_STATE_DONE": "Publishing done.",
   "FIND_FILES": "Find Files",
-  "FIND_FILES_PLACEHOLDER": "Enter page name ..."
+  "FIND_FILES_PLACEHOLDER": "Enter page name ...",
+  "TEMPLATE": "Template",
+  "HIDE_PAGE": "Hide page",
+  "HIDE_PAGE_EXPLANATION": "Should this page be hidden?"
 }

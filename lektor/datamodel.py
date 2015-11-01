@@ -5,8 +5,9 @@ import errno
 from inifile import IniFile
 
 from lektor import types
-from lektor.utils import slugify, get_i18n_block, bool_from_string
+from lektor.utils import slugify, bool_from_string
 from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
+from lektor.i18n import load_i18n_block, get_i18n_block
 
 
 class ChildConfig(object):
@@ -582,56 +583,49 @@ def load_flowblocks(env):
 system_fields = {}
 
 
-def add_system_field(name, opts):
+def add_system_field(name, **opts):
+    for key, value in opts.items():
+        if key.endswith('_i18n'):
+            base_key = key[:-5]
+            for lang, trans in load_i18n_block(value).iteritems():
+                opts['%s[%s]' % (base_key, lang)] = trans
+
     ty = types.builtin_types[opts.pop('type')]
     system_fields[name] = (ty, opts)
 
 
 # The full path of the record
-add_system_field('_path', dict(type='string'))
+add_system_field('_path', type='string')
 
 # The local ID (within a folder) of the record
-add_system_field('_id', dict(type='string'))
+add_system_field('_id', type='string')
 
 # The global ID (within a folder) of the record
-add_system_field('_gid', dict(type='string'))
+add_system_field('_gid', type='string')
 
 # The alt key that identifies this record
-add_system_field('_alt', dict(type='string'))
+add_system_field('_alt', type='string')
 
 # The alt key for the file that was actually referenced.
-add_system_field('_source_alt', dict(type='string'))
+add_system_field('_source_alt', type='string')
 
 # the model that defines the data of the record
-add_system_field('_model', dict(type='string'))
+add_system_field('_model', type='string')
 
 # the template that should be used for rendering if not hidden
-add_system_field('_template', {
-    'type': 'string',
-    'label': 'Template',
-    'label[de]': 'Vorlage',
-    'width': '1/2',
-    'addon_label': '[[code]]',
-})
+add_system_field('_template', type='string',
+                 label_i18n='TEMPLATE', width='1/2',
+                 addon_label='[[code]]')
 
 # the slug that should be used for this record.  This is added below the
 # slug of the parent.
-add_system_field('_slug', {
-    'type': 'slug',
-    'label': 'URL Slug',
-    'width': '1/2',
-})
+add_system_field('_slug', type='slug', label='URL Slug',
+                 width='1/2')
 
 # This can be used to hide an individual record.
-add_system_field('_hidden', {
-    'type': 'boolean',
-    'label': 'Hide page',
-    'label[de]': 'Seite verstecken',
-    # XXX: i18n
-    'checkbox_label': 'Should this page be hidden?',
-    'checkbox_label[de]': 'Soll diese Seite versteckt werden?',
-})
+add_system_field('_hidden', type='boolean', label_i18n='HIDE_PAGE',
+                 checkbox_label_i18n='HIDE_PAGE_EXPLANATION')
 
 # Useful fields for attachments.
-add_system_field('_attachment_for', dict(type='string'))
-add_system_field('_attachment_type', dict(type='string'))
+add_system_field('_attachment_for', type='string')
+add_system_field('_attachment_type', type='string')

@@ -414,16 +414,6 @@ def is_valid_id(value):
     )
 
 
-def get_i18n_block(inifile_or_dict, key, default_lang='en'):
-    rv = {}
-    for k, v in inifile_or_dict.iteritems():
-        if k == key:
-            rv[default_lang] = v
-        elif k.startswith(key + '['):
-            rv[k[len(key) + 1:-1]] = v
-    return rv
-
-
 def secure_url(url):
     url = urls.url_parse(url)
     if url.password is not None:

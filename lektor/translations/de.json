@@ -80,5 +80,8 @@
   "PUBLISH_STATE_PUBLISH": "Änderungen werden publiziert ...",
   "PUBLISH_STATE_DONE": "Veröffentlichung fertiggestellt.",
   "FIND_FILES": "Seiten Finden",
-  "FIND_FILES_PLACEHOLDER": "Seitenname eingeben ..."
+  "FIND_FILES_PLACEHOLDER": "Seitenname eingeben ...",
+  "TEMPLATE": "Vorlage",
+  "HIDE_PAGE": "Seite verstecken",
+  "HIDE_PAGE_EXPLANATION": "Soll diese Seite versteckt werden?"
 }

@@ -6,7 +6,8 @@ import jinja2
 
 from inifile import IniFile
 
-from lektor.utils import tojson_filter, get_i18n_block, secure_url
+from lektor.utils import tojson_filter, secure_url
+from lektor.i18n import get_i18n_block
 from lektor.context import url_to, get_asset_url, site_proxy, \
      config_proxy, get_ctx
 

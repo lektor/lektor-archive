@@ -4,7 +4,8 @@ from markupsafe import Markup
 
 from lektor.types import Type
 from lektor.environment import PRIMARY_ALT
-from lektor.utils import get_i18n_block, bool_from_string
+from lektor.utils import bool_from_string
+from lektor.i18n import get_i18n_block
 
 
 class SingleInputType(Type):
