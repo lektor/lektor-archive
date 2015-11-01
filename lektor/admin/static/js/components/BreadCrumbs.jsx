@@ -91,6 +91,22 @@ class BreadCrumbs extends RecordComponent {
     dialogSystem.showDialog(Publish);
   }
 
+  renderGlobalActions() {
+    return (
+      <div className="btn-group">
+        <button className="btn btn-default" onClick={
+          this._onFindFiles.bind(this)} title={i18n.trans('FIND_FILES')}>
+          <i className="fa fa-search fa-fw"></i></button>
+        <button className="btn btn-default" onClick={
+          this._onPublish.bind(this)} title={i18n.trans('PUBLISH')}>
+          <i className="fa fa-cloud-upload fa-fw"></i></button>
+        <button className="btn btn-default" onClick={
+          this._onCloseClick.bind(this)} title={i18n.trans('RETURN_TO_WEBSITE')}>
+          <i className="fa fa-eye fa-fw"></i></button>
+      </div>
+    );
+  }
+
   render() {
     var crumbs = [];
     var target = this.isRecordPreviewActive() ? '.preview' : '.edit';
@@ -137,12 +153,7 @@ class BreadCrumbs extends RecordComponent {
           ) : null}
           {' ' /* this space is needed for chrome ... */}
           <li className="meta">
-            <a href="#" onClick={
-              this._onFindFiles.bind(this)}>{i18n.trans('FIND_FILES')}</a>
-            <a href="#" onClick={
-              this._onPublish.bind(this)}>{i18n.trans('PUBLISH')}</a>
-            <a href="/" onClick={
-              this._onCloseClick.bind(this)}>{i18n.trans('RETURN_TO_WEBSITE')}</a>
+            {this.renderGlobalActions()}
           </li>
         </ul>
       </div>
