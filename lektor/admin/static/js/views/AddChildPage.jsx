@@ -181,7 +181,7 @@ class AddChildPage extends RecordComponent {
 
     addField('id', {
       name: '_id',
-      label: 'ID',
+      label: i18n.trans('ID'),
       type: {name: 'slug'}
     }, this.getImpliedId());
 
