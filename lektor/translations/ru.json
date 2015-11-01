@@ -85,5 +85,9 @@
   "URL_SLUG": "Краткий заголовок для URL",
   "TEMPLATE": "Шаблон",
   "HIDE_PAGE": "Скрыть страницу",
-  "HIDE_PAGE_EXPLANATION": "Скрыть данную страницу?"
+  "HIDE_PAGE_EXPLANATION": "Скрыть данную страницу?",
+  "REFRESH_BUILD": "",
+  "REFRESH_BUILD_NOTE": "",
+  "CURRENTLY_REFRESHING_BUILD": "",
+  "REFRESHING_BUILD_DONE": ""
 }
