@@ -81,7 +81,7 @@ var SingleLineTextInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <i className="fa fa-font"></i>;
+    return <i className="fa fa-paragraph"></i>;
   }
 });
 
