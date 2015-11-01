@@ -50,7 +50,7 @@ def rewrite_html_for_editing(fp):
         font-size: 32px;
         padding: 0;
         text-decoration: none!important;
-        border: none!important;
+        border: 1px solid #ccc!important;
         width: 40px;
         height: 40px;
         line-height: 40px;
@@ -59,8 +59,9 @@ def rewrite_html_for_editing(fp):
       }
 
       #lektor-edit-link:hover {
-        background: #ccc;
+        background: white!important;
         opacity: 1.0;
+        border: 1px solid #aaa!important;
       }
     </style>
     <script type="text/javascript">

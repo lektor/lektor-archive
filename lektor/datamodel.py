@@ -630,4 +630,4 @@ add_system_field('_hidden', type='boolean', label_i18n='HIDE_PAGE',
 # Useful fields for attachments.
 add_system_field('_attachment_for', type='string')
 add_system_field('_attachment_type', type='string',
-                 label_i18n='ATTACHMENT_TYPE')
+                 label_i18n='ATTACHMENT_TYPE', addon_label='[[paperclip]]')
