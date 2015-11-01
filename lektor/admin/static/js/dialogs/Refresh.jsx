@@ -57,8 +57,6 @@ class Refresh extends Component {
           <h3>{this.state.currentState !== 'DONE'
             ? i18n.trans('CURRENTLY_REFRESHING_BUILD')
             : i18n.trans('REFRESHING_BUILD_DONE')}</h3>
-          <pre>{i18n.trans('STATE') + ': ' +
-            i18n.trans('REFRESH_STATE_' + this.state.currentState)}</pre>
         </div>
       );
     }
@@ -68,7 +66,8 @@ class Refresh extends Component {
         hasCloseButton={false}
         closeOnEscape={true}
         title={i18n.trans('REFRESH_BUILD')}>
-        <p>{i18n.trans('PUBLISH_BUILD_NODE')}</p>
+        <p>{i18n.trans('REFRESH_BUILD_NOTE')}</p>
+        {progress}
         <div className="actions">
           <button type="submit" className="btn btn-primary"
             disabled={!this.isSafeToNavigate()}
@@ -78,7 +77,6 @@ class Refresh extends Component {
             onClick={this.onCancel.bind(this)}>{i18n.trans(
               this.state.currentState === 'DONE' ? 'CLOSE' : 'CANCEL')}</button>
         </div>
-        {progress}
       </SlideDialog>
     );
   }

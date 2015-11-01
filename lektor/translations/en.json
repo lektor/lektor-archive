@@ -85,5 +85,9 @@
   "URL_SLUG": "URL slug",
   "TEMPLATE": "Template",
   "HIDE_PAGE": "Hide page",
-  "HIDE_PAGE_EXPLANATION": "Should this page be hidden?"
+  "HIDE_PAGE_EXPLANATION": "Should this page be hidden?",
+  "REFRESH_BUILD": "Refresh Build",
+  "REFRESH_BUILD_NOTE": "This deletes all cached build results which triggers a rebuilt from scratch.  This is useful in certain situations where sync errors or mistakes in templates caused corrupted output.",
+  "CURRENTLY_REFRESHING_BUILD": "Currently refreshing build ...",
+  "REFRESHING_BUILD_DONE": "Done refreshing build!"
 }
