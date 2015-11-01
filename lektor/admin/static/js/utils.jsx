@@ -162,9 +162,9 @@ var utils = {
 
   flipSetValue: function(originalSet, value, isActive) {
     if (isActive) {
-      return utils.addToSet(originalSet, value);
+      return utils.addToSet(originalSet || [], value);
     } else {
-      return utils.removeFromSet(originalSet, value);
+      return utils.removeFromSet(originalSet || [], value);
     }
   },
 
