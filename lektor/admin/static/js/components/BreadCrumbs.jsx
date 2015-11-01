@@ -9,6 +9,7 @@ var i18n = require('../i18n');
 var dialogSystem = require('../dialogSystem');
 var FindFiles = require('../dialogs/findFiles');
 var Publish = require('../dialogs/publish');
+var Refresh = require('../dialogs/Refresh');
 
 
 class BreadCrumbs extends RecordComponent {
@@ -67,7 +68,6 @@ class BreadCrumbs extends RecordComponent {
   }
 
   _onCloseClick(e) {
-    e.preventDefault();
     utils.loadData('/previewinfo', {
       path: this.getRecordPath(),
       alt: this.getRecordAlt()
@@ -82,12 +82,14 @@ class BreadCrumbs extends RecordComponent {
   }
 
   _onFindFiles(e) {
-    e.preventDefault();
     dialogSystem.showDialog(FindFiles);
   }
 
+  _onRefresh(e) {
+    dialogSystem.showDialog(Refresh);
+  }
+
   _onPublish(e) {
-    e.preventDefault();
     dialogSystem.showDialog(Publish);
   }
 
@@ -100,6 +102,9 @@ class BreadCrumbs extends RecordComponent {
         <button className="btn btn-default" onClick={
           this._onPublish.bind(this)} title={i18n.trans('PUBLISH')}>
           <i className="fa fa-cloud-upload fa-fw"></i></button>
+        <button className="btn btn-default" onClick={
+          this._onRefresh.bind(this)} title={i18n.trans('REFRESH_BUILD')}>
+          <i className="fa fa-refresh fa-fw"></i></button>
         <button className="btn btn-default" onClick={
           this._onCloseClick.bind(this)} title={i18n.trans('RETURN_TO_WEBSITE')}>
           <i className="fa fa-eye fa-fw"></i></button>

@@ -707,6 +707,13 @@ class Builder(object):
         """The filename for the build state database."""
         return os.path.join(self.meta_path, 'buildstate')
 
+    def touch_site_config(self):
+        """Touches the site config which typically will trigger a rebuild."""
+        try:
+            os.utime(os.path.join(self.env.root_path, 'site.ini'), None)
+        except OSError:
+            pass
+
     def find_files(self, query, alt=PRIMARY_ALT, lang=None, limit=50,
                    types=None):
         """Returns a list of files that match the query.  This requires that

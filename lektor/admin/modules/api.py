@@ -285,6 +285,14 @@ def trigger_build():
     return jsonify(okay=True)
 
 
+@bp.route('/api/clean', methods=['POST'])
+def trigger_clean():
+    builder = current_app.lektor_info.get_builder()
+    builder.prune(all=True)
+    builder.touch_site_config()
+    return jsonify(okay=True)
+
+
 @bp.route('/api/publish')
 def publish_build():
     db = g.admin_context.pad.db
