@@ -72,6 +72,8 @@ class Context(object):
         self.referenced_dependencies = set()
         self.sub_artifacts = []
 
+        self.flow_block_render_stack = []
+
     @property
     def env(self):
         """The environment of the context."""

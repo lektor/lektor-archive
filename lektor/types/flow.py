@@ -12,14 +12,11 @@ from lektor.environment import PRIMARY_ALT
 _block_re = re.compile(r'^####\s*(.*?)\s*####\s*$')
 
 
-def find_record_for_flowblock(blck):
+def find_record_for_flowblock(ctx, blck):
     """The record that contains this flow block.  This might be unavailable
     in certain situations, it is however very useful when using the generic
     block template rendering.
     """
-    ctx = get_ctx()
-    if ctx is None:
-        raise RuntimeError('Context unavailable')
     record = ctx.record
     if record is None:
         raise RuntimeError('Context does not point to a record')
@@ -66,18 +63,29 @@ class FlowBlock(object):
         return self._data[name]
 
     def __html__(self):
+        ctx = get_ctx()
+
+        # If we're in a nested render, we disable the rendering here or we
+        # risk a recursion error.
+        if ctx is None or self in ctx.flow_block_render_stack:
+            return Markup.escape(repr(self))
+
+        ctx.flow_block_render_stack.append(self)
         try:
-            record = find_record_for_flowblock(self)
-            return self.pad.db.env.render_template(
-                ['blocks/%s.html' % self._data['_flowblock'],
-                 'blocks/default.html'],
-                pad=self.pad,
-                this=self,
-                alt=record and record.alt or None,
-                values={'record': record}
-            )
-        except TemplateNotFound:
-            return Markup('[could not find snippet template]')
+            try:
+                record = find_record_for_flowblock(ctx, self)
+                return self.pad.db.env.render_template(
+                    ['blocks/%s.html' % self._data['_flowblock'],
+                     'blocks/default.html'],
+                    pad=self.pad,
+                    this=self,
+                    alt=record and record.alt or None,
+                    values={'record': record}
+                )
+            except TemplateNotFound:
+                return Markup('[could not find snippet template]')
+        finally:
+            ctx.flow_block_render_stack.pop()
 
     def __repr__(self):
         return '<%s %r>' % (
