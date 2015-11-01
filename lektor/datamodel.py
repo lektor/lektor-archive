@@ -128,7 +128,7 @@ class Field(object):
     def label(self):
         return self.label_i18n.get('en')
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
         return {
             'name': self.name,
             'label': self.label,
@@ -136,7 +136,7 @@ class Field(object):
             'hide_label': bool_from_string(self.options.get('hide_label'),
                                            default=False),
             'description_i18n': self.description_i18n,
-            'type': self.type.to_json(pad, alt),
+            'type': self.type.to_json(pad, record, alt),
             'default': self.default,
         }
 
@@ -220,7 +220,7 @@ class DataModel(object):
     def label(self):
         return (self.label_i18n or {}).get('en')
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
         """Describes the datamodel as JSON data."""
         return {
             'filename': self.filename,
@@ -237,7 +237,8 @@ class DataModel(object):
             'child_config': self.child_config.to_json(),
             'attachment_config': self.attachment_config.to_json(),
             'pagination_config': self.pagination_config.to_json(),
-            'fields': [x.to_json(pad, alt) for x in _iter_all_fields(self)],
+            'fields': [x.to_json(pad, record, alt) for x in
+                       _iter_all_fields(self)],
         }
 
     def format_record_label(self, record, lang='en'):
@@ -348,13 +349,13 @@ class FlowBlockModel(object):
     def name(self):
         return self.name_i18n.get('en') or self.id.title().replace('_', ' ')
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
         return {
             'id': self.id,
             'name': self.name,
             'name_i18n': self.name_i18n,
             'filename': self.filename,
-            'fields': [x.to_json(pad, alt) for x in _iter_all_fields(self)
+            'fields': [x.to_json(pad, record, alt) for x in _iter_all_fields(self)
                        if x.name != '_flowblock'],
             'order': self.order,
             'button_label': self.button_label,

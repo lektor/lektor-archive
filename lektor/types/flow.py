@@ -176,15 +176,15 @@ class FlowType(Type):
 
         return Flow(rv)
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
-        rv = Type.to_json(self, pad, alt)
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, record, alt)
 
         blocks = {}
         for block_name, flowblock in pad.db.flowblocks.iteritems():
             if self.flow_blocks is not None \
                and block_name not in self.flow_blocks:
                 continue
-            blocks[block_name] = flowblock.to_json(pad, alt)
+            blocks[block_name] = flowblock.to_json(pad, record, alt)
 
         rv['flowblocks'] = blocks
 

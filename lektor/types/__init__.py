@@ -63,7 +63,7 @@ class Type(object):
             rv = rv[:-4]
         return rv.lower()
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
         return {
             'name': self.name,
             'size': self.size,

@@ -10,8 +10,8 @@ from lektor.i18n import get_i18n_block
 
 class SingleInputType(Type):
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
-        rv = Type.to_json(self, pad)
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, record, alt)
         rv['addon_label_i18n'] = get_i18n_block(
             self.options, 'addon_label') or None
         return rv
@@ -77,8 +77,8 @@ class FloatType(SingleInputType):
 
 class BooleanType(Type):
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
-        rv = Type.to_json(self, pad, alt)
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, record, alt)
         rv['checkbox_label_i18n'] = get_i18n_block(
             self.options, 'checkbox_label')
         return rv

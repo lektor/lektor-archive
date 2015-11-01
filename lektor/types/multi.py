@@ -70,21 +70,26 @@ class ChoiceSource(object):
     def has_choices(self):
         return self.source is not None or self.choices is not None
 
-    def iter_choices(self, pad, alt=PRIMARY_ALT):
+    def iter_choices(self, pad, record=None, alt=PRIMARY_ALT):
+        values = {}
+        if record is not None:
+            values['record'] = record
         if self.choices is not None:
             iterable = self.choices
         else:
-            iterable = self.source.evaluate(pad, alt=alt)
+            iterable = self.source.evaluate(pad, alt=alt, values=values)
 
         for item in iterable or ():
-            key = self.item_key.evaluate(pad, this=item, alt=alt)
+            key = self.item_key.evaluate(pad, this=item, alt=alt,
+                                         values=values)
 
             # If there is a label expression, use it.  Since in that case
             # we only have one language to fill in, we fill it in for the
             # default language
             if self.item_label is not None:
                 label = {
-                    'en': self.item_label.evaluate(pad, this=item, alt=alt)
+                    'en': self.item_label.evaluate(pad, this=item, alt=alt,
+                                                   values=values)
                 }
 
             # Otherwise we create a proper internationalized key out of
@@ -106,13 +111,13 @@ class MultiType(Type):
         Type.__init__(self, env, options)
         self.source = ChoiceSource(env, options)
 
-    def get_labels(self, pad, alt=PRIMARY_ALT):
-        return dict(self.source.iter_choices(pad, alt))
+    def get_labels(self, pad, record=None, alt=PRIMARY_ALT):
+        return dict(self.source.iter_choices(pad, record, alt))
 
-    def to_json(self, pad, alt=PRIMARY_ALT):
-        rv = Type.to_json(self, pad, alt)
+    def to_json(self, pad, record=None, alt=PRIMARY_ALT):
+        rv = Type.to_json(self, pad, record, alt)
         if self.source.has_choices:
-            rv['choices'] = list(self.source.iter_choices(pad, alt))
+            rv['choices'] = list(self.source.iter_choices(pad, record, alt))
         return rv
 
 
