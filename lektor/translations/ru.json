@@ -86,8 +86,8 @@
   "TEMPLATE": "Шаблон",
   "HIDE_PAGE": "Скрыть страницу",
   "HIDE_PAGE_EXPLANATION": "Скрыть данную страницу?",
-  "REFRESH_BUILD": "",
-  "REFRESH_BUILD_NOTE": "",
-  "CURRENTLY_REFRESHING_BUILD": "",
-  "REFRESHING_BUILD_DONE": ""
+  "REFRESH_BUILD": "Обновить сборку",
+  "REFRESH_BUILD_NOTE": "В некоторых ситуациях бывает полезно заново пересобрать страницы вебсайта: например, когда произошёл сбой синхронизации или ошибка в шаблоне привела к некорректному отображению вебсайта.",
+  "CURRENTLY_REFRESHING_BUILD": "Обновление сборки ...",
+  "REFRESHING_BUILD_DONE": "Сборка обновлена!"
 }
