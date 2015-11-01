@@ -617,6 +617,9 @@ class Image(Attachment):
 
     def thumbnail(self, width, height=None):
         """Utility to create thumbnails."""
+        width = int(width)
+        if height is not None:
+            height = int(height)
         return make_thumbnail(_require_ctx(self),
             self.attachment_filename, self.url_path,
             width=width, height=height)
