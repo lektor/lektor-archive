@@ -1,6 +1,11 @@
+import sys
+import logging
 from lektor.types import Type
 from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
 from lektor.i18n import get_i18n_block
+
+
+logger = logging.getLogger(__name__)
 
 
 def _reflow_and_split_labels(labels):
@@ -77,7 +82,12 @@ class ChoiceSource(object):
         if self.choices is not None:
             iterable = self.choices
         else:
-            iterable = self.source.evaluate(pad, alt=alt, values=values)
+            try:
+                iterable = self.source.evaluate(pad, alt=alt, values=values)
+            except Exception as e:
+                logger.error('Failed to load choices from source: %s', e,
+                             exc_info=sys.exc_info())
+                iterable = ()
 
         for item in iterable or ():
             key = self.item_key.evaluate(pad, this=item, alt=alt,

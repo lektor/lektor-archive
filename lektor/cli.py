@@ -3,9 +3,13 @@ import sys
 import time
 import click
 import hashlib
+import logging
 
 from .i18n import get_default_lang, is_valid_language
 from .utils import secure_url
+
+
+logging.basicConfig()
 
 
 class Context(object):
