@@ -11,8 +11,8 @@ class SingleInputType(Type):
 
     def to_json(self, pad, alt=PRIMARY_ALT):
         rv = Type.to_json(self, pad)
-        rv['addon_text_i18n'] = get_i18n_block(
-            self.options, 'addon_text') or None
+        rv['addon_label_i18n'] = get_i18n_block(
+            self.options, 'addon_label') or None
         return rv
 
 

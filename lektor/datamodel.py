@@ -611,6 +611,7 @@ add_system_field('_template', {
     'label': 'Template',
     'label[de]': 'Vorlage',
     'width': '1/2',
+    'addon_label': '[[code]]',
 })
 
 # the slug that should be used for this record.  This is added below the

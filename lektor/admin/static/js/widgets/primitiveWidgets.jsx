@@ -49,7 +49,7 @@ var InputWidgetMixin = {
     }
 
     var addon = null;
-    var configuredAddon = type.addon_text_i18n;
+    var configuredAddon = type.addon_label_i18n;
     if (configuredAddon) {
       addon = userLabel.format(configuredAddon);
     } else if (this.getInputAddon) {
