@@ -3,6 +3,7 @@
 var React = require('react');
 var {BasicWidgetMixin, ValidationFailure} = require('./mixins');
 var utils = require('../utils');
+var userLabel = require('../userLabel');
 var i18n = require('../i18n');
 
 function isTrue(value) {
@@ -50,11 +51,7 @@ var InputWidgetMixin = {
     var addon = null;
     var configuredAddon = type.addon_text_i18n;
     if (configuredAddon) {
-      addon = (
-        <span className="input-group-addon">
-          {i18n.trans(configuredAddon)}
-        </span>
-      );
+      addon = userLabel.format(configuredAddon);
     } else if (this.getInputAddon) {
       addon = this.getInputAddon();
     }
@@ -67,7 +64,7 @@ var InputWidgetMixin = {
             className={this.getInputClass()}
             onChange={onChange ? this.onChange : undefined}
             {...otherProps} />
-          {addon}
+          {addon ? <span className="input-group-addon">{addon}</span> : null}
         </div>
         {help}
       </div>
@@ -84,7 +81,7 @@ var SingleLineTextInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <span className="input-group-addon">txt</span>;
+    return <i className="fa fa-font"></i>;
   }
 });
 
@@ -100,7 +97,7 @@ var SlugInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <span className="input-group-addon">slug</span>;
+    return <i className="fa fa-link"></i>;
   }
 });
 
@@ -125,7 +122,7 @@ var IntegerInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <span className="input-group-addon">0</span>;
+    return '0';
   }
 });
 
@@ -150,7 +147,7 @@ var FloatInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <span className="input-group-addon">0.0</span>;
+    return '0.0';
   }
 });
 
@@ -194,7 +191,7 @@ var DateInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <span className="input-group-addon">date</span>;
+    return <i className="fa fa-calendar"></i>;
   }
 });
 
@@ -215,7 +212,7 @@ var UrlInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return <span className="input-group-addon">url</span>;
+    return 'url';
   }
 });
 

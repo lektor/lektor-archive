@@ -10,6 +10,7 @@ var createBrowserHistory = require('history/lib/createBrowserHistory');
 
 require('bootstrap');
 require('./bootstrap-extras');
+require('font-awesome/css/font-awesome.css');
 
 // polyfill for internet explorer
 require('native-promise-only');

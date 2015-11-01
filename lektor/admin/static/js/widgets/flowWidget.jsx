@@ -4,6 +4,7 @@ var React = require('react');
 var i18n = require('../i18n');
 var metaformat = require('../metaformat');
 var {BasicWidgetMixin} = require('./mixins');
+var userLabel = require('../userLabel');
 
 
 /* circular references require us to do this */
@@ -241,12 +242,27 @@ var FlowWidget = React.createClass({
 
       return (
         <div key={blockInfo.localId} className="flow-block">
-          <ul className="actions">
-            <li><a href="#" onClick={this.moveBlock.bind(this, idx, -1)}>{i18n.trans('UP')}</a></li>
-            <li><a href="#" onClick={this.moveBlock.bind(this, idx, 1)}>{i18n.trans('DOWN')}</a></li>
-            <li><a href="#" onClick={this.removeBlock.bind(this, idx)}>{i18n.trans('REMOVE')}</a></li>
-          </ul>
-          <h4 className="block-name">{i18n.trans(blockInfo.flowBlockModel.name_i18n)}</h4>
+          <div className="btn-group action-bar">
+            <button
+              className="btn btn-default btn-xs"
+              title={i18n.trans('UP')}
+              onClick={this.moveBlock.bind(this, idx, -1)}>
+              <i className="fa fa-fw fa-chevron-up"></i>
+            </button>
+            <button
+              className="btn btn-default btn-xs"
+              title={i18n.trans('DOWN')}
+              onClick={this.moveBlock.bind(this, idx, 1)}>
+              <i className="fa fa-fw fa-chevron-down"></i>
+            </button>
+            <button
+              className="btn btn-default btn-xs"
+              title={i18n.trans('REMOVE')}
+              onClick={this.removeBlock.bind(this, idx)}>
+              <i className="fa fa-fw fa-times"></i>
+            </button>
+          </div>
+          <h4 className="block-name">{userLabel.format(blockInfo.flowBlockModel.name_i18n)}</h4>
           {fields}
         </div>
       );
@@ -257,21 +273,21 @@ var FlowWidget = React.createClass({
     var choices = [];
     for (var key in this.props.type.flowblocks) {
       var flowBlockModel = this.props.type.flowblocks[key];
-      var label = i18n.trans(flowBlockModel.name_i18n) || flowBlockModel.name;
-      choices.push([flowBlockModel.id, label]);
+      var label = userLabel.format(flowBlockModel.name_i18n);
+      choices.push([flowBlockModel.id, label, i18n.trans(flowBlockModel.name_i18n)]);
     }
 
     choices.sort((a, b) => {
-      return a[1].toLowerCase().localeCompare(b[1].toLowerCase());
+      return a[2].toLowerCase().localeCompare(b[2].toLowerCase());
     });
 
     var buttons = choices.map((item) => {
-      var [key, title] = item;
+      var [key, label, _] = item;
       return (
         <button
           className="btn btn-default"
           onClick={this.addNewBlock.bind(this, key)}
-          key={key}>{title}</button>
+          key={key}>{label}</button>
       );
     });
 

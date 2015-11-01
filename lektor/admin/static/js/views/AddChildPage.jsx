@@ -6,6 +6,7 @@ var Router = require('react-router');
 
 var RecordComponent = require('../components/RecordComponent');
 var i18n = require('../i18n');
+var userLabel = require('../userLabel');
 var utils = require('../utils');
 var widgets = require('../widgets');
 
@@ -160,7 +161,7 @@ class AddChildPage extends RecordComponent {
         <div className="row field-row" key={field.name}>
           <div className="field-box col-md-12">
             <dl className="field">
-              <dt>{field.label_i18n ? i18n.trans(field.label_i18n) : field.label}</dt>
+              <dt>{userLabel.format(field.label_i18n || field.label)}</dt>
               <dd><Widget
                 value={value}
                 placeholder={placeholder}
