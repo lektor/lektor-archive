@@ -212,7 +212,7 @@ var UrlInputWidget = React.createClass({
   },
 
   getInputAddon: function() {
-    return 'url';
+    return <i className="fa fa-external-link"></i>;
   }
 });
 
