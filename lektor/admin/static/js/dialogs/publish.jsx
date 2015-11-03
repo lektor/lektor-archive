@@ -23,12 +23,12 @@ class Publish extends Component {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this.syncDialog();
   }
 
   componentWillUnmount() {
-    super();
+    super.componentWillUnmount();
   }
 
   componentWillReceiveProps(nextProps) {
@@ -105,7 +105,7 @@ class Publish extends Component {
   }
 
   componentDidUpdate() {
-    super();
+    super.componentDidUpdate();
     var node = this.refs.log;
     if (node !== null) {
       node.scrollTop = node.scrollHeight;

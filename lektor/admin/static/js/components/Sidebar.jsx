@@ -85,21 +85,21 @@ class Sidebar extends RecordComponent {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this._updateRecordInfo();
 
     hub.subscribe(AttachmentsChangedEvent, this.onAttachmentsChanged);
   }
 
   componentDidUpdate(prevProps, prevState) {
-    super(prevProps, prevState);
+    super.componentDidUpdate(prevProps, prevState);
     if (prevProps.params.path !== this.props.params.path) {
       this._updateRecordInfo();
     }
   }
 
   componentWillUnmount() {
-    super();
+    super.componentWillUnmount();
     hub.unsubscribe(AttachmentsChangedEvent, this.onAttachmentsChanged);
   }
 

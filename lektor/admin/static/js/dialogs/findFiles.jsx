@@ -23,7 +23,7 @@ class FindFiles extends RecordComponent {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this.refs.q.focus();
   }
 

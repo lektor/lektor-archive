@@ -11,7 +11,7 @@ class RecordEditComponent extends RecordComponent {
   }
 
   routerWillLeave(nextLocation) {
-    var rv = super(nextLocation);
+    var rv = super.routerWillLeave(nextLocation);
     if (rv !== undefined) {
       return rv;
     }

@@ -30,7 +30,7 @@ module.exports = {
     loaders: [
       {
         test: /\.jsx$/,
-        loader: 'jsx-loader?insertPragma=React.DOM&harmony&es5=true'
+        loader: 'babel-loader'
       },
       {
         test: /\.less$/,

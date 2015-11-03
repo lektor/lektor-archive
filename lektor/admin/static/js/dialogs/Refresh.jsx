@@ -19,7 +19,7 @@ class Refresh extends Component {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this.syncDialog();
   }
 

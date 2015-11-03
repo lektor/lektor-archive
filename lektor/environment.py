@@ -175,11 +175,11 @@ class CustomJinjaEnvironment(jinja2.Environment):
 
 class Config(object):
 
-    def __init__(self, filename):
+    def __init__(self, filename=None):
         self.filename = filename
         self.values = copy.deepcopy(DEFAULT_CONFIG)
 
-        if os.path.isfile(filename):
+        if filename is not None and os.path.isfile(filename):
             inifile = IniFile(filename)
             update_config_from_ini(self.values, inifile)
 
@@ -290,10 +290,9 @@ def lookup_from_bag(*args):
 
 class Environment(object):
 
-    def __init__(self, root_path):
-        self.root_path = os.path.abspath(root_path)
-
-        self.config_filename = os.path.join(self.root_path, 'site.ini')
+    def __init__(self, project):
+        self.project = project
+        self.root_path = os.path.abspath(project.tree)
 
         self.jinja_env = CustomJinjaEnvironment(
             autoescape=self.select_jinja_autoescape,
@@ -331,7 +330,7 @@ class Environment(object):
 
     def load_config(self):
         """Loads the current config."""
-        return Config(self.config_filename)
+        return Config(self.project.project_file)
 
     def is_uninteresting_source_name(self, filename):
         """These files are always ignored when sources are built into

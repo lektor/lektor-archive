@@ -15,7 +15,7 @@ class SlideDialog extends Component {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     if (this.props.closeOnEscape) {
       window.addEventListener('keydown', this._onKeyPress);
     }
@@ -23,7 +23,7 @@ class SlideDialog extends Component {
 
   componentWillUnmount() {
     window.removeEventListener('keydown', this._onKeyPress);
-    super();
+    super.componentWillUnmount();
   }
 
   _onKeyPress(event) {

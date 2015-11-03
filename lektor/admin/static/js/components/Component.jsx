@@ -1,10 +1,16 @@
 'use strict';
 
-var React = require('react');
-var dialogSystem = require('../dialogSystem');
+import React from 'react';
+import dialogSystem from '../dialogSystem';
+import BaseComponent from './BaseComponent';
 
 
-class Component extends React.Component {
+class Component extends BaseComponent {
+
+  constructor(props) {
+    super(props);
+    this._unlistenBeforeLeavingRoute = null;
+  }
 
   /* helper function for forwarding props down the tree */
   getRoutingProps() {
@@ -16,11 +22,6 @@ class Component extends React.Component {
       routeParams: this.props.routeParams,
       routes: this.props.routes
     }
-  }
-
-  constructor(props) {
-    super(props);
-    this._unlistenBeforeLeavingRoute = null;
   }
 
   /* helper that can generate a path to a rule */
@@ -64,6 +65,7 @@ class Component extends React.Component {
   }
 
   componentDidMount() {
+    super.componentDidMount();
     if (this.props.history !== undefined) {
       this._unlistenBeforeLeavingRoute = this.props.history.listenBeforeLeavingRoute(
         this.props.route, this.routerWillLeave.bind(this));
@@ -71,6 +73,7 @@ class Component extends React.Component {
   }
 
   componentWillUnmount() {
+    super.componentWillUnmount();
     if (this._unlistenBeforeLeavingRoute) {
       this._unlistenBeforeLeavingRoute();
     }
@@ -82,12 +85,6 @@ class Component extends React.Component {
     } else {
       dialogSystem.dismissDialog();
     }
-  }
-
-  componentDidUpdate() {
-  }
-
-  componentWillReceiveProps(nextProps) {
   }
 }
 

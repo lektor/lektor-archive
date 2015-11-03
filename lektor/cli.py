@@ -1,17 +1,19 @@
 import os
 import sys
+import json
 import time
 import click
-import hashlib
 
 from .i18n import get_default_lang, is_valid_language
 from .utils import secure_url
+from .project import discover_project, load_project
 
 
 class Context(object):
 
     def __init__(self):
-        self.tree = None
+        self._project_path = None
+        self._project = None
         self._env = None
         self._ui_lang = None
 
@@ -27,33 +29,31 @@ class Context(object):
     ui_lang = property(_get_ui_lang, _set_ui_lang)
     del _get_ui_lang, _set_ui_lang
 
-    def get_tree(self):
-        if self.tree is not None:
-            return os.path.abspath(self.tree)
-        here = os.getcwd()
-        while 1:
-            if os.path.isfile(os.path.join(here, 'site.ini')):
-                return here
-            node = os.path.dirname(here)
-            if node == here:
-                break
-            here = node
+    def set_project_path(self, value):
+        self._project_path = value
+        self._project = None
 
-        raise click.UsageError('Could not find tree')
+    def get_project(self):
+        if self._project is not None:
+            return self._project
+        if self._project_path is not None:
+            rv = load_project(self._project_path)
+        else:
+            rv = discover_project()
+        if rv is None:
+            raise click.UsageError('Could not find project')
+        self._project = rv
+        return rv
 
     def get_default_output_path(self):
-        tree = self.get_tree()
-        if isinstance(tree, unicode):
-            tree = tree.encode('utf-8')
-        hash = hashlib.md5(tree)
-        return os.path.join(click.get_app_dir('Lektor'),
-                            'build-cache', hash.hexdigest())
+        return os.path.join(click.get_app_dir('Lektor'), 'build-cache',
+                            self.get_project().id)
 
     def get_env(self):
         if self._env is not None:
             return self._env
         from lektor.environment import Environment
-        env = Environment(self.get_tree())
+        env = Environment(self.get_project())
         self._env = env
         return env
 
@@ -73,12 +73,12 @@ def validate_language(ctx, param, value):
 
 
 @click.group()
-@click.option('--tree', type=click.Path(),
-              help='The path to the lektor tree to work with.')
+@click.option('--project', type=click.Path(),
+              help='The path to the lektor project to work with.')
 @click.option('--language', default=None, callback=validate_language,
               help='The UI language to use (overrides autodetection).')
 @pass_context
-def cli(ctx, tree=None, language=None):
+def cli(ctx, project=None, language=None):
     """The lektor management application.
 
     This command can invoke lektor locally and serve up the website.  It's
@@ -86,8 +86,8 @@ def cli(ctx, tree=None, language=None):
     """
     if language is not None:
         ctx.ui_lang = language
-    if tree is not None:
-        ctx.tree = tree
+    if project is not None:
+        ctx.set_project_path(project)
 
 
 @cli.command('build')
@@ -221,7 +221,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
     from lektor.devserver import run_server
     if output_path is None:
         output_path = ctx.get_default_output_path()
-    print ' * Tree path: %s' % ctx.get_tree()
+    print ' * Project path: %s' % ctx.get_project().project_path
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity, ui_lang=ctx.ui_lang,
@@ -257,6 +257,22 @@ def shell_cmd(ctx):
         F=F
     )
     code.interact(banner=banner, local=ns)
+
+
+@cli.command('project-info', short_help='Shows the info about a project.')
+@click.option('as_json', '--json', is_flag=True,
+              help='Prints out the data as json.')
+@pass_context
+def info_cmd(ctx, as_json):
+    """Prints out information about the project."""
+    project = ctx.get_project()
+    if as_json:
+        click.echo(json.dumps(project.to_json(), indent=2).rstrip())
+        return
+
+    click.echo('Name: %s' % project.name)
+    click.echo('File: %s' % project.project_file)
+    click.echo('Tree: %s' % project.tree)
 
 
 main = cli

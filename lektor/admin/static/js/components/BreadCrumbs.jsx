@@ -23,13 +23,13 @@ class BreadCrumbs extends RecordComponent {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this.updateCrumbs();
     window.addEventListener('keydown', this._onKeyPress);
   }
 
   componentDidUpdate(prevProps, prevState) {
-    super(prevProps, prevState);
+    super.componentDidUpdate(prevProps, prevState);
     if (prevProps.params.path !== this.props.params.path) {
       this.updateCrumbs();
     }

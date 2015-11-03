@@ -18,12 +18,12 @@ class PreviewPage extends RecordComponent {
   }
 
   componentWillReceiveProps(nextProps) {
-    super(nextProps);
+    super.componentWillReceiveProps(nextProps);
     this.setState({}, this.syncState.bind(this));
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this.syncState();
   }
 

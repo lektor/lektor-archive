@@ -31,7 +31,7 @@ class SilentWSGIRequestHandler(WSGIRequestHandler):
         pass
 
 
-def rewrite_html_for_editing(fp):
+def rewrite_html_for_editing(fp, edit_url):
     contents = fp.read()
 
     button = '''
@@ -70,14 +70,16 @@ def rewrite_html_for_editing(fp):
           return;
         }
         var link = document.createElement('a');
-        link.setAttribute('href', '/admin/edit?path=' +
+        link.setAttribute('href', '%(edit_url)s?path=' +
             encodeURIComponent(document.location.pathname));
         link.setAttribute('id', 'lektor-edit-link');
         link.innerHTML = '\u270E';
         document.body.appendChild(link);
       })();
     </script>
-    '''
+    ''' % {
+        'edit_url': edit_url.encode('utf-8'),
+    }
 
     return StringIO(contents + button)
 
@@ -99,7 +101,8 @@ def send_file(request, filename):
     rewritten = False
     if mimetype == 'text/html':
         rewritten = True
-        file = rewrite_html_for_editing(file)
+        file = rewrite_html_for_editing(file,
+            edit_url=posixpath.join('/', request.script_root, 'admin/edit'))
         del headers['Content-Length']
 
     headers['Cache-Control'] = 'no-cache, no-store'
@@ -279,6 +282,19 @@ def browse_to_address(addr):
     t.start()
 
 
+class UiProxyHandler(object):
+
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        path_segs = environ.get('HTTP_X_FORWARDED_SKIP_PATH_SEGMENTS')
+        if path_segs and path_segs.isdigit():
+            for x in xrange(len(path_segs)):
+                pop_path_info(environ)
+        return self.app(environ, start_response)
+
+
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
                ui_lang='en', browse=False):
     """This runs a server but also spawns a background process.  It's
@@ -293,6 +309,7 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
         background_builder.start()
     app = WsgiApp(env, output_path, verbosity, debug=lektor_dev,
                   ui_lang=ui_lang)
+    app = UiProxyHandler(app)
 
     dt = None
     if lektor_dev and not wz_as_main:

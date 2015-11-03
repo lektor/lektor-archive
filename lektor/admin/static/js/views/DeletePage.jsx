@@ -23,12 +23,12 @@ class DeletePage extends RecordComponent {
   }
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     this.syncDialog();
   }
 
   componentWillReceiveProps(nextProps) {
-    super(nextProps);
+    super.componentWillReceiveProps(nextProps);
     this.syncDialog();
   }
 

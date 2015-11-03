@@ -7,7 +7,7 @@ var Component = require('../components/Component');
 class Dash extends Component {
 
   componentDidMount() {
-    super();
+    super.componentDidMount();
     var rootPreview = $LEKTOR_CONFIG.admin_root + '/root/preview';
     this.props.history.pushState(null, rootPreview);
   }
