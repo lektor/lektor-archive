@@ -49,7 +49,7 @@ EXTRA_PATHS = []
 # properly :(
 if os.environ.get('LEKTOR_RUN_FROM_UI') == '1' and sys.platform == 'darwin':
     EXTRA_PATHS = subprocess.Popen(
-        ['bash', '-c', 'echo $PATH'],
+        ['bash', '--login', '-c', 'echo $PATH'],
         stdout=subprocess.PIPE).communicate()[0].split(':')
 
 
