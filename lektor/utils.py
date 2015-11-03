@@ -42,6 +42,17 @@ except LookupError:
     pass
 
 
+EXTRA_PATHS = []
+
+# If we are launched from the lektor UI on Mac, we need to spawn bash to
+# figure out what the actual path is as the path is often not set up
+# properly :(
+if os.environ.get('LEKTOR_RUN_FROM_UI') == '1' and sys.platform == 'darwin':
+    EXTRA_PATHS = subprocess.Popen(
+        ['bash', '-c', 'echo $PATH'],
+        stdout=subprocess.PIPE).communicate()[0].split(':')
+
+
 def cleanup_path(path):
     return '/' + _slashes_re.sub('/', path.strip('/'))
 
@@ -204,28 +215,34 @@ def increment_filename(filename):
     return rv
 
 
-def resolve_path(execute_file, cwd):
-    execute_file = to_os_path(execute_file)
+def resolve_path(exe_file, cwd=None):
+    exe_file = to_os_path(exe_file)
     if os.name != 'nt':
-        return execute_file
+        cwd = None
 
     extensions = ['']
     path_var = os.environ.get('PATH', '').split(os.pathsep)
     path_ext_var = os.environ.get('PATHEXT', '').split(';')
 
-    ext_existing = os.path.splitext(execute_file)[1] in path_ext_var
+    for extra_path in EXTRA_PATHS:
+        if extra_path not in path_var:
+            path_var.append(extra_path)
+
+    ext_existing = os.path.splitext(exe_file)[1] in path_ext_var
     if not ext_existing:
         extensions = path_ext_var
+    extensions = extensions or ['']
 
     try:
         for ext in extensions:
-            execute = os.path.join(cwd, execute_file + ext)
-            if os.access(execute, os.X_OK):
-                return execute
+            if cwd is not None:
+                exe = os.path.join(cwd, exe_file + ext)
+                if os.access(exe, os.X_OK):
+                    return exe
             for path in path_var:
-                execute = os.path.join(path, execute_file + ext)
-                if os.access(execute, os.X_OK):
-                    return execute
+                exe = os.path.join(path, exe_file + ext)
+                if os.access(exe, os.X_OK):
+                    return exe
     except OSError:
         pass
 
