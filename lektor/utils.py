@@ -23,6 +23,8 @@ from werkzeug.posixemulation import rename
 from jinja2 import is_undefined
 from markupsafe import Markup
 
+from lektor.uilink import BUNDLE_BIN_PATH, EXTRA_PATHS
+
 
 is_windows = (os.name == 'nt')
 
@@ -40,17 +42,6 @@ try:
         fs_enc = 'utf-8'
 except LookupError:
     pass
-
-
-EXTRA_PATHS = []
-
-# If we are launched from the lektor UI on Mac, we need to spawn bash to
-# figure out what the actual path is as the path is often not set up
-# properly :(
-if os.environ.get('LEKTOR_RUN_FROM_UI') == '1' and sys.platform == 'darwin':
-    EXTRA_PATHS = subprocess.Popen(
-        ['bash', '--login', '-c', 'echo $PATH'],
-        stdout=subprocess.PIPE).communicate()[0].split(':')
 
 
 def cleanup_path(path):
@@ -215,15 +206,23 @@ def increment_filename(filename):
     return rv
 
 
-def resolve_path(exe_file, cwd=None):
-    exe_file = to_os_path(exe_file)
+def locate_executable(exe_file, cwd=None, include_bundle_path=True):
+    """Locates an executable in the search path."""
+    if os.path.sep in exe_file or \
+       (os.path.altsep and os.path.altsep in exe_file):
+        return exe_file
+
     if os.name != 'nt':
         cwd = None
+    elif cwd is None:
+        cwd = os.getcwd()
 
     extensions = ['']
     path_var = os.environ.get('PATH', '').split(os.pathsep)
     path_ext_var = os.environ.get('PATHEXT', '').split(';')
 
+    if BUNDLE_BIN_PATH and include_bundle_path:
+        path_var.insert(0, BUNDLE_BIN_PATH)
     for extra_path in EXTRA_PATHS:
         if extra_path not in path_var:
             path_var.append(extra_path)
@@ -409,14 +408,17 @@ def atomic_open(filename, mode='r'):
 
 
 def portable_popen(cmd, *args, **kwargs):
-    if 'cwd' in kwargs:
-        cmd[0] = resolve_path(cmd[0], kwargs['cwd'])
-    else:
-        cmd[0] = resolve_path(cmd[0], os.getcwd())
+    """A portable version of subprocess.Popen that automatically locates
+    executables before invoking them.  This also looks for executables
+    in the bundle bin.
+    """
+    exe = locate_executable(cmd[0], kwargs.get('cwd'))
+    if exe is None:
+        raise RuntimeError('Could not locate executable "%s"' % cmd[0])
 
-    if isinstance(cmd[0], unicode):
-        cmd[0] = cmd[0].encode(sys.getfilesystemencoding())
-
+    if isinstance(exe, unicode):
+        exe = exe.encode(sys.getfilesystemencoding())
+    cmd[0] = exe
     return subprocess.Popen(cmd, *args, **kwargs)
 
 

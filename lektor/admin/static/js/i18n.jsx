@@ -1,3 +1,6 @@
+// this modules is re-used in the lektor gui system, so be careful with
+// imports here.
+
 'use strict';
 
 function loadTranslations() {
@@ -14,6 +17,15 @@ var i18n = {
   translations: loadTranslations(),
 
   currentLanguage: 'en',
+
+  setLanguageFromLocale: function(locale) {
+    if (locale) {
+      let lang = locale.split(/_/)[0].toLowerCase();
+      if (this.translations[lang] !== undefined) {
+        this.currentLanguage = lang;
+      }
+    }
+  }
 
   trans: function(key) {
     var rv;

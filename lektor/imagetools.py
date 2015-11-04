@@ -1,5 +1,4 @@
 import os
-import sys
 import exifread
 import posixpath
 
@@ -7,8 +6,9 @@ from datetime import datetime
 from jinja2 import Undefined
 from PIL import Image
 
-from lektor.utils import get_dependent_url, portable_popen
+from lektor.utils import get_dependent_url, portable_popen, locate_executable
 from lektor.reporter import reporter
+from lektor.uilink import BUNDLE_BIN_PATH, BUNDLE_LOCAL_ROOT
 
 
 # yay shitty library
@@ -107,10 +107,38 @@ def read_exif(fp):
     return EXIFInfo(exif)
 
 
-def find_default_imagemagick():
-    if not sys.platform.startswith('win'):
-        return 'convert'
+def find_imagemagick(im=None, base_env=None):
+    """Finds imagemagick and returns the path to it and the environment
+    variables that should be used.  If a base env is given it's modified
+    and returned.
+    """
+    if base_env is None:
+        base_env = os.environ
 
+    # If it's provided explicitly and it's valid, we go with that one.
+    if im is not None and os.path.isfile(im):
+        return im, base_env
+
+    # If we have a shipped imagemagick, then we used this one.
+    if BUNDLE_BIN_PATH is not None:
+        executable = os.path.join(BUNDLE_BIN_PATH, 'convert')
+        if os.name == 'nt':
+            executable += '.exe'
+        if os.path.isfile(executable):
+            return executable, dict(base_env,
+                MAGICK_HOME=BUNDLE_LOCAL_ROOT,
+                DYLD_LIBRARY_PATH=os.path.join(BUNDLE_LOCAL_ROOT, 'lib')
+            )
+
+    # If we're not on windows, we locate the executable like we would
+    # do normally.
+    if os.name != 'nt':
+        return locate_executable('convert'), base_env
+
+    # On windows, we only scan the program files for an image magick
+    # installation, because this is where this usually goes.  We do
+    # this because the convert executable is otherwise the system
+    # one which can convert file systems and stuff like this.
     for key in 'ProgramFiles', 'ProgramW6432', 'ProgramFiles(x86)':
         value = os.environ.get(key)
         if not value:
@@ -118,17 +146,14 @@ def find_default_imagemagick():
         try:
             for filename in os.listdir(value):
                 if filename.lower().startswith('imagemagick-'):
-                    return os.path.join(value, filename, 'convert.exe')
+                    exe = os.path.join(value, filename, 'convert.exe')
+                    if os.path.isfile(exe):
+                        return exe, base_env
         except OSError:
             continue
 
-    return 'convert.exe'
-
-
-def find_imagemagick(im):
-    if im is None:
-        return find_default_imagemagick()
-    return im
+    # Give up.
+    raise RuntimeError('Could not locate imagemagick.')
 
 
 def get_thumbnail_ext(source_filename):
@@ -154,7 +179,8 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                                      ext=get_thumbnail_ext(source_image))
     quality = get_quality(source_image)
 
-    im = find_imagemagick(ctx.build_state.config['IMAGEMAGICK_EXECUTABLE'])
+    im, env = find_imagemagick(
+        ctx.build_state.config['IMAGEMAGICK_EXECUTABLE'])
 
     @ctx.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
     def build_thumbnail_artifact(artifact):
@@ -167,7 +193,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                    '-quality', str(quality), artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
-        portable_popen(cmdline).wait()
+        portable_popen(cmdline, env=env).wait()
 
     return Thumbnail(dst_url_path, width, height)
 
