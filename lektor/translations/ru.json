@@ -89,5 +89,15 @@
   "REFRESH_BUILD": "Обновить сборку",
   "REFRESH_BUILD_NOTE": "В некоторых ситуациях бывает полезно заново пересобрать страницы вебсайта: например, когда произошёл сбой синхронизации или ошибка в шаблоне привела к некорректному отображению вебсайта.",
   "CURRENTLY_REFRESHING_BUILD": "Обновление сборки ...",
-  "REFRESHING_BUILD_DONE": "Сборка обновлена!"
+  "REFRESHING_BUILD_DONE": "Сборка обновлена!",
+  "FAILED_TO_LAUNCH_LEKTOR": "Не удалось запустить Lektor.",
+  "PROJECT": "Проект",
+  "CLOSE_PROJECT": "Закрыть проект",
+  "OPEN_PROJECT": "Открыть проект",
+  "BROWSE_WEBSITE": "Открыть вебсайт",
+  "VIEW_ADMIN_PANEL": "Открыть админ-панель",
+  "QUIT": "Выйти",
+  "FAILED_TO_LOAD_PROJECT": "Не удалось загрузить проект :(",
+  "LOADING_PROJECT": "Загрузка проекта ...",
+  "INITIALIZING_LEKTOR": "Инициализация Lektor ..."
 }
