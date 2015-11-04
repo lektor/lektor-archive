@@ -41,7 +41,7 @@ class ExternalPublisher(Publisher):
 class RsyncPublisher(ExternalPublisher):
 
     def get_command_line(self, target_url):
-        argline = ['rsync', '-azv']
+        argline = ['rsync', '-rlzv']
         target = []
 
         if target_url.port is not None:
