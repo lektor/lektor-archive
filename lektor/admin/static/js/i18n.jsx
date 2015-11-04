@@ -20,12 +20,12 @@ var i18n = {
 
   setLanguageFromLocale: function(locale) {
     if (locale) {
-      let lang = locale.split(/_/)[0].toLowerCase();
+      let lang = locale.split(/[-_]/)[0].toLowerCase();
       if (this.translations[lang] !== undefined) {
         this.currentLanguage = lang;
       }
     }
-  }
+  },
 
   trans: function(key) {
     var rv;

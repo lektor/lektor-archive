@@ -77,6 +77,7 @@ def validate_language(ctx, param, value):
               help='The path to the lektor project to work with.')
 @click.option('--language', default=None, callback=validate_language,
               help='The UI language to use (overrides autodetection).')
+@click.version_option(prog_name='Lektor')
 @pass_context
 def cli(ctx, project=None, language=None):
     """The lektor management application.

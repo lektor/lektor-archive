@@ -89,5 +89,15 @@
   "REFRESH_BUILD": "Refresh Build",
   "REFRESH_BUILD_NOTE": "This deletes all cached build results which triggers a rebuilt from scratch.  This is useful in certain situations where sync errors or mistakes in templates caused corrupted output.",
   "CURRENTLY_REFRESHING_BUILD": "Currently refreshing build ...",
-  "REFRESHING_BUILD_DONE": "Done refreshing build!"
+  "REFRESHING_BUILD_DONE": "Done refreshing build!",
+  "FAILED_TO_LAUNCH_LEKTOR": "Failed to launch Lektor.",
+  "PROJECT": "Project",
+  "CLOSE_PROJECT": "Close Project",
+  "OPEN_PROJECT": "Open Project",
+  "BROWSE_WEBSITE": "Browse Website",
+  "VIEW_ADMIN_PANEL": "View Admin Panel",
+  "QUIT": "Quit",
+  "FAILED_TO_LOAD_PROJECT": "Failed to load the project :(",
+  "LOADING_PROJECT": "Loading project ...",
+  "INITIALIZING_LEKTOR": "Initializing Lektor ..."
 }
