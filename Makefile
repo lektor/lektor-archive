@@ -8,3 +8,6 @@ pex:
 		-f pex-build-cache/wheelhouse \
 		--not-zip-safe Lektor
 	rm -rf pex-build-cache
+
+osx-dmg: pex
+	$(MAKE) -C gui osx-dmg

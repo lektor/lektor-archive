@@ -8,12 +8,11 @@ OSX_BUNDLE_RES=$(OSX_BUNDLE)/Contents/Resources
 run:
 	@npm install && ./bin/run
 
-download-im:
-	mkdir vendor
+vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz:
 	cd vendor; wget http://www.imagemagick.org/download/binaries/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
 	cd vendor; tar xzf ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
 
-osx-bundle:
+osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
 	npm install --production
 	cd static; ../node_modules/.bin/webpack
 	./node_modules/.bin/electron-packager . Lektor --platform=darwin \
@@ -29,13 +28,12 @@ osx-bundle:
 	rm -rf $(OSX_BUNDLE_RES)/local/include
 	rm $(OSX_BUNDLE_RES)/atom.icns
 	rm -rf $(OSX_BUNDLE_RES)/default_app
-	rmdir $(OSX_BUNDLE_RES)/*.lproj
 	mkdir $(OSX_BUNDLE_RES)/lektor-dist
 	cp ../lektor.pex $(OSX_BUNDLE_RES)/lektor-dist/lektor
 
 node_modules/.bin/appdmg:
 	npm install appdmg
 
-osx-dmg: node_modules/.bin/appdmg
+osx-dmg: node_modules/.bin/appdmg osx-bundle
 	rm -rf $(OSX_BUNDLE_BASE)/Lektor.dmg
 	./node_modules/.bin/appdmg dmg-config.json $(OSX_BUNDLE_BASE)/Lektor.dmg
