@@ -1,0 +1,9 @@
+{
+  "title": "Lektor",
+  "background": "resources/dmg-background.jpg",
+  "icon-size": 128,
+  "contents": [
+    { "x": 352, "y": 96, "type": "link", "path": "/Applications" },
+    { "x": 128, "y": 96, "type": "file", "path": "build/Lektor-darwin-x64/Lektor.app" }
+  ]
+}

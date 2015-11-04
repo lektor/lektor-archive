@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+import os
+from subprocess import Popen
+
+base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+bin = os.path.join(base, 'node_modules', '.bin')
+app_path = os.path.join(base, 'static')
+
+
+def main():
+    Popen([os.path.join(bin, 'webpack')], cwd=app_path).wait()
+
+    webpack = electron = None
+    try:
+        webpack = Popen([os.path.join(bin, 'webpack'), '--watch'],
+                        cwd=app_path)
+        try:
+            electron = Popen([os.path.join(bin, 'electron'), '.'], cwd=base)
+            electron.wait()
+        except KeyboardInterrupt:
+            try:
+                if electron is not None:
+                    electron.kill()
+            except OSError:
+                pass
+    finally:
+        for proc in webpack, electron:
+            if proc is not None:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+
+
+if __name__ == '__main__':
+    main()
