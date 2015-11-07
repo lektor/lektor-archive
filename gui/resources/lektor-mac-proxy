@@ -1,0 +1,21 @@
+#!/bin/bash
+
+LEKTOR_APP_NAME=Lektor.app
+
+# If LEKTOR_PATH isnt set, check /Applications and then ~/Applications for Lektor.app
+if [ -x "/Applications/$LEKTOR_APP_NAME" ]; then
+  LEKTOR_PATH="/Applications"
+elif [ -x "$HOME/Applications/$LEKTOR_APP_NAME" ]; then
+  LEKTOR_PATH="$HOME/Applications"
+else
+  # We havent found an Lektor.app, use spotlight to search for Lektor
+  LEKTOR_PATH="$(mdfind "kMDItemCFBundleIdentifier == 'org.pocoo.lektor'" | head -1 | xargs -0 dirname)"
+
+  # Exit if Lektor can't be found
+  if [ ! -x "$LEKTOR_PATH/$LEKTOR_APP_NAME" ]; then
+    echo "Cannot locate Lektor.app, it is usually located in /Applications."
+    exit 1
+  fi
+fi
+
+exec "$LEKTOR_PATH/$LEKTOR_APP_NAME/Contents/Resources/lektor" "$@"

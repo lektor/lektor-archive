@@ -1,1 +1,4 @@
-recursive-include lektor *
+recursive-include lektor/translations *
+recursive-include lektor/admin *
+recursive-exclude lektor/admin/node_modules *
+global-exclude *.py[cdo] __pycache__ *.so *.pyd

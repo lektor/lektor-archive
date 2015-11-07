@@ -17,7 +17,7 @@ function getResourceFolder() {
 function findBundledLektorExecutable() {
   let res = getResourceFolder();
   try {
-    let macExe = path.join(res, 'lektor-dist', 'lektor');
+    let macExe = path.join(res, 'lektor');
     fs.accessSync(macExe, fs.X_OK);
     return macExe;
   } catch (e) {
@@ -76,7 +76,6 @@ function spawnLektor(exe, args) {
     env[key] = process.env[key];
   });
   env.LEKTOR_RUN_FROM_UI = '1';
-  env.LEKTOR_RESOURCES = getResourceFolder();
   env.LEKTOR_UI_LANG = i18n.currentLanguage;
 
   return childProcess.spawn(exe, args, {env: env});

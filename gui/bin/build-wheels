@@ -1,0 +1,20 @@
+#!/bin/bash
+
+HERE="$(cd "$(dirname "$0")"; pwd)"
+BASE="$HERE/.."
+OUT="$BASE/build"
+TMP="$OUT/tmp"
+
+rm -rf "$TMP" "$OUT/wheels"
+VENV="$TMP/venv"
+virtualenv "$VENV" -p "$OUT/Python.framework/Versions/Current/bin/python"
+. "$TMP/venv/bin/activate"
+
+pip install --upgrade pip
+pip install wheel
+pip wheel "$BASE/.." -w "$OUT/wheels"
+
+# GPL :(
+pip wheel gnureadline -w "$OUT/wheels"
+
+rm -rf "$TMP"

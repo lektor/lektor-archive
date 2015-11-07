@@ -19,8 +19,9 @@ setup(
         'Markdown',
         'Flask',
         'EXIFRead',
-        'Pillow',
         'inifile',
+        'Pillow',
+        'setuptools',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

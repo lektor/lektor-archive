@@ -9,7 +9,6 @@ a = Analysis(['lektorcli.py'],
              hiddenimports=['code'],
              hookspath=None,
              runtime_hooks=None,
-             excludes=['werkzeug'],
              cipher=block_cipher)
 
 pyz = PYZ(a.pure,
