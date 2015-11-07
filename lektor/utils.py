@@ -233,12 +233,10 @@ def locate_executable(exe_file, cwd=None, include_bundle_path=True):
     if os.name == 'nt':
         choices.append(os.path.join((cwd or os.getcwd()), exe_file))
     
-    print choices
     try:
         for path in choices:
             for ext in extensions:
                 if os.access(path + ext, os.X_OK):
-                    print path + ext
                     return path + ext
     except OSError:
         pass
