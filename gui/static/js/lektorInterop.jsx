@@ -20,11 +20,14 @@ function findBundledLektorExecutable() {
     if (process.platform() === 'darwin') {
       let macExe = path.join(res, 'lektor');
       fs.accessSync(macExe, fs.X_OK);
-      return macExe;
+      let stats = fs.lstatSync(macExe);
+      if (stats.isFile()) {
+        return macExe;
+      }
     }
   } catch (e) {
-    return null;
   }
+  return null;
 }
 
 function findGlobalLektorExecutable() {
@@ -98,7 +101,6 @@ export class LektorInterop {
 
   getLektorExecutable() {
     if (this._lektorExecutable !== null) {
-      console.log('getLektorExecutable');
       return this._lektorExecutable;
     }
     return this._lektorExecutable = findLektorExecutable();
@@ -165,5 +167,13 @@ export class LektorInterop {
       exe, ['--project', projectPath, 'devserver', '--port',
             options.port + '']);
     return new LektorServer(child, options);
+  }
+
+  /* installs the shell commands */
+  installShellCommands() {
+    let runas = require('runas');
+    let exe = this.getLektorExecutable();
+    let rv = runas(exe, ['--install-shell-command'], {admin: true});
+    return rv == 0;
   }
 }
