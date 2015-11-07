@@ -14,6 +14,10 @@ function getResourceFolder() {
   return path.dirname(app.getAppPath());
 }
 
+function getBundleBase() {
+  return path.dirname(getResourceFolder());
+}
+
 function findBundledLektorExecutable() {
   let res = getResourceFolder();
   try {
@@ -47,6 +51,24 @@ function findGlobalLektorExecutable() {
 
 export function findLektorExecutable() {
   return findBundledLektorExecutable() || findGlobalLektorExecutable();
+}
+
+export function findLektorProxyExecutable() {
+  if (process.platform == 'darwin') {
+    return path.join(getBundleBase(), 'MacOS', 'lektor-proxy');
+  } else {
+    return findLektorExecutable();
+  }
+}
+
+export function installShellCommands() {
+  let runas = require('runas');
+  let exe = findLektorProxyExecutable();
+  let rv = runas(exe, ['--install-shell-command'], {
+    admin: true,
+    catchOutput: true
+  });
+  return rv.exitCode == 0;
 }
 
 class LektorServer {
@@ -167,13 +189,5 @@ export class LektorInterop {
       exe, ['--project', projectPath, 'devserver', '--port',
             options.port + '']);
     return new LektorServer(child, options);
-  }
-
-  /* installs the shell commands */
-  installShellCommands() {
-    let runas = require('runas');
-    let exe = this.getLektorExecutable();
-    let rv = runas(exe, ['--install-shell-command'], {admin: true});
-    return rv == 0;
   }
 }

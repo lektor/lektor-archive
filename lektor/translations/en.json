@@ -114,6 +114,9 @@
   "INSTALL_SHELL_COMMAND": "Install Shell Command",
   "INSTALL_SHELL_COMMAND_QUESTION": "Do you want to install the 'lektor' shell command? This requires admin rights.",
   "FAILED_TO_INSTALL_SHELL_COMMANDS": "Failed to install shell commands.",
+  "INSTALL_SHELL_COMMAND_SUCCESS": "Shell command was successfully installed.",
+  "OPERATION_SUCCESS": "Success",
   "YES": "Yes",
-  "NO": "No"
+  "NO": "No",
+  "OK": "OK"
 }

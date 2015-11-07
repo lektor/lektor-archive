@@ -7,7 +7,7 @@ import ipc from 'ipc';
 import shell from 'shell';
 
 import Component from './components/Component';
-import { LektorInterop } from './lektorInterop';
+import { LektorInterop, installShellCommands } from './lektorInterop';
 import i18n from './i18n';
 import { isDevMode, attachDevMenu } from './utils';
 
@@ -179,9 +179,16 @@ class App extends Component {
           detail: i18n.trans('INSTALL_SHELL_COMMAND_QUESTION')
         });
         if (btn == 0) {
-          if (!this.lektorInterop.installShellCommands()) {
+          if (!installShellCommands()) {
             dialog.showErrorBox(i18n.trans('ERROR'),
                                 i18n.trans('FAILED_TO_INSTALL_SHELL_COMMANDS'));
+          } else {
+            dialog.showMessageBox(null, {
+              type: 'info',
+              buttons: [i18n.trans('OK')],
+              message: i18n.trans('OPERATION_SUCCESS'),
+              detail: i18n.trans('INSTALL_SHELL_COMMAND_SUCCESS'),
+            });
           }
         }
       }

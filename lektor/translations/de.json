@@ -111,9 +111,12 @@
   "SELECT_ALL": "Alles Markieren",
   "HELP": "Hilfe",
   "VISIT_WEBSITE": "Webseite Öffnen",
-  "INSTALL_SHELL_COMMAND": "Shell-Befehl Installieren",
-  "INSTALL_SHELL_COMMAND_QUESTION": "Möchtest du den 'lektor' Shell-Befehl installieren? Dies erfordert Admin-Rechte",
-  "FAILED_TO_INSTALL_SHELL_COMMANDS": "Konnte Shell-Befehl nicht installieren.",
+  "INSTALL_SHELL_COMMAND": "Shell Befehl Installieren",
+  "INSTALL_SHELL_COMMAND_QUESTION": "Möchtest du den 'lektor' Shell Befehl installieren? Dies erfordert Admin rechte",
+  "FAILED_TO_INSTALL_SHELL_COMMANDS": "Konnte Shell Befehl nicht installieren.",
+  "INSTALL_SHELL_COMMAND_SUCCESS": "Shell Befehl wurde erfolgreich installiert.",
+  "OPERATION_SUCCESS": "Operation Erfolgreich",
   "YES": "Ja",
-  "NO": "Nein"
+  "NO": "Nein",
+  "OK": "OK"
 }
