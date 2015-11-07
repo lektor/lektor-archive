@@ -3,10 +3,14 @@ import sys
 import json
 import time
 import click
+import pkg_resources
 
 from .i18n import get_default_lang, is_valid_language
 from .utils import secure_url
 from .project import discover_project, load_project
+
+
+version = pkg_resources.get_distribution('Lektor').version
 
 
 class Context(object):
@@ -77,7 +81,7 @@ def validate_language(ctx, param, value):
               help='The path to the lektor project to work with.')
 @click.option('--language', default=None, callback=validate_language,
               help='The UI language to use (overrides autodetection).')
-@click.version_option(prog_name='Lektor')
+@click.version_option(prog_name='Lektor', version=version)
 @pass_context
 def cli(ctx, project=None, language=None):
     """The lektor management application.
@@ -277,3 +281,8 @@ def info_cmd(ctx, as_json):
 
 
 main = cli
+
+
+# The OS X bundle invokes us this way.
+if __name__ == '__main__':
+    main()

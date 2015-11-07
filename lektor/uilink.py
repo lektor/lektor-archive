@@ -4,13 +4,12 @@ import subprocess
 
 RUN_FROM_UI = os.environ.get('LEKTOR_RUN_FROM_UI') == '1'
 
-RESOURCE_PATH = None
+RESOURCE_PATH = os.environ.get('LEKTOR_RESOURCES') or None
 BUNDLE_BIN_PATH = None
 BUNDLE_LOCAL_ROOT = None
 UI_LANG = None
 
 if RUN_FROM_UI:
-    RESOURCE_PATH = os.environ.get('LEKTOR_RESOURCES') or None
     UI_LANG = os.environ.get('LEKTOR_UI_LANG') or None
 
 if RESOURCE_PATH:
