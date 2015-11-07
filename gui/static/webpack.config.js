@@ -3,6 +3,7 @@ var path = require('path');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
 var webpackTargetElectronRenderer = require('webpack-target-electron-renderer');
 
+
 var options = {
   entry: {
     'app': './js/app.jsx',
@@ -16,7 +17,7 @@ var options = {
   devtool: '#source-map',
   resolve: {
     modulesDirectories: ['../node_modules'],
-    extensions: ['', '.jsx', '.js', '.json']
+    extensions: ['', '.jsx', '.js', '.json', '.node']
   },
   resolveLoader: {
     root: path.join(__dirname, '..', 'node_modules')
@@ -27,6 +28,10 @@ var options = {
       {
         test: /\.jsx$/,
         loader: 'babel-loader'
+      },
+      {
+        test: /\.node$/,
+        loader: 'node-loader',
       },
       {
         test: /\.less$/,
@@ -67,14 +72,15 @@ var options = {
       $: 'jquery',
       jQuery: 'jquery'
     }),
-    new webpack.ExternalsPlugin('commonjs', [
-      'runas'
-    ]),
     new ExtractTextPlugin('styles.css', {
       allChunks: true
     })
   ],
-  externals: {}
+  // native modules currently require some hackery :-/  More hackery that
+  // needs synching in the makefile
+  externals: {
+    'runas': 'commonjs runas'
+  }
 };
 
 options.target = webpackTargetElectronRenderer(options);

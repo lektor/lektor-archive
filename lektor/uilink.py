@@ -44,7 +44,7 @@ def main():
         __import__('gnureadline')
     except ImportError:
         pass
-    main()
+    main(prog_name='lektor')
 
 
 if __name__ == '__main__':

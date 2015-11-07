@@ -1,7 +1,6 @@
 import remote from 'remote';
 import path from 'path';
 import fs from 'fs';
-import runas from 'runas';
 import childProcess from 'child_process';
 
 import i18n from './i18n';
@@ -164,9 +163,9 @@ export class LektorInterop {
 
   /* installs the shell commands */
   installShellCommands() {
+    let runas = require('runas');
     let exe = this.getLektorExecutable();
     let rv = runas(exe, ['--install-shell-command'], {admin: true});
-    console.log(exe, rv);
     return rv == 0;
   }
 }
