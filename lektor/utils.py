@@ -208,44 +208,44 @@ def increment_filename(filename):
 
 def locate_executable(exe_file, cwd=None, include_bundle_path=True):
     """Locates an executable in the search path."""
+    choices = [exe_file]
+    resolve = True
+
+    # If it's already a path, we don't resolve.
     if os.path.sep in exe_file or \
        (os.path.altsep and os.path.altsep in exe_file):
-        return exe_file
+        resolve = False
 
-    if os.name != 'nt':
-        cwd = None
-    elif cwd is None:
-        cwd = os.getcwd()
+    extensions = os.environ.get('PATHEXT', '').split(';')
+    #not for windows!
+    if os.name != 'nt' and '' not in extensions:
+        extensions.insert(0, '')
 
-    extensions = ['']
-    path_var = os.environ.get('PATH', '').split(os.pathsep)
-    path_ext_var = os.environ.get('PATHEXT', '').split(';')
+    if resolve:
+        paths = os.environ.get('PATH', '').split(os.pathsep)
+        if BUNDLE_BIN_PATH and include_bundle_path:
+            paths.insert(0, BUNDLE_BIN_PATH)
+        for extra_path in EXTRA_PATHS:
+            if extra_path not in paths:
+                paths.append(extra_path)       
+        choices = [os.path.join(path, exe_file) for path in paths]
 
-    if BUNDLE_BIN_PATH and include_bundle_path:
-        path_var.insert(0, BUNDLE_BIN_PATH)
-    for extra_path in EXTRA_PATHS:
-        if extra_path not in path_var:
-            path_var.append(extra_path)
-
-    ext_existing = os.path.splitext(exe_file)[1] in path_ext_var
-    if not ext_existing:
-        extensions = path_ext_var
-    extensions = extensions or ['']
-
+    if os.name == 'nt':
+        choices.append(os.path.join((cwd or os.getcwd()), exe_file))
+    
+    print choices
     try:
-        for ext in extensions:
-            if cwd is not None:
-                exe = os.path.join(cwd, exe_file + ext)
-                if os.access(exe, os.X_OK):
-                    return exe
-            for path in path_var:
-                exe = os.path.join(path, exe_file + ext)
-                if os.access(exe, os.X_OK):
-                    return exe
+        for path in choices:
+            for ext in extensions:
+                if os.access(path + ext, os.X_OK):
+                    print path + ext
+                    return path + ext
     except OSError:
         pass
 
     return None
+    
+
 
 
 class JSONEncoder(json.JSONEncoder):
