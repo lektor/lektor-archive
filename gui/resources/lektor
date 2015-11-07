@@ -5,4 +5,4 @@ BUNDLE=$(dirname "$RESOURCES")
 export PYTHONDONTWRITEBYTECODE=1
 export LEKTOR_RESOURCES="$RESOURCES"
 PYTHON="$BUNDLE/Frameworks/Python.framework/Versions/Current/Resources/Python.app/Contents/MacOS/Python"
-exec "$PYTHON" -m lektor.cli "$@"
+exec "$PYTHON" -m lektor.uilink "$@"

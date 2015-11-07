@@ -35,3 +35,17 @@ def get_user_path():
 EXTRA_PATHS = []
 if RUN_FROM_UI and os.name == 'darwin':
     EXTRA_PATHS.extend(get_user_path())
+
+
+def main():
+    """The main function for when invoked from an UI bundle."""
+    from .cli import main
+    try:
+        __import__('gnureadline')
+    except ImportError:
+        pass
+    main()
+
+
+if __name__ == '__main__':
+    main()

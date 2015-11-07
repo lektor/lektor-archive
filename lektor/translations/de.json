@@ -99,5 +99,21 @@
   "QUIT": "Beenden",
   "FAILED_TO_LOAD_PROJECT": "Projekt konnte nicht geladen werden :(",
   "LOADING_PROJECT": "Projekt wird geöffnet ...",
-  "INITIALIZING_LEKTOR": "Initialisiere Lektor ..."
+  "INITIALIZING_LEKTOR": "Initialisiere Lektor ...",
+  "QUIT_LEKTOR": "Lektor Beenden",
+  "FILE": "Datei",
+  "EDIT": "Bearbeiten",
+  "UNDO": "Rückgängig",
+  "REDO": "Wiederholen",
+  "CUT": "Ausschneiden",
+  "COPY": "Kopieren",
+  "PASTE": "Einfügen",
+  "SELECT_ALL": "Alles Markieren",
+  "HELP": "Hilfe",
+  "VISIT_WEBSITE": "Webseite Öffnen",
+  "INSTALL_SHELL_COMMAND": "Shell Befehl Installieren",
+  "INSTALL_SHELL_COMMAND_QUESTION": "Möchtest du den 'lektor' Shell Befehl installieren? Dies erfordert Admin rechte",
+  "FAILED_TO_INSTALL_SHELL_COMMANDS": "Konnte Shell Befehl nicht installieren.",
+  "YES": "Ja",
+  "NO": "Nein"
 }

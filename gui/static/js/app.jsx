@@ -9,9 +9,12 @@ import shell from 'shell';
 import Component from './components/Component';
 import { LektorInterop } from './lektorInterop';
 import i18n from './i18n';
+import { isDevMode, attachDevMenu } from './utils';
 
 const app = remote.require('app');
 const dialog = remote.require('dialog');
+const Menu = remote.require('menu');
+
 
 i18n.setLanguageFromLocale(app.getLocale());
 
@@ -130,6 +133,10 @@ class App extends Component {
     super.componentDidMount();
     ipc.on('requestOpenFiles', this.onRequestOpenFiles);
     window.addEventListener('beforeunload', this.onBeforeUnload);
+
+    let menu = this.buildMenu();
+    Menu.setApplicationMenu(menu);
+
     this.resizeWindow();
     this.lektorInterop.checkLektor()
       .then((version) => {
@@ -158,6 +165,96 @@ class App extends Component {
       this.refs.log.scrollTop = this.refs.log.scrollHeight;
     }
     this.resizeWindow();
+  }
+
+  buildMenu() {
+    let submenu = [{
+      label: i18n.trans('INSTALL_SHELL_COMMAND'),
+      click: () => {
+        let btn = dialog.showMessageBox(null, {
+          type: 'question',
+          buttons: [i18n.trans('YES'), i18n.trans('NO')],
+          cancelId: 1,
+          message: i18n.trans('INSTALL_SHELL_COMMAND'),
+          detail: i18n.trans('INSTALL_SHELL_COMMAND_QUESTION')
+        });
+        if (btn == 0) {
+          if (!this.lektorInterop.installShellCommands()) {
+            dialog.showErrorBox(i18n.trans('ERROR'),
+                                i18n.trans('FAILED_TO_INSTALL_SHELL_COMMANDS'));
+          }
+        }
+      }
+    }];
+
+    if (isDevMode()) {
+      attachDevMenu(submenu);
+    }
+    submenu.push({
+      type: 'separator'
+    }),
+    submenu.push({
+      label: i18n.trans('QUIT_LEKTOR'),
+      accelerator: 'Command+Q',
+      click: () => { app.quit(); }
+    });
+
+    return Menu.buildFromTemplate([
+      {
+        label: process.platform == 'darwin' ? app.getName() : i18n.trans('FILE'),
+        submenu: submenu,
+      },
+      {
+        label: i18n.trans('EDIT'),
+        submenu: [
+          {
+            label: i18n.trans('UNDO'),
+            accelerator: 'CmdOrCtrl+Z',
+            role: 'undo'
+          },
+          {
+            label: i18n.trans('REDO'),
+            accelerator: 'Shift+CmdOrCtrl+Z',
+            role: 'redo'
+          },
+          {
+            type: 'separator'
+          },
+          {
+            label: i18n.trans('CUT'),
+            accelerator: 'CmdOrCtrl+X',
+            role: 'cut'
+          },
+          {
+            label: i18n.trans('COPY'),
+            accelerator: 'CmdOrCtrl+C',
+            role: 'copy'
+          },
+          {
+            label: i18n.trans('PASTE'),
+            accelerator: 'CmdOrCtrl+V',
+            role: 'paste'
+          },
+          {
+            label: i18n.trans('SELECT_ALL'),
+            accelerator: 'CmdOrCtrl+A',
+            role: 'selectall'
+          },
+        ]
+      },
+      {
+        label: i18n.trans('HELP'),
+        role: 'help',
+        submenu: [
+          {
+            label: i18n.trans('VISIT_WEBSITE'),
+            click: () => {
+              shell.openExternal('http://www.github.com/mitsuhiko/lektor');
+            }
+          }
+        ]
+      },
+    ]);
   }
 
   resizeWindow() {

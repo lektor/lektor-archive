@@ -67,6 +67,9 @@ var options = {
       $: 'jquery',
       jQuery: 'jquery'
     }),
+    new webpack.ExternalsPlugin('commonjs', [
+      'runas'
+    ]),
     new ExtractTextPlugin('styles.css', {
       allChunks: true
     })

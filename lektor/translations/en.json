@@ -99,5 +99,21 @@
   "QUIT": "Quit",
   "FAILED_TO_LOAD_PROJECT": "Failed to load the project :(",
   "LOADING_PROJECT": "Loading project ...",
-  "INITIALIZING_LEKTOR": "Initializing Lektor ..."
+  "INITIALIZING_LEKTOR": "Initializing Lektor ...",
+  "QUIT_LEKTOR": "Quit Lektor",
+  "FILE": "File",
+  "EDIT": "Edit",
+  "UNDO": "Undo",
+  "REDO": "Redo",
+  "CUT": "Cut",
+  "COPY": "Copy",
+  "PASTE": "Paste",
+  "SELECT_ALL": "Select All",
+  "HELP": "Help",
+  "VISIT_WEBSITE": "Visit Website",
+  "INSTALL_SHELL_COMMAND": "Install Shell Command",
+  "INSTALL_SHELL_COMMAND_QUESTION": "Do you want to install the 'lektor' shell command? This requires admin rights.",
+  "FAILED_TO_INSTALL_SHELL_COMMANDS": "Failed to install shell commands.",
+  "YES": "Yes",
+  "NO": "No"
 }

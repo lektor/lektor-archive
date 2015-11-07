@@ -5,14 +5,22 @@ OSX_BUNDLE_BASE=$(BUILD_DIR)/Lektor-darwin-$(OSX_ARCH)
 OSX_BUNDLE=$(OSX_BUNDLE_BASE)/Lektor.app
 OSX_BUNDLE_RES=$(OSX_BUNDLE)/Contents/Resources
 
-run:
-	@npm install && ./bin/run
+REBUILD_CMD=./node_modules/.bin/electron-rebuild -w runas
+
+npm-install:
+	npm install
+	$(REBUILD_CMD)
+
+run-only:
+	./bin/run
+
+run: npm-install run-only
 
 $(BUILD_DIR)/Python.framework:
-	@./bin/fetch-python-framework
+	./bin/fetch-python-framework
 
 build-wheels: $(BUILD_DIR)/Python.framework
-	@./bin/build-wheels
+	./bin/build-wheels
 
 vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz:
 	cd vendor; wget http://www.imagemagick.org/download/binaries/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
@@ -20,6 +28,7 @@ vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz:
 
 osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
 	npm install --production
+	$(REBUILD_CMD)
 	cd static; ../node_modules/.bin/webpack
 	./node_modules/.bin/electron-packager . Lektor --platform=darwin \
 		--ignore='(node_modules|vendor|resources|bin|build)' \
