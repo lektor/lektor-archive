@@ -162,9 +162,9 @@ class App extends Component {
 
   resizeWindow() {
     let win = remote.getCurrentWindow();
-    let [width, height] = win.getSize();
+    let [width, height] = win.getContentSize();
     let app = this.refs.app;
-    win.setSize(width, app.scrollHeight);
+    win.setContentSize(width, app.scrollHeight);
   }
 
   onRequestOpenFiles(pathsToOpen) {
@@ -239,6 +239,13 @@ class App extends Component {
     );
   }
 
+  renderTitle() {
+    if (process.platform != 'win32') {
+      return ( <h1>Lektor</h1>);
+    }
+    return null;
+  }
+
   renderLektorInit() {
     let spinner = null;
     if (this.state.lektorState === 'initializing') {
@@ -260,8 +267,8 @@ class App extends Component {
     }
     return (
       <div className="app" ref="app">
-        <h1>Lektor</h1>
         <div className="main-nav">
+          {this.renderTitle()}
           <div className="list-group">
             {this.renderNav()}
           </div>

@@ -5,7 +5,7 @@ import Tray from 'tray';
 import BrowserWindow from 'browser-window';
 import i18n from './i18n';
 
-const BASE_PATH = __dirname.match(/^(.*?)\/[^\/]+$/)[1];
+const BASE_PATH = __dirname.match(/^(.*?)[\/\\][^\/\\]+$/)[1];
 
 
 function initWindow() {

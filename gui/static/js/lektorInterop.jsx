@@ -17,17 +17,25 @@ function getResourceFolder() {
 function findBundledLektorExecutable() {
   let res = getResourceFolder();
   try {
-    let macExe = path.join(res, 'lektor');
-    fs.accessSync(macExe, fs.X_OK);
-    return macExe;
+    if (process.platform() === 'darwin') {
+      let macExe = path.join(res, 'lektor');
+      fs.accessSync(macExe, fs.X_OK);
+      return macExe;
+    }
   } catch (e) {
     return null;
   }
 }
 
 function findGlobalLektorExecutable() {
-  // XXX: windows support
-  let rv = childProcess.spawnSync('which', ['lektor']);
+  let rv;
+  if (process.platform === 'win32') {
+    // XXX: do something better for windows support
+    return 'lektor';
+  } else {
+    rv = childProcess.spawnSync('which', ['lektor']);
+  }
+
   if (rv.status === 0) {
     return (rv.output[1] + '').trim();
   }
@@ -90,6 +98,7 @@ export class LektorInterop {
 
   getLektorExecutable() {
     if (this._lektorExecutable !== null) {
+      console.log('getLektorExecutable');
       return this._lektorExecutable;
     }
     return this._lektorExecutable = findLektorExecutable();

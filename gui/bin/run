@@ -8,14 +8,15 @@ app_path = os.path.join(base, 'static')
 
 
 def main():
-    Popen([os.path.join(bin, 'webpack')], cwd=app_path).wait()
+    Popen([os.path.join(bin, 'webpack')], cwd=app_path, shell=True).wait()
 
     webpack = electron = None
     try:
         webpack = Popen([os.path.join(bin, 'webpack'), '--watch'],
-                        cwd=app_path)
+                        cwd=app_path, shell=True)
         try:
-            electron = Popen([os.path.join(bin, 'electron'), '.'], cwd=base)
+            electron = Popen([os.path.join(bin, 'electron'), '.'],
+                             cwd=base, shell=True)
             electron.wait()
         except KeyboardInterrupt:
             try:
