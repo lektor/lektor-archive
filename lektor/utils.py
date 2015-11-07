@@ -217,7 +217,7 @@ def locate_executable(exe_file, cwd=None, include_bundle_path=True):
         resolve = False
 
     extensions = os.environ.get('PATHEXT', '').split(';')
-    #not for windows!
+    # not for windows!
     if os.name != 'nt' and '' not in extensions:
         extensions.insert(0, '')
 
@@ -227,12 +227,12 @@ def locate_executable(exe_file, cwd=None, include_bundle_path=True):
             paths.insert(0, BUNDLE_BIN_PATH)
         for extra_path in EXTRA_PATHS:
             if extra_path not in paths:
-                paths.append(extra_path)       
+                paths.append(extra_path)
         choices = [os.path.join(path, exe_file) for path in paths]
 
     if os.name == 'nt':
         choices.append(os.path.join((cwd or os.getcwd()), exe_file))
-    
+
     try:
         for path in choices:
             for ext in extensions:
@@ -240,10 +240,6 @@ def locate_executable(exe_file, cwd=None, include_bundle_path=True):
                     return path + ext
     except OSError:
         pass
-
-    return None
-    
-
 
 
 class JSONEncoder(json.JSONEncoder):
