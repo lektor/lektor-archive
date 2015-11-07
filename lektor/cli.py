@@ -281,8 +281,3 @@ def info_cmd(ctx, as_json):
 
 
 main = cli
-
-
-# The OS X bundle invokes us this way.
-if __name__ == '__main__':
-    main()

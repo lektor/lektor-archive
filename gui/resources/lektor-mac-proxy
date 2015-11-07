@@ -1,6 +1,9 @@
 #!/bin/bash
 
+set -e
+
 LEKTOR_APP_NAME=Lektor.app
+SHELL_COMMAND_PATH=/usr/local/bin/lektor
 
 # If LEKTOR_PATH isnt set, check /Applications and then ~/Applications for Lektor.app
 if [ -x "/Applications/$LEKTOR_APP_NAME" ]; then
@@ -16,6 +19,17 @@ else
     echo "Cannot locate Lektor.app, it is usually located in /Applications."
     exit 1
   fi
+fi
+
+# Special commands for installing the proxy command globally.
+if [ "$1" == "--install-shell-command" ]; then
+  ln -fs "$LEKTOR_PATH/$LEKTOR_APP_NAME/Contents/MacOS/lektor-proxy" "$SHELL_COMMAND_PATH"
+  echo 'Successfully installed the global lektor shell command'
+  exit 0
+elif [ "$1" == "--uninstall-shell-command" ]; then
+  rm -f "$SHELL_COMMAND_PATH"
+  echo 'Successfully uninstalled the global lektor shell command'
+  exit 0
 fi
 
 exec "$LEKTOR_PATH/$LEKTOR_APP_NAME/Contents/Resources/lektor" "$@"
