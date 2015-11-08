@@ -7,6 +7,7 @@ OSX_BUNDLE_RES=$(OSX_BUNDLE)/Contents/Resources
 REBUILD_CMD=./node_modules/.bin/electron-rebuild -w runas
 
 npm-install:
+	cd ../lektor/admin/; npm install
 	npm install
 	$(REBUILD_CMD)
 
@@ -26,6 +27,7 @@ vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz:
 	cd vendor; tar xzf ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
 
 osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
+	cd ../lektor/admin; npm install
 	npm install --production
 	$(REBUILD_CMD)
 	cd static; ../node_modules/.bin/webpack
