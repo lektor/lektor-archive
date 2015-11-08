@@ -3,20 +3,29 @@
 set -e
 
 HERE="$(cd "$(dirname "$0")"; pwd)"
-FRAMEWORK="$1"
+FRAMEWORK="$(cd "$1"; pwd)"
 PYTHON_VERSION_MAJOR=$(readlink "$FRAMEWORK/Versions/Current")
 
+# When rewriting the paths we need to reference the original framework
+# location as it was used for building.
+ORIGINAL_FRAMEWORK_PATH="$(cd "$HERE/../build"; pwd)/tmp/out/Python.framework"
+
+echo "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Python"
+echo "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/bin/python"
 install_name_tool \
-  -change "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Python" \
+  -change "$ORIGINAL_FRAMEWORK_PATH/Versions/$PYTHON_VERSION_MAJOR/Python" \
   @rpath/Python \
   "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/bin/python"
 install_name_tool \
   -add_rpath @executable_path/../ \
   "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/bin/python"
 install_name_tool \
-  -change "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Python" \
+  -change "$ORIGINAL_FRAMEWORK_PATH/Versions/$PYTHON_VERSION_MAJOR/Python" \
   @rpath/Python \
   "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Resources/Python.app/Contents/MacOS/Python"
 install_name_tool \
   -add_rpath @executable_path/../../../../ \
   "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Resources/Python.app/Contents/MacOS/Python"
+chmod u+w "$FRAMEWORK/Python"
+otool -D "$FRAMEWORK/Python"
+install_name_tool -id @rpath/Python "$FRAMEWORK/Python"

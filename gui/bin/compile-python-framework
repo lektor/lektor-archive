@@ -15,7 +15,14 @@ FRAMEWORK="$TEMP/out/Python.framework"
 USELESS_LIBRARIES="ensurepip bsddb config idlelib lib-tk lib2to3 test lib-dynload/_Qt.so lib-dynload/_tkinter.so"
 
 rm -rf "$TEMP"
-mkdir -p "$TEMP"
+
+# Resolve temp out so that we have no funny business later.  We need to make sure
+# path is reproducible at a later point so that we can rewrite the paths with
+# install_name_tool.  See make-python-framework-relocatable:ORIGINAL_FRAMEWORK_PATH
+# for more information.
+mkdir -p "$TEMP_OUT"
+TEMP_OUT="$(cd $TEMP_OUT; pwd)"
+
 cd "$TEMP"
 
 # Compile settings

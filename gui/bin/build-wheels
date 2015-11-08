@@ -2,7 +2,7 @@
 
 HERE="$(cd "$(dirname "$0")"; pwd)"
 BASE="$HERE/.."
-OUT="$BASE/build"
+OUT="$(cd "$BASE/build"; pwd)"
 TMP="$OUT/tmp"
 
 rm -rf "$TMP" "$OUT/wheels"
