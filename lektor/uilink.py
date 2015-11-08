@@ -40,10 +40,6 @@ if RUN_FROM_UI and os.name == 'darwin':
 def main():
     """The main function for when invoked from an UI bundle."""
     from .cli import main
-    try:
-        __import__('gnureadline')
-    except ImportError:
-        pass
     main(prog_name='lektor')
 
 

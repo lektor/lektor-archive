@@ -1,0 +1,60 @@
+#!/bin/bash
+
+set -e
+
+HERE="$(cd "$(dirname "$0")"; pwd)"
+BASE="$HERE/.."
+PYTHON_VERSION="2.7.10"
+PYTHON_VERSION_MAJOR="${PYTHON_VERSION:0:3}"
+ARCHIVE="Python-${PYTHON_VERSION}.tgz"
+PYTHON_DOWNLOAD_URL="https://www.python.org/ftp/python/$PYTHON_VERSION/$ARCHIVE"
+OUT="$BASE/build"
+TEMP="$BASE/build/tmp"
+TEMP_OUT="$TEMP/out"
+FRAMEWORK="$TEMP/out/Python.framework"
+USELESS_LIBRARIES="ensurepip bsddb config idlelib lib-tk lib2to3 test lib-dynload/_Qt.so lib-dynload/_tkinter.so"
+
+rm -rf "$TEMP"
+mkdir -p "$TEMP"
+cd "$TEMP"
+
+# Compile settings
+export MACOSX_DEPLOYMENT_TARGET=10.9
+
+# Download archive and unpack
+wget "$PYTHON_DOWNLOAD_URL"
+tar --strip-components=1 -xzf "$ARCHIVE"
+
+# Compile
+./configure \
+  --prefix="$TEMP_OUT" \
+  --enable-framework="$TEMP_OUT" \
+  --without-ensurepip \
+  MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET
+make
+make frameworkinstall
+
+# Install sitecustomize
+cp \
+  "$BASE/resources/sitecustomize.py" \
+  "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/lib/python$PYTHON_VERSION_MAJOR"
+
+# Delete pyc files
+find "$FRAMEWORK" -name '*.py[co]' -exec rm '{}' \;
+
+# Delete stupid libraries
+for lib in $USELESS_LIBRARIES; do
+  rm -rf "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/lib/python$PYTHON_VERSION_MAJOR/$USELESS_LIBRARIES"
+done
+
+# Delete other unwanted things
+rm -rf "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/lib/pkgconfig"
+rm -rf "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Mac"
+rm -rf "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/share"
+
+# Move framework out
+mkdir -p "$OUT"
+mv "$FRAMEWORK" "$OUT"
+
+# Clean up
+rm -rf "$TMP"

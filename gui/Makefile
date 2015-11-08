@@ -18,7 +18,7 @@ run-only:
 run: npm-install run-only
 
 $(BUILD_DIR)/Python.framework:
-	./bin/fetch-python-framework
+	./bin/compile-python-framework
 
 build-wheels: $(BUILD_DIR)/Python.framework
 	./bin/build-wheels
@@ -50,6 +50,7 @@ osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
 	mkdir -p $(OSX_BUNDLE_RES)/app/node_modules
 	cp -R node_modules/runas $(OSX_BUNDLE_RES)/app/node_modules/runas
 	cp -R $(BUILD_DIR)/Python.framework $(OSX_BUNDLE)/Contents/Frameworks/Python.framework
+	./bin/make-python-framework-relocatable $(OSX_BUNDLE)/Contents/Frameworks/Python.framework
 	./bin/install-wheels $(OSX_BUNDLE)/Contents/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages
 	mkdir $(OSX_BUNDLE_RES)/lektor-dist
 

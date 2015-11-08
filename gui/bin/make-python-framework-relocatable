@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+HERE="$(cd "$(dirname "$0")"; pwd)"
+FRAMEWORK="$1"
+PYTHON_VERSION_MAJOR=$(readlink "$FRAMEWORK/Versions/Current")
+
+install_name_tool \
+  -change "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Python" \
+  @rpath/Python \
+  "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/bin/python"
+install_name_tool \
+  -add_rpath @executable_path/../ \
+  "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/bin/python"
+install_name_tool \
+  -change "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Python" \
+  @rpath/Python \
+  "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Resources/Python.app/Contents/MacOS/Python"
+install_name_tool \
+  -add_rpath @executable_path/../../../../ \
+  "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Resources/Python.app/Contents/MacOS/Python"
