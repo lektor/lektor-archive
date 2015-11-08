@@ -21,7 +21,7 @@ function getBundleBase() {
 function findBundledLektorExecutable() {
   let res = getResourceFolder();
   try {
-    if (process.platform() === 'darwin') {
+    if (process.platform === 'darwin') {
       let macExe = path.join(res, 'lektor');
       fs.accessSync(macExe, fs.X_OK);
       let stats = fs.lstatSync(macExe);
