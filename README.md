@@ -6,8 +6,6 @@ admin UI and minimal desktop app.
 
 <img src="https://raw.githubusercontent.com/mitsuhiko/lektor/master/screenshots/admin.png" width="100%">
 
-<img src="https://raw.githubusercontent.com/mitsuhiko/lektor/master/screenshots/gui.png" width="50%">
-
 To see how it works look at the ``example`` folder which contains a
 very basic project to get started.
 
