@@ -1,5 +1,3 @@
-# Bump this and package.json version at the same time.
-ELECTRON_VERSION=0.34.3
 OSX_ARCH=x64
 BUILD_DIR=build
 OSX_BUNDLE_BASE=$(BUILD_DIR)/Lektor-darwin-$(OSX_ARCH)
@@ -31,10 +29,22 @@ osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
 	npm install --production
 	$(REBUILD_CMD)
 	cd static; ../node_modules/.bin/webpack
-	./node_modules/.bin/electron-packager . Lektor --platform=darwin \
-		--ignore='(node_modules|vendor|resources|bin|build)' \
-		--arch=$(OSX_ARCH) --version=$(ELECTRON_VERSION) \
-		--overwrite --out=$(BUILD_DIR)
+	mkdir -p $(OSX_BUNDLE_BASE) && rm -rf $(OSX_BUNDLE)
+	cp -RH node_modules/electron-prebuilt/dist/Electron.app $(OSX_BUNDLE)
+	mv $(OSX_BUNDLE)/Contents/Frameworks/{Electron,Lektor}\ Helper\ EH.app
+	mv $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper\ EH.app/Contents/MacOS/{Electron,Lektor}\ Helper\ EH
+	sed -i '' s/Electron/Lektor/ $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper\ EH.app/Contents/Info.plist
+	mv $(OSX_BUNDLE)/Contents/Frameworks/{Electron,Lektor}\ Helper\ NP.app
+	mv $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper\ NP.app/Contents/MacOS/{Electron,Lektor}\ Helper\ NP
+	sed -i '' s/Electron/Lektor/ $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper\ NP.app/Contents/Info.plist
+	mv $(OSX_BUNDLE)/Contents/Frameworks/{Electron,Lektor}\ Helper.app
+	mv $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper.app/Contents/MacOS/{Electron,Lektor}\ Helper
+	sed -i '' s/Electron/Lektor/ $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper.app/Contents/Info.plist
+	mkdir -p $(OSX_BUNDLE_RES)/node_modules
+	mkdir -p $(OSX_BUNDLE_RES)/app/static
+	cp -R package.json $(OSX_BUNDLE_RES)/app
+	cp -R static/{images,gen,index.html} $(OSX_BUNDLE_RES)/app/static
+	cp -R node_modules/runas $(OSX_BUNDLE_RES)/node_modules
 	cp resources/Lektor-Info.plist $(OSX_BUNDLE)/Contents/Info.plist
 	cp resources/Icon.icns $(OSX_BUNDLE_RES)
 	mkdir $(OSX_BUNDLE_RES)/local
