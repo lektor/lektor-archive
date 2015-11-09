@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Electron</string>
 	<key>CFBundleIconFile</key>
-	<string>Icon.icns</string>
+	<string>Lektor.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.pocoo.lektor</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -42,7 +42,7 @@
 				<string>lektorproject</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>Icon.icns</string>
+			<string>ProjectFile.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>Lektor Project</string>
 			<key>CFBundleTypeRole</key>

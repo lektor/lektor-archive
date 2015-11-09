@@ -22,11 +22,19 @@ $(BUILD_DIR)/Python.framework:
 build-wheels: $(BUILD_DIR)/Python.framework
 	./bin/build-wheels
 
+build/Lektor.icns:
+	./bin/make-mac-icons
+
+build/ProjectFile.icns:
+	./bin/make-mac-icons
+
+icons: build/Lektor.icns build/ProjectFile.icns
+
 vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz:
 	cd vendor; wget http://www.imagemagick.org/download/binaries/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
 	cd vendor; tar xzf ImageMagick-x86_64-apple-darwin15.0.0.tar.gz
 
-osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
+osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz icons build-wheels
 	cd ../lektor/admin; npm install
 	npm install --production
 	$(REBUILD_CMD)
@@ -48,7 +56,8 @@ osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
 	cp -R static/{images,gen,index.html} $(OSX_BUNDLE_RES)/app/static
 	cp -R node_modules/runas $(OSX_BUNDLE_RES)/node_modules
 	cp resources/Lektor-Info.plist $(OSX_BUNDLE)/Contents/Info.plist
-	cp resources/Icon.icns $(OSX_BUNDLE_RES)
+	cp build/Lektor.icns $(OSX_BUNDLE_RES)
+	cp build/ProjectFile.icns $(OSX_BUNDLE_RES)
 	mkdir $(OSX_BUNDLE_RES)/local
 	cp -R vendor/ImageMagick-6.9.2/* $(OSX_BUNDLE_RES)/local
 	cp resources/lektor-mac-proxy $(OSX_BUNDLE)/Contents/MacOS/lektor-proxy
@@ -74,3 +83,5 @@ osx-dmg-only:
 	./node_modules/.bin/appdmg dmg-config.json $(OSX_BUNDLE_BASE)/Lektor.dmg
 
 osx-dmg: node_modules/.bin/appdmg osx-bundle osx-dmg-only
+
+.PHONY: npm-install run-only run build-wheels icons osx-bundle osx-dmg-only osx-dmg

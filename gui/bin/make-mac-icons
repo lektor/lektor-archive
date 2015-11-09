@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+import re
+import os
+from subprocess import Popen
+
+
+HERE = os.path.abspath(os.path.dirname(__file__))
+BASE = os.path.dirname(HERE)
+OUT = os.path.join(BASE, 'build')
+TMP = os.path.join(OUT, 'tmp')
+
+DOC_ICON = os.path.join(TMP, 'GenericDocumentIcon.iconset')
+APP_ICON = os.path.join(BASE, 'resources', 'Icon.iconset')
+APP_ICNS = os.path.join(BASE, 'build', 'Lektor.icns')
+FT_ICON = os.path.join(TMP, 'ProjectFile.iconset')
+FT_ICNS = os.path.join(BASE, 'build', 'ProjectFile.icns')
+
+try:
+    os.makedirs(TMP)
+except OSError:
+    pass
+try:
+    os.makedirs(FT_ICON)
+except OSError:
+    pass
+
+
+def find_blend_source(target_size, retina):
+    size = (target_size[0] / 2, target_size[1] / 2)
+    if retina:
+        fn = os.path.join(APP_ICON, 'icon_%dx%d@2x.png' %
+                          (size[0] / 2, size[1] / 2))
+        if os.path.isfile(fn):
+            return fn
+    fn = os.path.join(APP_ICON, 'icon_%dx%d.png' % size)
+    if os.path.isfile(fn):
+        return fn
+
+    fn = os.path.join(APP_ICON, 'icon_%dx%d.png' % target_size)
+    if os.path.isfile(fn):
+        return fn
+
+
+Popen(['iconutil', '--convert', 'iconset',
+       '--output', DOC_ICON,
+       '/System/Library/CoreServices/CoreTypes.bundle/Contents/'
+       'Resources/GenericDocumentIcon.icns']).wait()
+
+
+for filename in os.listdir(DOC_ICON):
+    if not filename.endswith('.png'):
+        continue
+    size = tuple(map(int, re.search('(\d+)x(\d+)', filename).groups()))
+    actual_size = size
+    retina = False
+    if '@2x' in filename:
+        actual_size = tuple(x * 2 for x in size)
+        retina = True
+
+    blend_source = find_blend_source(actual_size, retina)
+    if blend_source is None:
+        print 'missing source for', size, retina
+        continue
+
+    offset = (actual_size[0] / 4, actual_size[1] / 4)
+    resize_to = (actual_size[0] / 2, actual_size[1] / 2)
+
+    Popen(['convert', os.path.join(DOC_ICON, filename),
+           '(', blend_source,
+           '-resize', '%dx%d' % resize_to,
+           '-geometry', '+%d+%d' % offset, ')',
+           '-composite', os.path.join(FT_ICON, filename)]).wait()
+
+Popen(['iconutil', '--convert', 'icns',
+       '--output', FT_ICNS, FT_ICON]).wait()
+Popen(['iconutil', '--convert', 'icns',
+       '--output', APP_ICNS, APP_ICON]).wait()
