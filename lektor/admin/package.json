@@ -24,7 +24,7 @@
     "react": "^0.14.1",
     "react-addons-update": "^0.14.1",
     "react-dom": "^0.14.1",
-    "react-router": "git://github.com/rackt/react-router#b57580e93b4415838dbfece80d2e10300f4508f0",
+    "react-router": "^1.0.0",
     "style-loader": "^0.8.3",
     "webpack": "^1.7.2",
     "history": "^1.13.0",
