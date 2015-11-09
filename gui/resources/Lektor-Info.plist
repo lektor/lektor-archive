@@ -41,6 +41,10 @@
 			<array>
 				<string>lektorproject</string>
 			</array>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>org.pocoo.lektor.project</string>
+      </array>
 			<key>CFBundleTypeIconFile</key>
 			<string>ProjectFile.icns</string>
 			<key>CFBundleTypeName</key>
@@ -53,12 +57,61 @@
 			<array>
 				<string>lr</string>
 			</array>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>org.pocoo.lektor.contentfile</string>
+      </array>
 			<key>CFBundleTypeIconFile</key>
 			<string>File.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>Lektor Content File</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.pocoo.lektor.project</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+        <string>public.data</string>
+        <string>public.content</string>
+        <!-- <string>public.utf8-plain-text</string> -->
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Lektor Project</string>
+			<key>UTTypeIconFile</key>
+			<string>ProjectFile.icns</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>lektorproject</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.pocoo.lektor.contentfile</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+        <string>public.data</string>
+        <string>public.content</string>
+        <!-- <string>public.utf8-plain-text</string> -->
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Lektor Content File</string>
+			<key>UTTypeIconFile</key>
+			<string>ProjectFile.icns</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>lr</string>
+				</array>
+			</dict>
 		</dict>
 	</array>
 </dict>

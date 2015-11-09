@@ -58,6 +58,7 @@ osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz icons build-whee
 	cp resources/Lektor-Info.plist $(OSX_BUNDLE)/Contents/Info.plist
 	cp build/Lektor.icns $(OSX_BUNDLE_RES)
 	cp build/ProjectFile.icns $(OSX_BUNDLE_RES)
+	cp build/File.icns $(OSX_BUNDLE_RES)
 	mkdir $(OSX_BUNDLE_RES)/local
 	cp -R vendor/ImageMagick-6.9.2/* $(OSX_BUNDLE_RES)/local
 	cp resources/lektor-mac-proxy $(OSX_BUNDLE)/Contents/MacOS/lektor-proxy

@@ -38,7 +38,7 @@ class App extends Component {
     this.lektorInterop = new LektorInterop();
   }
 
-  openProject(path) {
+  openProject(path, filesToOpen) {
     this.closeProject();
     this.setState({
       projectPath: path,
@@ -49,13 +49,13 @@ class App extends Component {
       this.lektorInterop.analyzeProject(path).then((project) => {
         if (project === null) {
           this.setState({
-            projectState: 'failed',
+            projectState: 'failed'
           });
         } else {
           this.setState({
             projectState: 'loaded',
-            projectData: project
-          });
+            projectData: project,
+          }, this.openFilesAsync.bind(this, filesToOpen));
           this.spawnServerForProject(project.project_path);
         }
       }, (failure) => {
@@ -93,8 +93,56 @@ class App extends Component {
       projectPath: null,
       projectState: 'closed',
       projectData: null,
-      projectServerStatus: []
+      projectServerStatus: [],
+      filesToOpen: []
     });
+  }
+
+  openFilesAsync(filesToOpen) {
+    if ((filesToOpen || []).length == 0) {
+      return;
+    }
+
+    let projectPath = this.state.projectData
+      ? this.state.projectData.project_path : null;
+
+    function couldNotOpen(message) {
+      dialog.showErrorBox(i18n.trans('FAILED_TO_OPEN_CONTENT_FILE'),
+                          message.toString());
+    }
+
+    this.lektorInterop.discoverProjectForFiles(filesToOpen)
+      .then((result) => {
+        if (result.success) {
+          if (projectPath !== null &&
+              result.project.project_path == projectPath) {
+            let server = this.state.projectServer;
+            if (server) {
+              result.paths.forEach((path) => {
+                shell.openExternal(server.getAdminEditUrl(path));
+              });
+            }
+          } else if (projectPath === null) {
+            this.openProject(result.project.project_path, filesToOpen);
+          } else {
+            let btn = dialog.showMessageBox(null, {
+              type: 'question',
+              buttons: [i18n.trans('YES'), i18n.trans('NO')],
+              cancelId: 1,
+              message: i18n.trans('OPEN_OTHER_PROJECT'),
+              detail: i18n.trans('OPEN_OTHER_PROJECT_QUESTION').replace(
+                /%s/g, result.project.name)
+            });
+            if (btn == 0) {
+              this.openProject(result.project.project_path, filesToOpen);
+            }
+          }
+        } else {
+          couldNotOpen(result.error);
+        }
+      }, (failure) => {
+        couldNotOpen(failure);
+      });
   }
 
   browseWebsite() {
@@ -272,8 +320,20 @@ class App extends Component {
   }
 
   onRequestOpenFiles(pathsToOpen) {
-    if (pathsToOpen.length == 1) {
-      this.openProject(pathsToOpen[0]);
+    var projectToOpen = null;
+    var filesToOpen = [];
+    pathsToOpen.forEach((path) => {
+      if (path.match(/\.lektorproject$/)) {
+        projectToOpen = path;
+      } else {
+        filesToOpen.push(path);
+      }
+    });
+
+    if (projectToOpen !== null) {
+      this.openProject(pathsToOpen[0], filesToOpen);
+    } else {
+      this.openFilesAsync(filesToOpen);
     }
   }
 

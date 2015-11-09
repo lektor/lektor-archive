@@ -96,6 +96,11 @@ class LektorServer {
     return this.getUrl() + 'admin/';
   }
 
+  getAdminEditUrl(path) {
+    let p = ('root' + (path || '/').replace(/\//g, ':')).match(/^(.*?):?$/)[1];
+    return this.getAdminUrl() + p + '/edit';
+  }
+
   shutdown() {
     this._child.kill('SIGHUP');
   }
@@ -175,6 +180,27 @@ export class LektorInterop {
         } else {
           resolve(null);
         }
+      });
+    });
+  }
+
+  /* finds the project for a set of files. */
+  discoverProjectForFiles(files) {
+    let exe = this.getLektorExecutable();
+    return new Promise((resolve, reject) => {
+      if (!exe) {
+        return reject(new Error('Cannot locate Lektor executable'));
+      }
+      let child = spawnLektor(
+        exe, ['content-file-info', '--json'].concat(files));
+
+      let buf = '';
+      child.stdout.on('data', (data) => {
+        buf += data;
+      });
+
+      child.on('close', (code) => {
+        resolve(JSON.parse(buf));
       });
     });
   }
