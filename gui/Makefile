@@ -69,6 +69,8 @@ osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz build-wheels
 node_modules/.bin/appdmg:
 	npm install appdmg
 
-osx-dmg: node_modules/.bin/appdmg osx-bundle
+osx-dmg-only:
 	rm -rf $(OSX_BUNDLE_BASE)/Lektor.dmg
 	./node_modules/.bin/appdmg dmg-config.json $(OSX_BUNDLE_BASE)/Lektor.dmg
+
+osx-dmg: node_modules/.bin/appdmg osx-bundle osx-dmg-only
