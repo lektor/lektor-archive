@@ -118,5 +118,8 @@
   "OPERATION_SUCCESS": "Success",
   "YES": "Yes",
   "NO": "No",
-  "OK": "OK"
+  "OK": "OK",
+  "FAILED_TO_OPEN_CONTENT_FILE": "Failed to open content file",
+  "OPEN_OTHER_PROJECT": "Open other Project",
+  "OPEN_OTHER_PROJECT_QUESTION": "Opening this file requires opening another project (%s). The current project will be closed. Do you want to continue?"
 }

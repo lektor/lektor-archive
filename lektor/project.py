@@ -17,6 +17,24 @@ class Project(object):
     def project_path(self):
         return self.project_file or self.tree
 
+    def content_path_from_filename(self, filename):
+        """Given a filename returns the content path or None if
+        not in project.
+        """
+        dirname, basename = os.path.split(os.path.abspath(filename))
+        if basename == 'contents.lr':
+            path = dirname
+        elif basename.endswith('.lr'):
+            path = os.path.join(dirname, basename[:-3])
+        else:
+            return None
+
+        content_path = os.path.normpath(self.tree).split(os.path.sep) + ['content']
+        file_path = os.path.normpath(path).split(os.path.sep)
+        prefix = os.path.commonprefix([content_path, file_path])
+        if prefix == content_path:
+            return '/' + '/'.join(file_path[len(content_path):])
+
     def to_json(self):
         return {
             'name': self.name,
@@ -43,10 +61,11 @@ def project_from_file(filename):
     )
 
 
-def load_project(path):
+def load_project(path, extension_required=False):
     """Locates the project for a path."""
     path = os.path.abspath(path)
-    if os.path.isfile(path):
+    if os.path.isfile(path) and (not extension_required or
+                                 path.endswith('.lektorproject')):
         return project_from_file(path)
 
     try:
@@ -73,7 +92,7 @@ def discover_project(base=None):
         base = os.getcwd()
     here = base
     while 1:
-        project = load_project(here)
+        project = load_project(here, extension_required=True)
         if project is not None:
             return project
         node = os.path.dirname(here)

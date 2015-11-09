@@ -118,5 +118,8 @@
   "OPERATION_SUCCESS": "Operation Erfolgreich",
   "YES": "Ja",
   "NO": "Nein",
-  "OK": "OK"
+  "OK": "OK",
+  "FAILED_TO_OPEN_CONTENT_FILE": "Konnte Datei nicht öffnen",
+  "OPEN_OTHER_PROJECT": "Anderes Projekt Öffnen",
+  "OPEN_OTHER_PROJECT_QUESTION": "Um diese Datei zu öffnen muss ein anders Projekt (%s) geöffnet werden. Das aktuelle Projekt wird dadurch geschlossen. Fortfahren?"
 }

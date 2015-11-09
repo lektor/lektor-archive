@@ -6,11 +6,15 @@ import click
 import pkg_resources
 
 from .i18n import get_default_lang, is_valid_language
-from .utils import secure_url
+from .utils import secure_url, to_os_path
 from .project import discover_project, load_project
 
 
 version = pkg_resources.get_distribution('Lektor').version
+
+
+def echo_json(data):
+    click.echo(json.dumps(data, indent=2).rstrip())
 
 
 class Context(object):
@@ -268,16 +272,72 @@ def shell_cmd(ctx):
 @click.option('as_json', '--json', is_flag=True,
               help='Prints out the data as json.')
 @pass_context
-def info_cmd(ctx, as_json):
+def project_info_cmd(ctx, as_json):
     """Prints out information about the project."""
     project = ctx.get_project()
     if as_json:
-        click.echo(json.dumps(project.to_json(), indent=2).rstrip())
+        echo_json(project.to_json())
         return
 
     click.echo('Name: %s' % project.name)
     click.echo('File: %s' % project.project_file)
     click.echo('Tree: %s' % project.tree)
+
+
+@cli.command('content-file-info', short_help='Provides information for '
+             'a set of lektor files.')
+@click.option('as_json', '--json', is_flag=True,
+              help='Prints out the data as json.')
+@click.argument('files', nargs=-1, type=click.Path())
+@pass_context
+def content_file_info_cmd(ctx, files, as_json):
+    """Given a list of files this returns the information for those files
+    in the context of a project.  If the files are from different projects
+    an error is generated.
+    """
+    project = None
+
+    def fail(msg):
+        if as_json:
+            echo_json({'success': False, 'error': msg})
+            sys.exit(1)
+        raise click.UsageError('Could not find content file info: %s' % msg)
+
+    for filename in files:
+        this_project = discover_project(filename)
+        if this_project is None:
+            fail('no project found')
+        if project is None:
+            project = this_project
+        elif project.project_path != this_project.project_path:
+            fail('multiple projects')
+
+    if project is None:
+        fail('no file indicated a project')
+
+    project_files = []
+    for filename in files:
+        content_path = project.content_path_from_filename(filename)
+        if content_path is not None:
+            project_files.append(content_path)
+
+    if not project_files:
+        fail('no files resolve in project')
+
+    if as_json:
+        echo_json({
+            'success': True,
+            'project': project.to_json(),
+            'paths': project_files,
+        })
+    else:
+        click.echo('Project:')
+        click.echo('  Name: %s' % project.name)
+        click.echo('  File: %s' % project.project_file)
+        click.echo('  Tree: %s' % project.tree)
+        click.echo('Paths:')
+        for project_file in project_files:
+            click.echo('  - %s' % project_file)
 
 
 main = cli
