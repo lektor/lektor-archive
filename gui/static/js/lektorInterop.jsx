@@ -37,14 +37,12 @@ function findBundledLektorExecutable() {
 function findGlobalLektorExecutable() {
   let rv;
   if (process.platform === 'win32') {
-    // XXX: do something better for windows support
-    return 'lektor';
+    rv = childProcess.spawnSync('where.exe', ['lektor']);
   } else {
     rv = childProcess.spawnSync('which', ['lektor']);
   }
-
   if (rv.status === 0) {
-    return (rv.output[1] + '').trim();
+    return (rv.output[1] + '').split('\n')[0].trim();
   }
   return null;
 }
