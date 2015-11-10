@@ -4,6 +4,9 @@ OSX_BUNDLE_BASE=$(BUILD_DIR)/Lektor-darwin-$(OSX_ARCH)
 OSX_BUNDLE=$(OSX_BUNDLE_BASE)/Lektor.app
 OSX_BUNDLE_RES=$(OSX_BUNDLE)/Contents/Resources
 
+# The identity to use for code signing
+CODESIGN_IDENTITY=5DA541005F2A61656E1DAC24798CA6C14FFC40CE
+
 REBUILD_CMD=./node_modules/.bin/electron-rebuild -w runas
 
 npm-install:
@@ -74,7 +77,21 @@ osx-bundle: vendor/ImageMagick-x86_64-apple-darwin15.0.0.tar.gz icons build-whee
 	cp -R $(BUILD_DIR)/Python.framework $(OSX_BUNDLE)/Contents/Frameworks/Python.framework
 	./bin/make-python-framework-relocatable $(OSX_BUNDLE)/Contents/Frameworks/Python.framework
 	./bin/install-wheels $(OSX_BUNDLE)/Contents/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages
-	mkdir $(OSX_BUNDLE_RES)/lektor-dist
+	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name '*.a' -exec rm -f {} \;
+	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name '*.la' -exec rm -f {} \;
+	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name 'pkgconfig' -exec rm -rf {} \; || true
+
+osx-signed-bundle: osx-bundle
+	find $(OSX_BUNDLE) -name '*.dylib' -exec codesign --force --verbose --sign $(CODESIGN_IDENTITY) {} \;
+	find $(OSX_BUNDLE) -name '*.so' -exec codesign --force --verbose --sign $(CODESIGN_IDENTITY) {} \;
+	find $(OSX_BUNDLE) -type f -perm +0111 -exec codesign --force --verbose --sign $(CODESIGN_IDENTITY) {} \;
+	codesign --force --verbose --sign $(CODESIGN_IDENTITY) $(OSX_BUNDLE)/Contents/Frameworks/Python.framework/Versions/Current/Resources/Python.app
+	find $(OSX_BUNDLE) -name '*.app' -exec codesign --force --verbose --sign $(CODESIGN_IDENTITY) {} \;
+	find $(OSX_BUNDLE) -name '*.framework' -exec codesign --force --verbose --sign $(CODESIGN_IDENTITY) {} \;
+	codesign --force --verbose --sign $(CODESIGN_IDENTITY) $(OSX_BUNDLE)/Contents/MacOS/Electron
+	codesign --force --verbose --sign $(CODESIGN_IDENTITY) $(OSX_BUNDLE)/Contents/MacOS/lektor-proxy
+	codesign --force --verbose --sign $(CODESIGN_IDENTITY) $(OSX_BUNDLE)
+	codesign --verify --verbose --deep $(OSX_BUNDLE)
 
 node_modules/.bin/appdmg:
 	npm install appdmg
@@ -83,6 +100,6 @@ osx-dmg-only:
 	rm -rf $(OSX_BUNDLE_BASE)/Lektor.dmg
 	./node_modules/.bin/appdmg dmg-config.json $(OSX_BUNDLE_BASE)/Lektor.dmg
 
-osx-dmg: node_modules/.bin/appdmg osx-bundle osx-dmg-only
+osx-dmg: node_modules/.bin/appdmg osx-signed-bundle osx-dmg-only
 
 .PHONY: npm-install run-only run build-wheels icons osx-bundle osx-dmg-only osx-dmg
