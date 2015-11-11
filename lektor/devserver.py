@@ -260,9 +260,10 @@ class DevTools(object):
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
         portable_popen(['npm', 'install', '.'], cwd=admin).wait()
-        self.watcher = portable_popen(['../node_modules/.bin/webpack',
-                                       '--watch'],
-                                      cwd=os.path.join(admin, 'static'))
+
+        self.watcher = portable_popen([os.path.join(
+            admin, 'node_modules/.bin/webpack'), '--watch'],
+            cwd=os.path.join(admin, 'static'))
 
     def stop(self):
         if self.watcher is None:

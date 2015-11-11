@@ -13,7 +13,8 @@ class ServerStatus extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      serverIsUp: true
+      serverIsUp: true,
+      projectId: null
     };
 
     this.intervalId = null;
@@ -36,8 +37,13 @@ class ServerStatus extends Component {
   onInterval() {
     utils.loadData('/ping')
       .then((resp) => {
+        if (this.state.projectId === null) {
+          this.setState({
+            projectId: resp.project_id
+          });
+        }
         this.setState({
-          serverIsUp: true
+          serverIsUp: this.state.projectId === resp.project_id
         });
       }, () => {
         this.setState({

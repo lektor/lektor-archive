@@ -311,4 +311,7 @@ def publish_build():
 
 @bp.route('/api/ping')
 def ping():
-    return jsonify(okay=True)
+    return jsonify(
+        project_id=current_app.lektor_info.env.project.id,
+        okay=True
+    )
