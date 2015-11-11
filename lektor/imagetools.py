@@ -8,7 +8,7 @@ from PIL import Image
 
 from lektor.utils import get_dependent_url, portable_popen, locate_executable
 from lektor.reporter import reporter
-from lektor.uilink import BUNDLE_BIN_PATH, BUNDLE_LOCAL_ROOT
+from lektor.uilink import BUNDLE_BIN_PATH
 
 
 # yay shitty library
@@ -107,17 +107,11 @@ def read_exif(fp):
     return EXIFInfo(exif)
 
 
-def find_imagemagick(im=None, base_env=None):
-    """Finds imagemagick and returns the path to it and the environment
-    variables that should be used.  If a base env is given it's modified
-    and returned.
-    """
-    if base_env is None:
-        base_env = os.environ
-
+def find_imagemagick(im=None):
+    """Finds imagemagick and returns the path to it."""
     # If it's provided explicitly and it's valid, we go with that one.
     if im is not None and os.path.isfile(im):
-        return im, base_env
+        return im
 
     # If we have a shipped imagemagick, then we used this one.
     if BUNDLE_BIN_PATH is not None:
@@ -125,15 +119,12 @@ def find_imagemagick(im=None, base_env=None):
         if os.name == 'nt':
             executable += '.exe'
         if os.path.isfile(executable):
-            return executable, dict(base_env,
-                MAGICK_HOME=BUNDLE_LOCAL_ROOT,
-                DYLD_LIBRARY_PATH=os.path.join(BUNDLE_LOCAL_ROOT, 'lib')
-            )
+            return executable
 
     # If we're not on windows, we locate the executable like we would
     # do normally.
     if os.name != 'nt':
-        return locate_executable('convert'), base_env
+        return locate_executable('convert')
 
     # On windows, we only scan the program files for an image magick
     # installation, because this is where this usually goes.  We do
@@ -148,7 +139,7 @@ def find_imagemagick(im=None, base_env=None):
                 if filename.lower().startswith('imagemagick-'):
                     exe = os.path.join(value, filename, 'convert.exe')
                     if os.path.isfile(exe):
-                        return exe, base_env
+                        return exe
         except OSError:
             continue
 
@@ -179,7 +170,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                                      ext=get_thumbnail_ext(source_image))
     quality = get_quality(source_image)
 
-    im, env = find_imagemagick(
+    im = find_imagemagick(
         ctx.build_state.config['IMAGEMAGICK_EXECUTABLE'])
 
     @ctx.sub_artifact(artifact_name=dst_url_path, sources=[source_image])
@@ -193,7 +184,7 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
                    '-quality', str(quality), artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
-        portable_popen(cmdline, env=env).wait()
+        portable_popen(cmdline).wait()
 
     return Thumbnail(dst_url_path, width, height)
 

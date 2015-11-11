@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+import os
+import re
+import sys
+import stat
+import shutil
+from subprocess import Popen, PIPE
+
+devnull = open('/dev/null', 'a')
+here = os.path.abspath(os.path.dirname(__file__))
+framework = os.path.abspath(sys.argv[1])
+
+bin_dir = os.path.join(framework, 'bin')
+lib_dir = os.path.join(framework, 'lib')
+bad_prefix = '/usr/local/lib'
+
+
+def find_bad_lib_references(filename):
+    c = Popen(['otool', '-L', filename], stdout=PIPE)
+    lines = c.communicate()[0].splitlines()
+    rv = []
+    for line in lines:
+        match = re.match('^\t(.*?\.dylib)\s+\(', line)
+        if match is not None:
+            lib = match.group(1)
+            if lib.startswith(bad_prefix + '/'):
+                rv.append(lib)
+    return rv
+
+
+def rewrite_bad_libs(base, is_lib=False):
+    libs = find_bad_lib_references(base)
+    rv = set()
+    if not libs:
+        return rv
+
+    os.chmod(base, os.stat(base).st_mode | stat.S_IWRITE)
+
+    for bad_lib in libs:
+        good_lib = '@rpath/' + bad_lib[len(bad_prefix) + 1:]
+        Popen(['install_name_tool', '-change', bad_lib, good_lib, base]).wait()
+        rv.add(bad_lib)
+
+    if is_lib:
+        libs = find_bad_lib_references(base)
+        if len(libs) == 1:
+            bad_lib = libs[0]
+            good_lib = '@rpath/' + bad_lib[len(bad_prefix) + 1:]
+            Popen(['install_name_tool', '-id', good_lib, base]).wait()
+
+    return rv
+
+
+def rewrite_dylibs():
+    libs_to_copy = set()
+    for filename in os.listdir(os.path.join(lib_dir)):
+        if not filename.endswith('.dylib'):
+            continue
+        filename = os.path.join(lib_dir, filename)
+        if os.path.islink(filename):
+            continue
+        libs_to_copy.update(rewrite_bad_libs(filename, is_lib=True))
+    return libs_to_copy
+
+
+def add_rpath(filename):
+    Popen(['install_name_tool', '-add_rpath', '@executable_path/../',
+           filename], stderr=devnull).wait()
+
+
+def copy_libs(libs_to_copy):
+    dst = os.path.join(lib_dir)
+    libs_done = set()
+
+    libs_to_copy = list(libs_to_copy)
+    while libs_to_copy:
+        lib = libs_to_copy.pop()
+        libs_done.add(lib)
+        dst = os.path.join(lib_dir, os.path.basename(lib))
+        shutil.copy2(lib, dst)
+        for other_lib in rewrite_bad_libs(dst, is_lib=True):
+            if other_lib not in libs_done:
+                libs_to_copy.append(other_lib)
+
+
+def rewrite_bins():
+    libs_needed = set()
+    for filename in os.listdir(os.path.join(bin_dir)):
+        filename = os.path.join(bin_dir, filename)
+        if os.path.isfile(filename) and not os.path.islink(filename) and \
+           os.access(filename, os.X_OK):
+            libs_needed.update(rewrite_bad_libs(filename))
+            add_rpath(filename)
+    return libs_needed
+
+
+copy_libs(rewrite_bins())

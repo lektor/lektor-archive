@@ -64,4 +64,4 @@ mkdir -p "$OUT"
 mv "$FRAMEWORK" "$OUT"
 
 # Clean up
-rm -rf "$TMP"
+rm -rf "$TEMP"

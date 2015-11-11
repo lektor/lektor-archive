@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e
+
+HERE="$(cd "$(dirname "$0")"; pwd)"
+BASE="$HERE/.."
+OUT="$BASE/build"
+TEMP="$BASE/build/tmp"
+
+rm -rf "$TEMP"
+mkdir -p "$TEMP"
+cd "$TEMP"
+
+wget "http://ftp.nluug.nl/ImageMagick/ImageMagick.tar.gz"
+tar --strip-components=1 -xzf "ImageMagick.tar.gz"
+
+# Configure script is broken, unbreak it
+echo "with_x='no'" | cat configure.ac > configure.ac.fixed
+mv configure.ac.fixed configure.ac
+
+# Now configure
+autoconf
+./configure \
+  --prefix=/opt/local \
+  --without-xml \
+  --without-threads \
+  --without-x \
+  --without-pango \
+  --without-modules \
+  --without-freetype \
+  --without-perl \
+  --without-gvc \
+  --without-magick-plus-plus \
+  --enable-delegate-build \
+  --enable-static \
+  --enable-shared=no \
+  --prefix="$TEMP/out"
+
+# Unbreak the makefile
+sed -i '' -E 's/^LDFLAGS = /LDFLAGS = -all-static /' Makefile
+
+make
+
+rm -rf "$BASE/build/imagemagick"
+mkdir -p "$BASE/build/imagemagick"
+cp "$TEMP/utilities/convert" "$BASE/build/imagemagick/"
+
+rm -rf "$TEMP"
