@@ -445,22 +445,13 @@ class Artifact(object):
 
         self._update_con = None
         self._new_artifact_file = None
+        self._pending_update_ops = []
 
     def __repr__(self):
         return '<%s %r>' % (
             self.__class__.__name__,
             self.dst_filename,
         )
-
-    def get_connection(self):
-        """Returns the exclusive database connection for this artifact."""
-        if not self.in_update_block:
-            raise RuntimeError('Can only only acquire buildstate connection '
-                               'if the artifact is open for updates.')
-        rv = self._update_con
-        if rv is None:
-            self._update_con = rv = self.build_state.connect_to_database()
-        return rv
 
     def iter_dependency_infos(self):
         """This iterates over all dependencies as file info objects."""
@@ -546,39 +537,41 @@ class Artifact(object):
         """This updates the dependencies recorded for the artifact based
         on the direct sources plus the provided dependencies.
         """
-        primary_sources = set(self.build_state.to_source_filename(x)
-                              for x in self.sources)
+        @self._auto_deferred_update_operation
+        def operation(con):
+            primary_sources = set(self.build_state.to_source_filename(x)
+                                  for x in self.sources)
 
-        seen = set()
-        rows = []
-        for source in chain(self.sources, dependencies or ()):
-            source = self.build_state.to_source_filename(source)
-            if source in seen:
-                continue
-            info = self.build_state.get_file_info(source)
-            rows.append((self.artifact_name, source, info.mtime,
-                         info.size, info.checksum,
-                         source in primary_sources))
-            seen.add(source)
+            seen = set()
+            rows = []
+            for source in chain(self.sources, dependencies or ()):
+                source = self.build_state.to_source_filename(source)
+                if source in seen:
+                    continue
+                info = self.build_state.get_file_info(source)
+                rows.append((self.artifact_name, source, info.mtime,
+                             info.size, info.checksum,
+                             source in primary_sources))
+                seen.add(source)
 
-        reporter.report_dependencies(rows)
+            reporter.report_dependencies(rows)
 
-        con = self.get_connection()
-        cur = con.cursor()
-        cur.execute('delete from artifacts where artifact = ?',
-                    [self.artifact_name])
-        if rows:
-            cur.executemany('''
-                insert into artifacts (artifact, source, source_mtime,
-                                       source_size, source_checksum,
-                                       is_primary_source)
-                values (?, ?, ?, ?, ?, ?)
-            ''', rows)
-        cur.close()
+            cur = con.cursor()
+            cur.execute('delete from artifacts where artifact = ?',
+                        [self.artifact_name])
+            if rows:
+                cur.executemany('''
+                    insert into artifacts (artifact, source, source_mtime,
+                                           source_size, source_checksum,
+                                           is_primary_source)
+                    values (?, ?, ?, ?, ?, ?)
+                ''', rows)
+            cur.close()
 
     def clear_dirty_flag(self):
         """Clears the dirty flag for all sources."""
-        with self._auto_transaction() as con:
+        @self._auto_deferred_update_operation
+        def operation(con):
             sources = [self.build_state.to_source_filename(x)
                        for x in self.sources]
             cur = con.cursor()
@@ -586,13 +579,14 @@ class Artifact(object):
                 delete from dirty_sources where source in (%s)
             ''' % ', '.join(['?'] * len(sources)), list(sources))
             cur.close()
-        reporter.report_dirty_flag(False)
+            reporter.report_dirty_flag(False)
 
     def set_dirty_flag(self):
         """Given a list of artifacts this will mark all of their sources
         as dirty so that they will be rebuilt next time.
         """
-        with self._auto_transaction() as con:
+        @self._auto_deferred_update_operation
+        def operation(con):
             sources = set()
             for source in self.sources:
                 sources.add(self.build_state.to_source_filename(source))
@@ -608,19 +602,16 @@ class Artifact(object):
 
             reporter.report_dirty_flag(True)
 
-    @contextmanager
-    def _auto_transaction(self):
-        """Helper for a few functions that can either operate standalone
-        (outside of an update block) or within one.  In the latter case the
-        connection is re-used and a commit is skipped, otherwise a new
-        connection is made and automatically committed or rolled back.
+    def _auto_deferred_update_operation(self, f):
+        """Helper that defers an update operation when inside an update
+        block to a later point.  Otherwise it's auto committed.
         """
         if self.in_update_block:
-            yield self.get_connection()
+            self._pending_update_ops.append(f)
             return
         con = self.build_state.connect_to_database()
         try:
-            yield con
+            f(con)
         except:
             con.rollback()
             raise
@@ -628,9 +619,15 @@ class Artifact(object):
 
     def commit(self):
         """Commits the artifact changes."""
+        for op in self._pending_update_ops:
+            if self._update_con is None:
+                self._update_con = self.build_state.connect_to_database()
+            op(self._update_con)
+
         if self._new_artifact_file is not None:
             rename(self._new_artifact_file, self.dst_filename)
             self._new_artifact_file = None
+
         if self._update_con is not None:
             self._update_con.commit()
             self._update_con.close()
@@ -644,6 +641,7 @@ class Artifact(object):
             except OSError:
                 pass
             self._new_artifact_file = None
+        self._pending_update_ops = []
         if self._update_con is not None:
             self._update_con.rollback()
             self._update_con.close()
