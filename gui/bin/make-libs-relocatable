@@ -66,6 +66,8 @@ def rewrite_dylibs():
 def add_rpath(filename):
     Popen(['install_name_tool', '-add_rpath', '@executable_path/../',
            filename], stderr=devnull).wait()
+    Popen(['install_name_tool', '-add_rpath', '@executable_path/../lib',
+           filename], stderr=devnull).wait()
 
 
 def copy_libs(libs_to_copy):
