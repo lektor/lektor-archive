@@ -14,6 +14,8 @@ cd "$TEMP"
 wget "http://ftp.nluug.nl/ImageMagick/ImageMagick.tar.gz"
 tar --strip-components=1 -xzf "ImageMagick.tar.gz"
 
+export MACOSX_DEPLOYMENT_TARGET=10.9
+
 # Configure script is broken, unbreak it
 echo "with_x='no'" | cat configure.ac > configure.ac.fixed
 mv configure.ac.fixed configure.ac

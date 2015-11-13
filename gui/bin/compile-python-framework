@@ -32,11 +32,32 @@ export MACOSX_DEPLOYMENT_TARGET=10.9
 wget "$PYTHON_DOWNLOAD_URL"
 tar --strip-components=1 -xzf "$ARCHIVE"
 
+# Fix up setup.py for ssl
+python -c '
+s = open("setup.py").read()
+s = s.replace("/usr/local/ssl", "/usr/local/opt/openssl")
+open("setup.py", "w").write(s)
+'
+
+patch -p1 < "$BASE/resources/setup.py.patch"
+
+# If you change this stuff here, you also need to change the corresponding
+# bits in make-python-framework-relocatable
+export CFLAGS="-I/usr/local/opt/openssl/include"
+export CPPFLAGS="-I/usr/local/opt/openssl/include"
+export LDFLAGS="-L/usr/local/opt/openssl/lib"
+export LD_LIBRARY_PATH="/usr/local/opt/openssl/lib"
+
 # Compile
 ./configure \
   --prefix="$TEMP_OUT" \
   --enable-framework="$TEMP_OUT" \
   --without-ensurepip \
+  --without-gcc \
+  CFLAGS=$CFLAGS \
+  CPPFLAGS=$CPPFLAGS \
+  LDFLAGS=$LDFLAGS \
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH \
   MACOSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET
 make
 make frameworkinstall

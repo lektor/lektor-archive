@@ -22,6 +22,7 @@ setup(
         'inifile',
         'Pillow',
         'setuptools',
+        'pip',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

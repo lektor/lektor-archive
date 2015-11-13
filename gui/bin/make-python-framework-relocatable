@@ -28,9 +28,15 @@ chmod u+w "$FRAMEWORK/Python"
 otool -D "$FRAMEWORK/Python"
 install_name_tool -id @rpath/Python "$FRAMEWORK/Python"
 
+SITE="$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/lib/python$PYTHON_VERSION_MAJOR"
+DYLD_SITE="$SITE/lib-dynload"
+
+# At this point we need to rewrite SSL to work the way we want.
+cp /usr/local/opt/openssl/lib/*.dylib $DYLD_SITE
+"$HERE/make-openssl-relocatable" "$DYLD_SITE"
+
 # Trash unwanted things.  This should be more specific but honestly, this is just
 # for saving space so every little bit helps.
-SITE="$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/lib/python$PYTHON_VERSION_MAJOR"
 rm -rf "$SITE/plat-mac"
 rm -rf "$SITE/lib2to3"
 rm -rf "$SITE/lib-tk"
