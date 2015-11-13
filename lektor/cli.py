@@ -6,7 +6,7 @@ import click
 import pkg_resources
 
 from .i18n import get_default_lang, is_valid_language
-from .utils import secure_url, to_os_path
+from .utils import secure_url
 from .project import discover_project, load_project
 
 
