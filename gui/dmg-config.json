@@ -1,5 +1,6 @@
 {
   "title": "Lektor",
+  "icon": "build/Volume.icns",
   "background": "resources/dmg-background.jpg",
   "icon-size": 128,
   "contents": [

@@ -10,8 +10,6 @@ PYTHON_VERSION_MAJOR=$(readlink "$FRAMEWORK/Versions/Current")
 # location as it was used for building.
 ORIGINAL_FRAMEWORK_PATH="$(cd "$HERE/../build"; pwd)/tmp/out/Python.framework"
 
-echo "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/Python"
-echo "$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/bin/python"
 install_name_tool \
   -change "$ORIGINAL_FRAMEWORK_PATH/Versions/$PYTHON_VERSION_MAJOR/Python" \
   @rpath/Python \
@@ -29,3 +27,19 @@ install_name_tool \
 chmod u+w "$FRAMEWORK/Python"
 otool -D "$FRAMEWORK/Python"
 install_name_tool -id @rpath/Python "$FRAMEWORK/Python"
+
+# Trash unwanted things.  This should be more specific but honestly, this is just
+# for saving space so every little bit helps.
+SITE="$FRAMEWORK/Versions/$PYTHON_VERSION_MAJOR/lib/python$PYTHON_VERSION_MAJOR"
+rm -rf "$SITE/plat-mac"
+rm -rf "$SITE/lib2to3"
+rm -rf "$SITE/lib-tk"
+rm -rf "$SITE/idlelib"
+rm -rf "$SITE/ensurepip"
+rm -rf "$SITE/bsddb"
+rm -rf "$SITE/lib-dynload/_Qt.so"
+rm -rf "$SITE/lib-dynload/_CF.so"
+rm -rf "$SITE/lib-dynload/_File.so"
+for testdir in $(find "$SITE" -type d -name 'test'); do
+  rm -rf "$testdir"
+done

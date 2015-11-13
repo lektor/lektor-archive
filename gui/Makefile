@@ -52,11 +52,9 @@ osx-bundle: build/imagemagick/convert icons build-wheels
 	mv $(OSX_BUNDLE)/Contents/Frameworks/{Electron,Lektor}\ Helper.app
 	mv $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper.app/Contents/MacOS/{Electron,Lektor}\ Helper
 	sed -i '' s/Electron/Lektor/ $(OSX_BUNDLE)/Contents/Frameworks/Lektor\ Helper.app/Contents/Info.plist
-	mkdir -p $(OSX_BUNDLE_RES)/node_modules
 	mkdir -p $(OSX_BUNDLE_RES)/app/static
 	cp -R package.json $(OSX_BUNDLE_RES)/app
 	cp -R static/{images,gen,index.html} $(OSX_BUNDLE_RES)/app/static
-	cp -R node_modules/runas $(OSX_BUNDLE_RES)/node_modules
 	cp resources/Lektor-Info.plist $(OSX_BUNDLE)/Contents/Info.plist
 	cp build/Lektor.icns $(OSX_BUNDLE_RES)
 	cp build/ProjectFile.icns $(OSX_BUNDLE_RES)
@@ -81,6 +79,7 @@ osx-bundle: build/imagemagick/convert icons build-wheels
 	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name '*.a' -exec rm -f {} \;
 	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name '*.la' -exec rm -f {} \;
 	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name 'pkgconfig' -exec rm -rf {} \; || true
+	find $(OSX_BUNDLE)/Contents -name '.DS_Store' -exec rm {} \;
 
 osx-signed-bundle: osx-bundle
 	find $(OSX_BUNDLE) -name '*.dylib' -exec codesign --force --verbose --sign $(CODESIGN_IDENTITY) {} \;
