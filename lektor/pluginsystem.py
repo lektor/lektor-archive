@@ -1,3 +1,5 @@
+import os
+import sys
 import pkg_resources
 
 from weakref import ref as weakref
@@ -21,6 +23,24 @@ class Plugin(object):
             raise RuntimeError('Environment went away')
         return rv
 
+    @property
+    def path(self):
+        mod = sys.modules[self.__class__.__module__.split('.')[0]]
+        return os.path.abspath(os.path.dirname(mod.__file__))
+
+    @property
+    def import_name(self):
+        return self.__class__.__module__ + ':' + self.__class__.__name__
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'path': self.path,
+            'import_name': self.import_name,
+        }
+
 
 def iter_builtin_plugins():
     """Iterates over all built-in plugins that exist in Lektor."""
@@ -30,7 +50,7 @@ def iter_builtin_plugins():
             try:
                 if key[:1] != '_' and value is not Plugin and \
                    issubclass(value, Plugin):
-                    yield module + '.' + key, value
+                    yield 'core-' + module.split('.')[-1], value
             except TypeError:
                 pass
 

@@ -111,14 +111,19 @@ def list_local_packages(path):
     return rv
 
 
-def update_cache(package_root, remote_packages, local_package_path):
+def update_cache(package_root, remote_packages, local_package_path,
+                 refresh=False):
     """Updates the package cache at package_root for the given dictionary
     of packages as well as packages in the given local package path.
     """
+    requires_wipe = False
+    if refresh:
+        click.echo('Force package cache refresh.')
+        requires_wipe = True
+
     manifest_file = os.path.join(package_root, 'lektor-packages.manifest')
     local_packages = list_local_packages(local_package_path)
 
-    requires_wipe = False
     old_manifest = load_manifest(manifest_file)
     to_install = []
 
@@ -140,11 +145,18 @@ def update_cache(package_root, remote_packages, local_package_path):
 
     # Bad news, we need to wipe everything
     if requires_wipe or old_manifest:
-        shutil.rmtree(package_root)
+        try:
+            shutil.rmtree(package_root)
+        except OSError:
+            pass
         to_install = all_packages.items()
 
     if to_install:
         click.echo('Updating packages in %s for project' % package_root)
+        try:
+            os.makedirs(package_root)
+        except OSError:
+            pass
         for package, version in to_install:
             if package[:1] == '@':
                 install_local_package(package_root,
@@ -167,7 +179,7 @@ def add_site(path):
         ws.add(dist, path, insert=True)
 
 
-def load_packages(env):
+def load_packages(env, reinstall=False):
     """This loads all the packages of a project.  What this does is updating
     the current cache in ``root/package-cache`` and then add the Python
     modules there to the load path as a site directory and register it
@@ -179,5 +191,15 @@ def load_packages(env):
     config = env.load_config()
     package_root = env.project.get_package_cache_path()
     update_cache(package_root, config['PACKAGES'],
-                 os.path.join(env.root_path, 'packages'))
+                 os.path.join(env.root_path, 'packages'),
+                 refresh=reinstall)
     add_site(package_root)
+
+
+def wipe_package_cache(env):
+    """Wipes the entire package cache."""
+    package_root = env.project.get_package_cache_path()
+    try:
+        shutil.rmtree(package_root)
+    except (OSError, IOError):
+        pass

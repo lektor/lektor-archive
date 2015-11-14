@@ -69,10 +69,10 @@ class Context(object):
         env = self.get_env()
         return Database(env).new_pad()
 
-    def load_plugins(self):
+    def load_plugins(self, reinstall=False):
         from .packages import load_packages
         from .pluginsystem import initialize_plugins
-        load_packages(self.get_env())
+        load_packages(self.get_env(), reinstall=reinstall)
         initialize_plugins(self.get_env())
 
 
@@ -348,6 +348,49 @@ def content_file_info_cmd(ctx, files, as_json):
         click.echo('Paths:')
         for project_file in project_files:
             click.echo('  - %s' % project_file)
+
+
+@cli.command('plugins', short_help='Lists installed plugins')
+@click.option('as_json', '--json', is_flag=True,
+              help='Prints out the data as json.')
+@click.option('--reinstall', is_flag=True,
+              help='Forces a fresh installation of the plugins.')
+@click.option('--uninstall', is_flag=True,
+              help='Forces an uninstallation of all plutins.')
+@pass_context
+def plugins_cmd(ctx, as_json, reinstall, uninstall):
+    """Given a list of files this returns the information for those files
+    in the context of a project.  If the files are from different projects
+    an error is generated.
+    """
+    if uninstall:
+        click.echo('Uninstalling all plugins ...')
+        from .packages import wipe_package_cache
+        wipe_package_cache(ctx.get_env())
+        click.echo('All done!')
+        return
+
+    ctx.load_plugins(reinstall=reinstall)
+    if reinstall:
+        return
+
+    env = ctx.get_env()
+    plugins = sorted(env.plugins.values(), key=lambda x: x.id.lower())
+
+    if as_json:
+        echo_json({
+            'plugins': [x.to_json() for x in plugins]
+        })
+        return
+
+    for idx, plugin in enumerate(plugins):
+        if idx:
+            click.echo()
+        click.echo('%s: %s' % (plugin.id, plugin.name))
+        for line in plugin.description.splitlines():
+            click.echo('  %s' % line)
+        click.echo('  path: %s' % plugin.path)
+        click.echo('  import-name: %s' % plugin.import_name)
 
 
 main = cli
