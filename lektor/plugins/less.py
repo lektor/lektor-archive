@@ -29,11 +29,7 @@ class LessFileAssetBuildProgram(BuildProgram):
         map_out = self.build_state.make_named_temporary('less-sourcemap')
         here = os.path.dirname(self.source.source_filename)
 
-        exe = self.build_state.config['LESSC_EXECUTABLE']
-        if exe is None:
-            exe = 'lessc'
-
-        cmdline = [exe, '--no-js', '--include-path=%s' % here,
+        cmdline = ['lessc', '--no-js', '--include-path=%s' % here,
                    '--source-map=%s' % map_out,
                    self.source.source_filename,
                    source_out]
@@ -45,8 +41,9 @@ class LessFileAssetBuildProgram(BuildProgram):
             raise RuntimeError('lessc failed')
 
         with open(map_out) as f:
+            dep_base = os.path.dirname(map_out)
             for dep in json.load(f).get('sources') or ():
-                ctx.record_dependency(os.path.join(here, dep))
+                ctx.record_dependency(os.path.join(dep_base, dep))
 
         artifact.replace_with_file(source_out)
 

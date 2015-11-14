@@ -405,7 +405,7 @@ class Environment(object):
         self.special_file_assets[asset_cls.source_extension] = asset_cls
         if asset_cls.artifact_extension:
             cext = asset_cls.source_extension + asset_cls.artifact_extension
-            self.special_file_suffixes[cext] = asset_cls.artifact_extension
+            self.special_file_suffixes[cext] = asset_cls.source_extension
 
     def add_template_context_processor(self, f):
         self.template_context_processors.append(f)

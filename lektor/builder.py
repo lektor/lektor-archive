@@ -443,7 +443,6 @@ class Artifact(object):
         self.source_obj = source_obj
         self.extra = extra
 
-        self._update_con = None
         self._new_artifact_file = None
         self._pending_update_ops = []
 
@@ -619,19 +618,25 @@ class Artifact(object):
 
     def commit(self):
         """Commits the artifact changes."""
-        for op in self._pending_update_ops:
-            if self._update_con is None:
-                self._update_con = self.build_state.connect_to_database()
-            op(self._update_con)
+        con = None
+        try:
+            for op in self._pending_update_ops:
+                if con is None:
+                    con = self.build_state.connect_to_database()
+                op(con)
 
-        if self._new_artifact_file is not None:
-            rename(self._new_artifact_file, self.dst_filename)
-            self._new_artifact_file = None
+            if self._new_artifact_file is not None:
+                rename(self._new_artifact_file, self.dst_filename)
+                self._new_artifact_file = None
 
-        if self._update_con is not None:
-            self._update_con.commit()
-            self._update_con.close()
-            self._update_con = None
+            if con is not None:
+                con.commit()
+                con.close()
+                con = None
+        finally:
+            if con is not None:
+                con.rollback()
+                con.close()
 
     def rollback(self):
         """Rolls back pending artifact changes."""
@@ -642,10 +647,6 @@ class Artifact(object):
                 pass
             self._new_artifact_file = None
         self._pending_update_ops = []
-        if self._update_con is not None:
-            self._update_con.rollback()
-            self._update_con.close()
-            self._update_con = None
 
     @contextmanager
     def update(self):

@@ -29,7 +29,7 @@ class Asset(SourceObject):
     source_classification = 'asset'
     source_filename = None
 
-    artifact_suffix = ''
+    artifact_extension = ''
 
     def __init__(self, pad, name, path=None, parent=None):
         SourceObject.__init__(self, pad)
@@ -58,7 +58,7 @@ class Asset(SourceObject):
         if ext.lower() in self.pad.db.config['ATTACHMENT_TYPES']:
             ext = ext.lower()
 
-        return base + ext + self.artifact_suffix
+        return base + ext + self.artifact_extension
 
     @property
     def url_path(self):
