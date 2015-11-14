@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from itertools import chain
 
 from lektor.context import Context
-from lektor.build_programs import get_build_program
+from lektor.build_programs import builtin_build_programs
 from lektor.reporter import reporter
 from lektor.sourcesearch import find_files
 from lektor.utils import prune_file_and_folder
@@ -730,9 +730,10 @@ class Builder(object):
 
     def get_build_program(self, source, build_state):
         """Finds the right build function for the given source file."""
-        rv = get_build_program(source, build_state)
-        if rv is not None:
-            return rv
+        for cls, builder in chain(reversed(self.env.build_programs),
+                                  reversed(builtin_build_programs)):
+            if isinstance(source, cls):
+                return builder(source, build_state)
         raise RuntimeError('I do not know how to build %r', source)
 
     def build_artifact(self, artifact, build_func):

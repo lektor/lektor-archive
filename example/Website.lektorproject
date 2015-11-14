@@ -5,3 +5,6 @@ name = My Website
 enabled = yes
 name = Production
 target = rsync://myserver.com/path/to/website
+
+[packages]
+modernize = 0.4

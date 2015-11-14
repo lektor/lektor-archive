@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import shutil
 import posixpath
 
@@ -9,27 +8,18 @@ from itertools import chain
 from werkzeug.debug.tbtools import Traceback
 
 from lektor.db import Page, Attachment
-from lektor.assets import File, Directory, LessFile
-from lektor.reporter import reporter
+from lektor.assets import File, Directory
 from lektor.environment import PRIMARY_ALT
-from lektor.context import get_ctx
-from lektor.utils import portable_popen
 
 
-build_programs = []
+builtin_build_programs = []
 
 
 def buildprogram(source_cls):
     def decorator(builder_cls):
-        build_programs.append((source_cls, builder_cls))
+        builtin_build_programs.append((source_cls, builder_cls))
         return builder_cls
     return decorator
-
-
-def get_build_program(source, build_state):
-    for cls, builder in reversed(build_programs):
-        if isinstance(source, cls):
-            return builder(source, build_state)
 
 
 class SourceInfo(object):
@@ -247,45 +237,3 @@ class DirectoryAssetBuildProgram(BuildProgram):
 
     def iter_child_sources(self):
         return self.source.children
-
-
-@buildprogram(LessFile)
-class LessFileAssetBuildProgram(BuildProgram):
-    """This build program produces css files out of less files."""
-
-    def produce_artifacts(self):
-        self.declare_artifact(
-            self.source.artifact_name,
-            sources=[self.source.source_filename])
-
-    def build_artifact(self, artifact):
-        ctx = get_ctx()
-        source_out = self.build_state.make_named_temporary('less')
-        map_out = self.build_state.make_named_temporary('less-sourcemap')
-        here = os.path.dirname(self.source.source_filename)
-
-        exe = self.build_state.config['LESSC_EXECUTABLE']
-        if exe is None:
-            exe = 'lessc'
-
-        cmdline = [exe, '--no-js', '--include-path=%s' % here,
-                   '--source-map=%s' % map_out,
-                   self.source.source_filename,
-                   source_out]
-
-        reporter.report_debug_info('lessc cmd line', cmdline)
-
-        proc = portable_popen(cmdline)
-        if proc.wait() != 0:
-            raise RuntimeError('lessc failed')
-
-        with open(map_out) as f:
-            for dep in json.load(f).get('sources') or ():
-                ctx.record_dependency(os.path.join(here, dep))
-
-        artifact.replace_with_file(source_out)
-
-        @ctx.sub_artifact(artifact_name=artifact.artifact_name + '.map',
-                          sources=[self.source.source_filename])
-        def build_less_sourcemap_artifact(artifact):
-            artifact.replace_with_file(map_out)

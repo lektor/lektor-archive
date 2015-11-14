@@ -16,7 +16,6 @@ from lektor.context import url_to, get_asset_url, site_proxy, \
 PRIMARY_ALT = '_primary'
 DEFAULT_CONFIG = {
     'IMAGEMAGICK_EXECUTABLE': None,
-    'LESSC_EXECUTABLE': None,
     'EPHEMERAL_RECORD_CACHE_SIZE': 500,
     'ATTACHMENT_TYPES': {
         '.jpg': 'image',
@@ -50,6 +49,7 @@ DEFAULT_CONFIG = {
         'name': None,
         'language': 'en',
     },
+    'PACKAGES': {},
     'ALTERNATIVES': {},
     'PRIMARY_ALTERNATIVE': None,
     'SERVERS': {}
@@ -72,6 +72,7 @@ def update_config_from_ini(config, inifile):
         for k, v in inifile.section_as_dict('attachment_types'))
 
     config['SITE'].update(inifile.section_as_dict('site'))
+    config['PACKAGES'].update(inifile.section_as_dict('packages'))
 
     for sect in inifile.sections():
         if sect.startswith('servers.'):
@@ -320,6 +321,14 @@ class Environment(object):
             bag=lookup_from_bag,
         )
 
+        # The plugins that are loaded for this environment.  This is
+        # modified by the plugin loader later on.  See packages.py
+        self.plugins = {}
+        self.build_programs = []
+        self.special_file_assets = {}
+        self.special_file_suffixes = {}
+        self.template_context_processors = []
+
     @property
     def asset_path(self):
         return os.path.join(self.root_path, 'assets')
@@ -380,9 +389,24 @@ class Environment(object):
             values['this'] = this
         if alt is not None:
             values['alt'] = alt
+        for func in self.template_context_processors:
+            values = func(values)
         return values
 
     def select_jinja_autoescape(self, filename):
         if filename is None:
             return False
         return filename.endswith(('.html', '.htm', '.xml', '.xhtml'))
+
+    # -- methods for the plugin system
+
+    def add_asset_type(self, asset_cls, build_program):
+        self.build_programs.append((asset_cls, build_program))
+        self.special_file_assets[asset_cls.source_extension] = asset_cls
+        if asset_cls.artifact_extension:
+            cext = asset_cls.source_extension + asset_cls.artifact_extension
+            self.special_file_suffixes[cext] = asset_cls.artifact_extension
+
+    def add_template_context_processor(self, f):
+        self.template_context_processors.append(f)
+        return f

@@ -54,8 +54,7 @@ class Context(object):
         return rv
 
     def get_default_output_path(self):
-        return os.path.join(click.get_app_dir('Lektor'), 'build-cache',
-                            self.get_project().id)
+        return self.get_project().get_output_path()
 
     def get_env(self):
         if self._env is not None:
@@ -69,6 +68,12 @@ class Context(object):
         from lektor.db import Database
         env = self.get_env()
         return Database(env).new_pad()
+
+    def load_plugins(self):
+        from .packages import load_packages
+        from .pluginsystem import initialize_plugins
+        load_packages(self.get_env())
+        initialize_plugins(self.get_env())
 
 
 pass_context = click.make_pass_decorator(Context, ensure=True)
@@ -123,6 +128,8 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
 
     if output_path is None:
         output_path = ctx.get_default_output_path()
+
+    ctx.load_plugins()
 
     env = ctx.get_env()
 
@@ -184,6 +191,7 @@ def deploy_cmd(ctx, server, output_path):
     if output_path is None:
         output_path = ctx.get_default_output_path()
 
+    ctx.load_plugins()
     env = ctx.get_env()
     config = env.load_config()
 
@@ -230,6 +238,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
     from lektor.devserver import run_server
     if output_path is None:
         output_path = ctx.get_default_output_path()
+    ctx.load_plugins()
     print ' * Project path: %s' % ctx.get_project().project_path
     print ' * Output path: %s' % output_path
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
@@ -242,6 +251,7 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
 @pass_context
 def shell_cmd(ctx):
     """Starts a Python shell in the context of the program."""
+    ctx.load_plugins()
     import code
     from lektor.db import F, Tree
     from lektor.builder import Builder

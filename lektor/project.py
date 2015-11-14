@@ -1,4 +1,6 @@
 import os
+import sys
+import click
 import hashlib
 from inifile import IniFile
 
@@ -16,6 +18,20 @@ class Project(object):
     @property
     def project_path(self):
         return self.project_file or self.tree
+
+    def get_output_path(self):
+        """The path where output files are stored."""
+        return os.path.join(click.get_app_dir('Lektor'), 'build-cache',
+                            self.id)
+
+    def get_package_cache_path(self):
+        """The path where plugin packages are stored."""
+        h = hashlib.md5()
+        h.update(self.id)
+        h.update(sys.version)
+        h.update(sys.prefix)
+        return os.path.join(click.get_app_dir('Lektor'), 'package-cache',
+                            h.hexdigest())
 
     def content_path_from_filename(self, filename):
         """Given a filename returns the content path or None if
