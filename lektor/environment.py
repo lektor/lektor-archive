@@ -10,6 +10,7 @@ from lektor.utils import tojson_filter, secure_url
 from lektor.i18n import get_i18n_block
 from lektor.context import url_to, get_asset_url, site_proxy, \
      config_proxy, get_ctx
+from lektor.pluginsystem import PluginController
 
 
 # Special value that identifies a target to the primary alt
@@ -322,12 +323,13 @@ class Environment(object):
         )
 
         # The plugins that are loaded for this environment.  This is
-        # modified by the plugin loader later on.  See packages.py
+        # modified by the plugin controller and registry methods on the
+        # environment.
+        self.plugin_controller = PluginController(self)
         self.plugins = {}
         self.build_programs = []
         self.special_file_assets = {}
         self.special_file_suffixes = {}
-        self.template_context_processors = []
 
     @property
     def asset_path(self):
@@ -389,8 +391,7 @@ class Environment(object):
             values['this'] = this
         if alt is not None:
             values['alt'] = alt
-        for func in self.template_context_processors:
-            values = func(values)
+        self.plugin_controller.emit('process_template_context', context=values)
         return values
 
     def select_jinja_autoescape(self, filename):
@@ -406,7 +407,3 @@ class Environment(object):
         if asset_cls.artifact_extension:
             cext = asset_cls.source_extension + asset_cls.artifact_extension
             self.special_file_suffixes[cext] = asset_cls.source_extension
-
-    def add_template_context_processor(self, f):
-        self.template_context_processors.append(f)
-        return f

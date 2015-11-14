@@ -118,6 +118,12 @@ class Reporter(object):
     def report_dirty_flag(self, value):
         pass
 
+    def report_write_source_info(self, info):
+        pass
+
+    def report_prune_source_info(self, source):
+        pass
+
     def report_sub_artifact(self, artifact):
         pass
 
@@ -200,6 +206,15 @@ class CliReporter(Reporter):
     def report_dirty_flag(self, value):
         if self.show_artifact_internals and (value or self.show_debug_info):
             self._write_kv_info('forcing sources dirty', value)
+
+    def report_write_source_info(self, info):
+        if self.show_artifact_internals and self.show_debug_info:
+            self._write_kv_info('writing source info', '%s [%s]' % (
+                info.title_i18n['en'], info.type))
+
+    def report_prune_source_info(self, source):
+        if self.show_artifact_internals and self.show_debug_info:
+            self._write_kv_info('pruning source info', source)
 
     def report_build_func(self, build_func):
         if self.show_artifact_internals:

@@ -1,4 +1,7 @@
 import pkg_resources
+
+from weakref import ref as weakref
+
 from werkzeug.utils import find_modules, import_string
 
 
@@ -7,8 +10,16 @@ class Plugin(object):
     name = 'Your Plugin Name'
     description = 'Description goes here'
 
-    def setup_env(self, env):
-        """Callback method for when the env is initialized."""
+    def __init__(self, env, id):
+        self._env = weakref(env)
+        self.id = id
+
+    @property
+    def env(self):
+        rv = self._env()
+        if rv is None:
+            raise RuntimeError('Environment went away')
+        return rv
 
 
 def iter_builtin_plugins():
@@ -36,7 +47,41 @@ def load_plugins():
 def initialize_plugins(env):
     """Initializes the plugins for the environment."""
     plugins = load_plugins()
-    for plugin_name, plugin_cls in plugins.iteritems():
-        env.plugins[plugin_name] = plugin_cls()
-    for plugin in env.plugins.itervalues():
-        plugin.setup_env(env)
+    for plugin_id, plugin_cls in plugins.iteritems():
+        env.plugin_controller.instanciate_plugin(plugin_id, plugin_cls)
+    env.plugin_controller.emit('setup_env')
+
+
+class PluginController(object):
+    """Helper management class that is used to control plugins through
+    the environment.
+    """
+
+    def __init__(self, env):
+        self._env = weakref(env)
+
+    @property
+    def env(self):
+        rv = self._env()
+        if rv is None:
+            raise RuntimeError('Environment went away')
+        return rv
+
+    def instanciate_plugin(self, plugin_id, plugin_cls):
+        env = self.env
+        if plugin_id in env.plugins:
+            raise RuntimeError('Plugin "%s" is already registered'
+                               % plugin_id)
+        env.plugins[plugin_id] = plugin_cls(env, plugin_id)
+
+    def iter_plugins(self):
+        # XXX: sort?
+        return self.env.plugins.itervalues()
+
+    def emit(self, event, **kwargs):
+        rv = {}
+        for plugin in self.iter_plugins():
+            handler = getattr(plugin, 'on_' + event, None)
+            if handler is not None:
+                rv[plugin.id] = handler(**kwargs)
+        return rv

@@ -47,15 +47,10 @@ class LessFileAssetBuildProgram(BuildProgram):
 
         artifact.replace_with_file(source_out)
 
-        @ctx.sub_artifact(artifact_name=artifact.artifact_name + '.map',
-                          sources=[self.source.source_filename])
-        def build_less_sourcemap_artifact(artifact):
-            artifact.replace_with_file(map_out)
-
 
 class LessPlugin(Plugin):
     name = 'Less'
     description = 'Built-in less support as demo plugin'
 
-    def setup_env(self, env):
-        env.add_asset_type(LessFile, LessFileAssetBuildProgram)
+    def on_setup_env(self, **kwargs):
+        self.env.add_asset_type(LessFile, LessFileAssetBuildProgram)

@@ -251,12 +251,15 @@ class BackgroundBuilder(threading.Thread):
 class DevTools(object):
     """This provides extra helpers for launching tools such as webpack."""
 
-    def __init__(self):
+    def __init__(self, env):
         self.watcher = None
+        self.env = env
 
     def start(self):
         if self.watcher is not None:
             return
+        self.signal_state = self.env.plugin_controller.emit('devtools_start')
+
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
         portable_popen(['npm', 'install', '.'], cwd=admin).wait()
@@ -268,6 +271,7 @@ class DevTools(object):
     def stop(self):
         if self.watcher is None:
             return
+        self.env.plugin_controller.emit('devtools_stop')
         self.watcher.kill()
         self.watcher.wait()
         self.watcher = None
@@ -283,38 +287,26 @@ def browse_to_address(addr):
     t.start()
 
 
-class UiProxyHandler(object):
-
-    def __init__(self, app):
-        self.app = app
-
-    def __call__(self, environ, start_response):
-        path_segs = environ.get('HTTP_X_FORWARDED_SKIP_PATH_SEGMENTS')
-        if path_segs and path_segs.isdigit():
-            for x in xrange(len(path_segs)):
-                pop_path_info(environ)
-        return self.app(environ, start_response)
-
-
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
                ui_lang='en', browse=False):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
     wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
-    save_for_bg = not lektor_dev or wz_as_main
+    in_main_process = not lektor_dev or wz_as_main
 
-    if save_for_bg:
+    if in_main_process:
         background_builder = BackgroundBuilder(env, output_path, verbosity)
         background_builder.setDaemon(True)
         background_builder.start()
+        env.plugin_controller.emit('server_spawn', bindaddr=bindaddr)
+
     app = WsgiApp(env, output_path, verbosity, debug=lektor_dev,
                   ui_lang=ui_lang)
-    app = UiProxyHandler(app)
 
     dt = None
     if lektor_dev and not wz_as_main:
-        dt = DevTools()
+        dt = DevTools(env)
         dt.start()
 
     if browse:
