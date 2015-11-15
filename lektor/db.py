@@ -247,9 +247,13 @@ F = _RecordQueryProxy()
 class Record(SourceObject):
     source_classification = 'record'
 
-    def __init__(self, pad, data):
+    def __init__(self, pad, data, page_num=None):
         SourceObject.__init__(self, pad)
         self._data = data
+        if page_num is None and \
+           self.datamodel.pagination_config.enabled:
+            page_num = 1
+        self.page_num = page_num
 
     @property
     def datamodel(self):
@@ -399,13 +403,6 @@ class Page(Record):
     """This represents a loaded record."""
     is_attachment = False
 
-    def __init__(self, pad, data, page_num=None):
-        Record.__init__(self, pad, data)
-        if page_num is None and \
-           self.datamodel.pagination_config.enabled:
-            page_num = 1
-        self.page_num = page_num
-
     @property
     def source_filename(self):
         if self.alt != PRIMARY_ALT:
@@ -529,6 +526,11 @@ class Attachment(Record):
     """This represents a loaded attachment."""
     is_attachment = True
 
+    def __init__(self, pad, data, page_num=None):
+        if page_num not in (1, None):
+            raise RuntimeError('Attachments cannot be paginated.')
+        Record.__init__(self, pad, data)
+
     @property
     def source_filename(self):
         if self.alt != PRIMARY_ALT:
@@ -630,6 +632,7 @@ class Query(object):
         self._limit = None
         self._offset = None
         self._visible_only = False
+        self._page_num = None
 
     @property
     def self(self):
@@ -644,10 +647,12 @@ class Query(object):
             rv._pristine = False
         return rv
 
-    def _get(self, id, persist=True):
+    def _get(self, id, persist=True, page_num=None):
         """Low level record access."""
+        if page_num is None:
+            page_num = self._page_num
         return self.pad.get('%s/%s' % (self.path, id), persist=persist,
-                            alt=self.alt)
+                            alt=self.alt, page_num=page_num)
 
     def _matches(self, record):
         if self._visible_only and not record.is_visible:
@@ -712,6 +717,12 @@ class Query(object):
         rv._include_attachments = True
         return rv
 
+    def request_page(self, page_num):
+        """Requests a specific page number instead of the first."""
+        rv = self._clone(mark_dirty=True)
+        rv._page_num = page_num
+        return rv
+
     def first(self):
         """Loads all matching records as list."""
         return next(iter(self), None)
@@ -745,13 +756,16 @@ class Query(object):
             rv += 1
         return rv
 
-    def get(self, id):
+    def get(self, id, page_num=None):
         """Gets something by the local path."""
         # If we're not pristine, we need to query here
         if not self._pristine:
-            return self.filter(F._id == id).first()
+            q = self.filter(F._id == id)
+            if page_num is not None:
+                q = q.request_page(page_num)
+            return q.first()
         # otherwise we can load it directly.
-        return self._get(id)
+        return self._get(id, page_num=page_num)
 
     def __nonzero__(self):
         return self.first() is not None
@@ -767,7 +781,7 @@ class Query(object):
 
         if self._offset is not None or self._limit is not None:
             iterable = islice(iterable, self._offset or 0,
-                              (self._offset or 0) + self._limit + 1)
+                              (self._offset or 0) + self._limit)
 
         for item in iterable:
             yield item
@@ -782,7 +796,7 @@ class Query(object):
 
 class EmptyQuery(Query):
 
-    def _get(self, id, persist=True):
+    def _get(self, id, persist=True, page_num=None):
         pass
 
     def _iterate(self):
@@ -1186,9 +1200,9 @@ class Pad(object):
         rv.append(self.asset_root)
         return rv
 
-    def get(self, path, alt=PRIMARY_ALT, persist=True):
+    def get(self, path, alt=PRIMARY_ALT, page_num=None, persist=True):
         """Loads a record by path."""
-        rv = self.cache.get(path, alt)
+        rv = self.cache.get(path, alt, page_num)
         if rv is not None:
             return rv
 
@@ -1196,7 +1210,7 @@ class Pad(object):
         if raw_data is None:
             return
 
-        rv = self.instance_from_data(raw_data)
+        rv = self.instance_from_data(raw_data, page_num=page_num)
 
         if persist:
             self.cache.persist(rv)
@@ -1215,14 +1229,14 @@ class Pad(object):
                 break
         return node
 
-    def instance_from_data(self, raw_data, datamodel=None):
+    def instance_from_data(self, raw_data, datamodel=None, page_num=None):
         """This creates an instance from the given raw data."""
         if datamodel is None:
             datamodel = self.db.get_datamodel_for_raw_data(raw_data, self)
         data = datamodel.process_raw_data(raw_data, self)
         self.db.process_data(data, datamodel, self)
         cls = self.db.get_record_class(datamodel, data)
-        return cls(self, data)
+        return cls(self, data, page_num=page_num)
 
     def query(self, path=None, alt=PRIMARY_ALT):
         """Queries the database either at root level or below a certain
@@ -1422,15 +1436,19 @@ class RecordCache(object):
         self.persistent = {}
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
-    def _get_cache_key(self, record_or_path, alt=PRIMARY_ALT):
+    def _get_cache_key(self, record_or_path, alt=PRIMARY_ALT, page_num=None):
         if isinstance(record_or_path, basestring):
             path = record_or_path
         else:
             path = record_or_path['_path']
             alt = record_or_path.alt
+            page_num = record_or_path.page_num
+        rv = path
         if alt != PRIMARY_ALT:
-            return '%s+%s' % (path, alt)
-        return path
+            rv = '%s+%s' % (rv, alt)
+        if page_num is not None:
+            rv = '%s@%s' % (rv, page_num)
+        return rv
 
     def is_persistent(self, record):
         """Indicates if a record is in the persistent record cache."""
@@ -1460,9 +1478,9 @@ class RecordCache(object):
         if cache_key in self.ephemeral:
             self.persist(record)
 
-    def get(self, path, alt=PRIMARY_ALT):
+    def get(self, path, alt=PRIMARY_ALT, page_num=None):
         """Looks up a record from the cache."""
-        cache_key = self._get_cache_key(path, alt)
+        cache_key = self._get_cache_key(path, alt, page_num)
         rv = self.persistent.get(cache_key)
         if rv is not None:
             return rv
