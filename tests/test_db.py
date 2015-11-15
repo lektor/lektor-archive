@@ -153,3 +153,15 @@ def test_url_matching_for_alt_pagination(pad):
 
     page1_explicit = pad.resolve_url_path('/de/projects/page/1/')
     assert page1_explicit is None
+
+
+def test_url_matching_with_customized_slug_in_alt(pad):
+    en = pad.resolve_url_path('/projects/slave/')
+    assert en.alt == 'en'
+    assert en['_source_alt'] == '_primary'
+    assert en.path == '/projects/slave'
+
+    de = pad.resolve_url_path('/de/projects/sklave/')
+    assert de.alt == 'de'
+    assert de['_source_alt'] == 'de'
+    assert de.path == '/projects/slave'
