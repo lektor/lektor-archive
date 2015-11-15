@@ -6,7 +6,6 @@ import posixpath
 
 from datetime import datetime
 from jinja2 import Undefined
-from PIL import Image
 
 from lektor.utils import get_dependent_url, portable_popen, locate_executable
 from lektor.reporter import reporter
