@@ -1,0 +1,7 @@
+[site]
+name = Demo Project
+
+[servers.production]
+enabled = yes
+name = Production
+target = rsync://myserver.com/path/to/website

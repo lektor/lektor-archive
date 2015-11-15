@@ -1,3 +1,5 @@
+all: test
+
 pex:
 	virtualenv pex-build-cache
 	pex-build-cache/bin/pip install --upgrade pip
@@ -10,5 +12,8 @@ pex:
 		--not-zip-safe Lektor
 	rm -rf pex-build-cache
 
-osx-dmg: pex
+test:
+	@cd tests; py.test . --tb=short
+
+osx-dmg:
 	$(MAKE) -C gui osx-dmg
