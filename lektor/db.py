@@ -272,15 +272,15 @@ class Record(SourceObject):
 
     @property
     def is_hidden(self):
-        """If a record is hidden it will not be processed.  This is related
-        to the expose flag that can be set on the datamodel.
+        """Indicates if a record is hidden.  A record is considered hidden
+        if the record itself got hidden or any of the parent is.
         """
         if not is_undefined(self._data['_hidden']):
             return self._data['_hidden']
 
-        node = self
+        node = self.parent
         while node is not None:
-            if not node.datamodel.expose:
+            if node.is_hidden:
                 return True
             node = node.parent
 
@@ -478,20 +478,16 @@ class Page(Record):
                                 persist=self.pad.cache.is_persistent(self))
 
     @property
-    def all_children(self):
-        """A query over all children that are not hidden."""
+    def children(self):
+        """A query over all children that are not hidden.  If you also
+        want hidden children then use ``children.include_hidden(True)``.
+        """
         repl_query = self.datamodel.get_child_replacements(self)
         if repl_query is not None:
-            return repl_query
-        return Query(path=self['_path'], pad=self.pad, alt=self.alt)
-
-    @property
-    def children(self):
-        """Returns a query for all the children of this record.  Optionally
-        a child path can be specified in which case the children of a sub
-        path are queried.
-        """
-        return self.all_children.visible_only
+            q = repl_query
+        else:
+            q = Query(path=self['_path'], pad=self.pad, alt=self.alt)
+        return q.include_hidden(False)
 
     @property
     def paginated_children(self):
@@ -500,16 +496,6 @@ class Page(Record):
         """
         return self.datamodel.pagination_config.slice_query_for_page(
             self.children, self.page_num)
-
-    @property
-    def real_children(self):
-        """A query over all real children of this page.  This includes
-        hidden.
-        """
-        if self.datamodel.child_config.replaced_with is not None:
-            return EmptyQuery(path=self['_path'], pad=self.pad,
-                              alt=self.alt)
-        return self.all_children
 
     def find_page(self, path):
         """Finds a child page."""
@@ -626,7 +612,7 @@ class Query(object):
         self._pristine = True
         self._limit = None
         self._offset = None
-        self._visible_only = False
+        self._include_hidden = True
         self._page_num = None
 
     @property
@@ -650,7 +636,7 @@ class Query(object):
                             alt=self.alt, page_num=page_num)
 
     def _matches(self, record):
-        if self._visible_only and not record.is_visible:
+        if not self._include_hidden and record.is_hidden:
             return False
         for filter in self._filters or ():
             if not save_eval(filter, record):
@@ -698,11 +684,12 @@ class Query(object):
         if base_record is not None:
             return base_record.datamodel.child_config.order_by
 
-    @property
-    def visible_only(self):
-        """Returns all visible pages."""
+    def include_hidden(self, value):
+        """Controls if hidden records should be included which will not
+        happen by default for queries to children.
+        """
         rv = self._clone(mark_dirty=True)
-        rv._visible_only = True
+        rv._include_hidden = value
         return rv
 
     @property

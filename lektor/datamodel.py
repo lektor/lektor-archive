@@ -184,7 +184,7 @@ class DataModel(object):
 
     def __init__(self, env, id, name_i18n, label_i18n=None,
                  filename=None, hidden=None, protected=None,
-                 expose=None, child_config=None, attachment_config=None,
+                 child_config=None, attachment_config=None,
                  pagination_config=None, fields=None,
                  primary_field=None, parent=None):
         self.env = env
@@ -198,9 +198,6 @@ class DataModel(object):
         if protected is None:
             protected = False
         self.protected = protected
-        if expose is None:
-            expose = True
-        self.expose = expose
         if child_config is None:
             child_config = ChildConfig()
         self.child_config = child_config
@@ -251,7 +248,6 @@ class DataModel(object):
             'label_i18n': self.label_i18n,
             'hidden': self.hidden,
             'protected': self.protected,
-            'expose': self.expose,
             'child_config': self.child_config.to_json(),
             'attachment_config': self.attachment_config.to_json(),
             'pagination_config': self.pagination_config.to_json(),
@@ -417,7 +413,6 @@ def datamodel_data_from_ini(id, inifile):
         primary_field=inifile.get('model.primary_field'),
         hidden=inifile.get_bool('model.hidden', default=None),
         protected=inifile.get_bool('model.protected', default=None),
-        expose=inifile.get_bool('model.expose', default=None),
         child_config=dict(
             enabled=inifile.get_bool('children.enabled', default=None),
             slug_format=inifile.get('children.slug_format'),
@@ -500,7 +495,6 @@ def datamodel_from_data(env, model_data, parent=None):
         label_i18n=get_value('label_i18n'),
         hidden=get_value('hidden'),
         protected=get_value('protected'),
-        expose=get_value('expose'),
         child_config=ChildConfig(
             enabled=get_value('child_config.enabled'),
             slug_format=get_value('child_config.slug_format'),
