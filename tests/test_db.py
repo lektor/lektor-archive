@@ -140,3 +140,16 @@ def test_alt_fallback(pad):
     assert wolf_page.alt == 'de'
     assert wolf_page['_source_alt'] == '_primary'
     assert wolf_page['name'] == 'Wolf'
+
+
+def test_url_matching_for_alt_pagination(pad):
+    page1 = pad.resolve_url_path('/de/projects/')
+    assert page1.alt == 'de'
+    assert page1.page_num == 1
+
+    page2 = pad.resolve_url_path('/de//projects/page/2/')
+    assert page2.alt == 'de'
+    assert page2.page_num == 2
+
+    page1_explicit = pad.resolve_url_path('/de/projects/page/1/')
+    assert page1_explicit is None
