@@ -96,6 +96,22 @@ def test_child_query_visibility_setting(pad):
     assert project_query._include_hidden
 
 
+def test_pagination_url_paths(pad):
+    # Even though this is paginated, getting to the non paginated version
+    # just looks like going to the first page.  We do this because it
+    # is more convenient for usage.
+    project = pad.get('/projects')
+    assert project.url_path == '/projects/'
+
+    # However first page looks the same
+    project = pad.get('/projects', page_num=1)
+    assert project.url_path == '/projects/'
+
+    # second page is different
+    project = pad.get('/projects', page_num=2)
+    assert project.url_path == '/projects/page/2/'
+
+
 def test_unpaginated_children_other_alt(pad):
     page_all = pad.get('/projects', alt='de')
 
