@@ -86,3 +86,11 @@ def test_project_implied_model(pad):
     project = pad.query('/projects').first()
     assert project is not None
     assert project['_model'] == 'project'
+
+
+def test_child_query_visibility_setting(pad):
+    projects = pad.get('/projects')
+    assert projects.children._include_hidden == False
+
+    project_query = pad.query('/projects')
+    assert project_query._include_hidden == True
