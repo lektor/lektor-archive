@@ -13,7 +13,7 @@ pex:
 	rm -rf pex-build-cache
 
 test:
-	@cd tests; py.test . --tb=short
+	@cd tests; py.test . --tb=short -v
 
 osx-dmg:
 	$(MAKE) -C gui osx-dmg

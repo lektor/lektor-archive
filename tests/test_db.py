@@ -94,3 +94,23 @@ def test_child_query_visibility_setting(pad):
 
     project_query = pad.query('/projects')
     assert project_query._include_hidden
+
+
+def test_unpaginated_children_other_alt(pad):
+    page_all = pad.get('/projects', alt='de')
+
+    assert page_all.paginated_children.count() == 8
+    assert page_all.page_num is None
+
+    children = page_all.paginated_children.all()
+    assert len(children) == 8
+    assert [x['name'] for x in children] == [
+        u'Dudelsack',
+        u'Kaffee',
+        u'Meister',
+        u'Ofen',
+        u'Porto',
+        u'Sklave',
+        u'Wolf',
+        u'Zaun'
+    ]

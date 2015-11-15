@@ -1,6 +1,16 @@
 [site]
 name = Demo Project
 
+[alternatives.en]
+name = English
+name[de] = Englisch
+primary = yes
+
+[alternatives.de]
+name = German
+name[de] = Deutsch
+url_prefix = /de/
+
 [servers.production]
 enabled = yes
 name = Production
