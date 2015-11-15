@@ -114,3 +114,13 @@ def test_unpaginated_children_other_alt(pad):
         u'Wolf',
         u'Zaun'
     ]
+
+
+def test_alt_fallback(pad):
+    # page that is missing a german tranlation
+    wolf_page = pad.get('/projects/wolf', alt='de')
+
+    # Falls back to primary
+    assert wolf_page.alt == 'de'
+    assert wolf_page['_source_alt'] == '_primary'
+    assert wolf_page['name'] == 'Wolf'
