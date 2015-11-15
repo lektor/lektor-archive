@@ -165,6 +165,9 @@ def get_quality(source_filename):
 
 
 def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
+    """Helper method that can create thumbnails from within the build process
+    of an artifact.
+    """
     suffix = get_suffix(width, height)
     dst_url_path = get_dependent_url(source_url_path, suffix,
                                      ext=get_thumbnail_ext(source_image))
@@ -181,7 +184,8 @@ def make_thumbnail(ctx, source_image, source_url_path, width, height=None):
         artifact.ensure_dir()
 
         cmdline = [im, source_image, '-resize', resize_key,
-                   '-quality', str(quality), artifact.dst_filename]
+                   '-auto-orient', '-quality', str(quality),
+                   artifact.dst_filename]
 
         reporter.report_debug_info('imagemagick cmd line', cmdline)
         portable_popen(cmdline).wait()
