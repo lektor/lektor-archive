@@ -19,13 +19,17 @@ DEFAULT_CONFIG = {
     'IMAGEMAGICK_EXECUTABLE': None,
     'EPHEMERAL_RECORD_CACHE_SIZE': 500,
     'ATTACHMENT_TYPES': {
+        # Only enable image formats here that we can handle in imagetools.
+        # Right now this is limited to jpg, png and gif because this is
+        # the only thing we compile into imagemagick on OS X distributions
+        # as those are what browsers also support.  Thers is no point in
+        # adding others here as we do not force convert images (yet?) but
+        # only use it for thumbnailing.  However an image should be
+        # visible even without thumbnailing.
         '.jpg': 'image',
         '.jpeg': 'image',
         '.png': 'image',
         '.gif': 'image',
-        '.tif': 'image',
-        '.tiff': 'image',
-        '.bmp': 'image',
 
         '.avi': 'video',
         '.mpg': 'video',

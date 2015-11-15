@@ -60,13 +60,9 @@ osx-bundle: build/imagemagick/convert icons build-wheels
 	cp build/ProjectFile.icns $(OSX_BUNDLE_RES)
 	cp build/File.icns $(OSX_BUNDLE_RES)
 	mkdir -p $(OSX_BUNDLE_RES)/local/bin
-	mkdir -p $(OSX_BUNDLE_RES)/local/lib
 	cp build/imagemagick/convert $(OSX_BUNDLE_RES)/local/bin
 	cp resources/lektor-mac-proxy $(OSX_BUNDLE)/Contents/MacOS/lektor-proxy
 	cp resources/lektor $(OSX_BUNDLE_RES)/lektor
-	rm -rf $(OSX_BUNDLE_RES)/local/share/man
-	rm -rf $(OSX_BUNDLE_RES)/local/share/doc
-	rm -rf $(OSX_BUNDLE_RES)/local/include
 	rm $(OSX_BUNDLE_RES)/atom.icns
 	rm -rf $(OSX_BUNDLE_RES)/default_app
 	# Manually copy over native modules we depend on
@@ -74,11 +70,7 @@ osx-bundle: build/imagemagick/convert icons build-wheels
 	cp -R node_modules/runas $(OSX_BUNDLE_RES)/app/node_modules/runas
 	cp -R $(BUILD_DIR)/Python.framework $(OSX_BUNDLE)/Contents/Frameworks/Python.framework
 	./bin/make-python-framework-relocatable $(OSX_BUNDLE)/Contents/Frameworks/Python.framework
-	./bin/make-libs-relocatable $(OSX_BUNDLE)/Contents/Resources/local
 	./bin/install-wheels $(OSX_BUNDLE)/Contents/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages
-	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name '*.a' -exec rm -f {} \;
-	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name '*.la' -exec rm -f {} \;
-	find $(OSX_BUNDLE)/Contents/Resources/local/lib -name 'pkgconfig' -exec rm -rf {} \; || true
 	find $(OSX_BUNDLE)/Contents -name '.DS_Store' -exec rm {} \;
 
 osx-signed-bundle: osx-bundle

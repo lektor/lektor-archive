@@ -4,23 +4,36 @@ set -e
 
 HERE="$(cd "$(dirname "$0")"; pwd)"
 BASE="$HERE/.."
-OUT="$BASE/build"
-TEMP="$BASE/build/tmp"
+BUILD="$BASE/build/imagemagick"
 
-rm -rf "$TEMP"
-mkdir -p "$TEMP"
+TEMP=$(mktemp -d)
+PREFIX="$TEMP/out"
 cd "$TEMP"
 
-wget "http://ftp.nluug.nl/ImageMagick/ImageMagick.tar.gz"
-tar --strip-components=1 -xzf "ImageMagick.tar.gz"
-
+# The minimum version of OSX we want to compile for
 export MACOSX_DEPLOYMENT_TARGET=10.9
 
-# Configure script is broken, unbreak it
-echo "with_x='no'" | cat configure.ac > configure.ac.fixed
-mv configure.ac.fixed configure.ac
+# Download all the things
+wget "http://ftp.nluug.nl/ImageMagick/ImageMagick.tar.gz" -O imagemagick.tar.gz
+mkdir imagemagick
+(cd imagemagick; tar --strip-components=1 -xzf "../imagemagick.tar.gz")
 
-# Now configure
+wget "http://www.ijg.org/files/jpegsrc.v7.tar.gz" -O libjpeg.tar.gz
+mkdir libjpeg
+(cd libjpeg; tar --strip-components=1 -xzf "../libjpeg.tar.gz")
+
+wget "http://downloads.sourceforge.net/project/libpng/libpng16/1.6.19/libpng-1.6.19.tar.gz" -O libpng.tar.gz
+mkdir libpng
+(cd libpng; tar --strip-components=1 -xzf "../libpng.tar.gz")
+
+# Compile libpng
+(cd libpng; ./configure --prefix="$PREFIX"; make && make install)
+
+# Compile libjpeg
+(cd libjpeg; ./configure --prefix="$PREFIX" --enable-shared; make && make install)
+
+# Compile imagemagick
+cd imagemagick
 autoconf
 ./configure \
   --prefix=/opt/local \
@@ -32,19 +45,29 @@ autoconf
   --without-freetype \
   --without-perl \
   --without-gvc \
+  --without-fontconfig \
   --without-magick-plus-plus \
+  --without-tiff \
+  --without-lzma \
   --enable-delegate-build \
   --enable-static \
   --enable-shared=no \
-  --prefix="$TEMP/out"
+  --disable-dependency-tracking \
+  --prefix="$PREFIX" \
+  CFLAGS="-I$PREFIX/include" \
+  CPPFLAGS="-I$PREFIX/include" \
+  LDFLAGS="-L$PREFIX/lib";
 
 # Unbreak the makefile
 sed -i '' -E 's/^LDFLAGS = /LDFLAGS = -all-static /' Makefile
 
 make
+make install
 
-rm -rf "$BASE/build/imagemagick"
-mkdir -p "$BASE/build/imagemagick"
-cp "$TEMP/utilities/convert" "$BASE/build/imagemagick/"
+# Copy out the only executable we care about: convert
+mkdir -p "$BUILD"
+cp "$PREFIX/bin/convert" "$BUILD"
 
+# Clean up
+cd "$HERE"
 rm -rf "$TEMP"
