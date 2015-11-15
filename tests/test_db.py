@@ -90,7 +90,7 @@ def test_project_implied_model(pad):
 
 def test_child_query_visibility_setting(pad):
     projects = pad.get('/projects')
-    assert projects.children._include_hidden == False
+    assert not projects.children._include_hidden
 
     project_query = pad.query('/projects')
-    assert project_query._include_hidden == True
+    assert project_query._include_hidden
