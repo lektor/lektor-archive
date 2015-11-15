@@ -165,3 +165,28 @@ def test_url_matching_with_customized_slug_in_alt(pad):
     assert de.alt == 'de'
     assert de['_source_alt'] == 'de'
     assert de.path == '/projects/slave'
+
+
+def test_basic_query_syntax(pad, F):
+    projects = pad.get('/projects')
+
+    encumbered = projects.children.filter(
+        (F._slug == 'master') |
+        (F._slug == 'slave')
+    ).order_by('_slug').all()
+
+    assert len(encumbered) == 2
+    assert [x['name'] for x in encumbered] == ['Master', 'Slave']
+
+
+def test_basic_query_syntax_template(pad, eval_expr):
+    projects = pad.get('/projects')
+
+    encumbered = eval_expr('''
+        this.children.filter(
+            (F._slug == 'master').or(F._slug == 'slave')
+        ).order_by('_slug')
+    ''', pad=pad, this=projects).all()
+
+    assert len(encumbered) == 2
+    assert [x['name'] for x in encumbered] == ['Master', 'Slave']

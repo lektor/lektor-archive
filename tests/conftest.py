@@ -35,3 +35,18 @@ def builder(request, pad):
             pass
     request.addfinalizer(cleanup)
     return builder
+
+
+@pytest.fixture(scope='function')
+def F():
+    from lektor.db import F
+    return F
+
+
+@pytest.fixture(scope='function')
+def eval_expr(env):
+    from lektor.environment import Expression
+    def eval_expr(expr, **kwargs):
+        expr = Expression(env, expr)
+        return expr.evaluate(**kwargs)
+    return eval_expr

@@ -166,6 +166,11 @@ class _Expr(object):
         return _IsBoolExpr(self, True)
 
 
+# Query helpers for the template engine
+setattr(_Expr, 'and', lambda x, o: x & o)
+setattr(_Expr, 'or', lambda x, o: x | o)
+
+
 class _IsBoolExpr(_Expr):
 
     def __init__(self, expr, true):
