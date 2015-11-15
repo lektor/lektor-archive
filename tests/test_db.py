@@ -11,7 +11,7 @@ def test_root(pad):
 
 
 def test_paginated_children(pad):
-    page1 = pad.get('/projects')
+    page1 = pad.get('/projects', page_num=1)
 
     assert page1 is not None
     assert page1['_model'] == 'projects'
@@ -50,3 +50,39 @@ def test_paginated_children(pad):
     ]
 
     assert '/projects@2' in pad.cache.persistent
+
+
+def test_unpaginated_children(pad):
+    page_all = pad.get('/projects')
+
+    assert page_all.paginated_children.count() == 7
+    assert page_all.page_num is None
+
+    children = page_all.paginated_children.all()
+    assert len(children) == 7
+    assert [x['name'] for x in children] == [
+        u'Bagpipe',
+        u'Coffee',
+        u'Master',
+        u'Oven',
+        u'Postage',
+        u'Slave',
+        u'Wolf',
+    ]
+
+
+def test_url_matching_for_pagination(pad):
+    page1 = pad.resolve_url_path('/projects/')
+    assert page1.page_num == 1
+
+    page2 = pad.resolve_url_path('/projects/page/2/')
+    assert page2.page_num == 2
+
+    page1_explicit = pad.resolve_url_path('/projects/page/1/')
+    assert page1_explicit is None
+
+
+def test_project_implied_model(pad):
+    project = pad.query('/projects').first()
+    assert project is not None
+    assert project['_model'] == 'project'

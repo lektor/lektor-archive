@@ -52,9 +52,29 @@ class PaginationConfig(object):
 
     def slice_query_for_page(self, query, page):
         """Slices the query so it returns the children for a given page."""
-        if not self.enabled:
+        if not self.enabled or page is None:
             return query
         return query.limit(self.per_page).offset((page - 1) * self.per_page)
+
+    def get_record_for_page(self, record, page_num):
+        """Given a normal record this one returns the version specific
+        for a page.
+        """
+        # If we already have the right version, return it.
+        if record.page_num == page_num:
+            return record
+
+        # Check if we have a cached version
+        pad = record.pad
+        rv = pad.cache.get(record.path, alt=record.alt, page_num=page_num)
+        if rv is not None:
+            return rv
+
+        # Make what we need out of what we have and put it into the cache.
+        cls = record.__class__
+        rv = cls(record.pad, record._data, page_num=page_num)
+        pad.cache.remember(rv)
+        return rv
 
     def match_pagination(self, record, url_path):
         """Matches the pagination from the URL path."""
@@ -75,10 +95,8 @@ class PaginationConfig(object):
         if page_num == 1 or len(url_path) != len(suffixes) + 1:
             return
 
-        cls = record.__class__
-        rv = cls(record.pad, record._data, page_num=page_num)
-
         # Page needs to have at least a single child.
+        rv = self.get_record_for_page(record, page_num)
         if rv.paginated_children.first() is not None:
             return rv
 

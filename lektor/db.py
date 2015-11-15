@@ -246,13 +246,14 @@ F = _RecordQueryProxy()
 
 class Record(SourceObject):
     source_classification = 'record'
+    supports_pagination = False
 
     def __init__(self, pad, data, page_num=None):
         SourceObject.__init__(self, pad)
         self._data = data
-        if page_num is None and \
-           self.datamodel.pagination_config.enabled:
-            page_num = 1
+        if page_num is not None and not self.supports_pagination:
+            raise RuntimeError('%s does not support pagination' %
+                               self.__class__.__name__)
         self.page_num = page_num
 
     @property
@@ -391,17 +392,19 @@ class Record(SourceObject):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '<%s model=%r path=%r%s>' % (
+        return '<%s model=%r path=%r%s%s>' % (
             self.__class__.__name__,
             self['_model'],
             self['_path'],
             self.alt != PRIMARY_ALT and ' alt=%r' % self.alt or '',
+            self.page_num is not None and ' page_num=%r' % self.page_num or '',
         )
 
 
 class Page(Record):
     """This represents a loaded record."""
     is_attachment = False
+    supports_pagination = True
 
     @property
     def source_filename(self):
@@ -434,12 +437,18 @@ class Page(Record):
         return this_path[:len(crumbs)] == crumbs
 
     def resolve_url_path(self, url_path):
+        # If we hit the end of the url path, then we found our target.
+        # However if pagination is enabled we want to resolve the first
+        # page instead of the unpaginated version.
         if not url_path:
+            pg = self.datamodel.pagination_config
+            if pg.enabled and self.page_num is None:
+                return pg.get_record_for_page(self, 1)
             return self
 
         for idx in xrange(len(url_path)):
             piece = '/'.join(url_path[:idx + 1])
-            child = self.real_children.filter(F._slug == piece).first()
+            child = self.children.filter(F._slug == piece).first()
             if child is None:
                 attachment = self.attachments.filter(F._slug == piece).first()
                 if attachment is None:
@@ -452,7 +461,7 @@ class Page(Record):
             if rv is not None:
                 return rv
 
-            # Try to resolve pagination here.
+            # Try to resolve the correctly paginated version here.
             pg = node.datamodel.pagination_config
             if pg.enabled:
                 rv = pg.match_pagination(node, url_path[idx + 1:])
@@ -512,24 +521,10 @@ class Page(Record):
         return AttachmentsQuery(path=self['_path'], pad=self.pad,
                                 alt=self.alt)
 
-    def __repr__(self):
-        rv = Record.__repr__(self)
-        if self.page_num is not None:
-            rv = '%s page_num=%r>' % (
-                rv[:-1],
-                self.page_num
-            )
-        return rv
-
 
 class Attachment(Record):
     """This represents a loaded attachment."""
     is_attachment = True
-
-    def __init__(self, pad, data, page_num=None):
-        if page_num not in (1, None):
-            raise RuntimeError('Attachments cannot be paginated.')
-        Record.__init__(self, pad, data)
 
     @property
     def source_filename(self):
@@ -647,9 +642,9 @@ class Query(object):
             rv._pristine = False
         return rv
 
-    def _get(self, id, persist=True, page_num=None):
+    def _get(self, id, persist=True, page_num=Ellipsis):
         """Low level record access."""
-        if page_num is None:
+        if page_num is Ellipsis:
             page_num = self._page_num
         return self.pad.get('%s/%s' % (self.path, id), persist=persist,
                             alt=self.alt, page_num=page_num)
@@ -756,12 +751,12 @@ class Query(object):
             rv += 1
         return rv
 
-    def get(self, id, page_num=None):
+    def get(self, id, page_num=Ellipsis):
         """Gets something by the local path."""
         # If we're not pristine, we need to query here
         if not self._pristine:
             q = self.filter(F._id == id)
-            if page_num is not None:
+            if page_num is not Ellipsis:
                 q = q.request_page(page_num)
             return q.first()
         # otherwise we can load it directly.
@@ -796,7 +791,7 @@ class Query(object):
 
 class EmptyQuery(Query):
 
-    def _get(self, id, persist=True, page_num=None):
+    def _get(self, id, persist=True, page_num=Ellipsis):
         pass
 
     def _iterate(self):
