@@ -562,7 +562,7 @@ class Image(Attachment):
         rv = getattr(self, '_image_info', None)
         if rv is None:
             with open(self.attachment_filename, 'rb') as f:
-                rv = self._image_info = get_image_info(f)
+                self._image_info = rv = get_image_info(f)
         return rv
 
     @property
@@ -577,7 +577,7 @@ class Image(Attachment):
     @property
     def width(self):
         """The width of the image if possible to determine."""
-        rv = self._get_image_info()['size'][0]
+        rv = self._get_image_info()[1]
         if rv is not None:
             return rv
         return Undefined('Width of image could not be determined.')
@@ -585,35 +585,18 @@ class Image(Attachment):
     @property
     def height(self):
         """The height of the image if possible to determine."""
-        rv = self._get_image_info()['size'][1]
+        rv = self._get_image_info()[2]
         if rv is not None:
             return rv
         return Undefined('Height of image could not be determined.')
 
     @property
-    def mode(self):
-        """Returns the mode of the image."""
-        rv = self._get_image_info()['mode']
-        if rv is not None:
-            return rv
-        return Undefined('The mode of the image could not be determined.')
-
-    @property
     def format(self):
         """Returns the format of the image."""
-        rv = self._get_image_info()['format']
+        rv = self._get_image_info()[0]
         if rv is not None:
             return rv
         return Undefined('The format of the image could not be determined.')
-
-    @property
-    def format_description(self):
-        """Returns the format of the image."""
-        rv = self._get_image_info()['format_description']
-        if rv is not None:
-            return rv
-        return Undefined('The format description of the image '
-                         'could not be determined.')
 
     def thumbnail(self, width, height=None):
         """Utility to create thumbnails."""

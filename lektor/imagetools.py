@@ -1,4 +1,6 @@
 import os
+import imghdr
+import struct
 import exifread
 import posixpath
 
@@ -84,21 +86,40 @@ def get_suffix(width, height):
 
 def get_image_info(fp):
     """Reads some image info from a file descriptor."""
-    try:
-        img = Image.open(fp)
-    except Exception:
-        return {
-            'size': (None, None),
-            'mode': None,
-            'format': None,
-            'format_description': None,
-        }
-    return {
-        'size': img.size,
-        'mode': img.mode,
-        'format': img.format,
-        'format_description': img.format_description,
-    }
+    head = fp.read(32)
+    fp.seek(0)
+    if len(head) < 24:
+        return 'unknown', None, None
+
+    fmt = imghdr.what(None, head)
+
+    width = None
+    height = None
+    if fmt == 'png':
+        check = struct.unpack('>i', head[4:8])[0]
+        if check == 0x0d0a1a0a:
+            width, height = struct.unpack('>ii', head[16:24])
+    elif fmt == 'gif':
+        width, height = struct.unpack('<HH', head[6:10])
+    elif fmt == 'jpeg':
+        try:
+            fp.seek(0)
+            size = 2
+            ftype = 0
+            while not 0xc0 <= ftype <= 0xcf:
+                fp.seek(size, 1)
+                byte = fp.read(1)
+                while ord(byte) == 0xff:
+                    byte = fp.read(1)
+                ftype = ord(byte)
+                size = struct.unpack('>H', fp.read(2))[0] - 2
+            # We are at a SOFn block
+            fp.seek(1, 1)  # Skip `precision' byte.
+            height, width = struct.unpack('>HH', fp.read(4))
+        except Exception:
+            return 'jpeg', None, None
+
+    return fmt, width, height
 
 
 def read_exif(fp):
