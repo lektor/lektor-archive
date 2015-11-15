@@ -321,3 +321,5 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
     finally:
         if dt is not None:
             dt.stop()
+        if in_main_process:
+            env.plugin_controller.emit('server_stop')

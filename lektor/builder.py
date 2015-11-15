@@ -739,7 +739,7 @@ class Builder(object):
                                   reversed(builtin_build_programs)):
             if isinstance(source, cls):
                 return builder(source, build_state)
-        raise RuntimeError('I do not know how to build %r', source)
+        raise RuntimeError('I do not know how to build %r' % source)
 
     def build_artifact(self, artifact, build_func):
         """Various parts of the system once they have an artifact and a

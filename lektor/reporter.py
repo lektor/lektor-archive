@@ -133,6 +133,9 @@ class Reporter(object):
     def report_debug_info(self, key, value):
         pass
 
+    def report_generic(self, message):
+        pass
+
     def report_pruned_artifact(self, artifact_name):
         pass
 
@@ -228,6 +231,9 @@ class CliReporter(Reporter):
     def report_debug_info(self, key, value):
         if self.show_debug_info:
             self._write_kv_info(key, value)
+
+    def report_generic(self, message):
+        self._write_line(style(unicode(message), fg='cyan'))
 
     def enter_source(self):
         if not self.show_source_internals:

@@ -1149,6 +1149,8 @@ class Pad(object):
                 else:
                     alt = PRIMARY_ALT
             node = self.get_root(alt=alt)
+            if node is None:
+                raise RuntimeError('Tree root could not be found.')
 
             pieces = clean_path.split('/')
             if pieces == ['']:
@@ -1181,7 +1183,7 @@ class Pad(object):
 
         # If we don't have any alternatives, then we go with the implied
         # root.
-        if not rv:
+        if not rv and self.root:
             rv = [self.root]
 
         rv.append(self.asset_root)
