@@ -9,7 +9,8 @@ from lektor.context import get_ctx
 from lektor.environment import PRIMARY_ALT
 
 
-_block_re = re.compile(r'^####\s*(.*?)\s*####\s*$')
+_block_re = re.compile(r'^####\s*([^#]*?)\s*####\s*$')
+_line_unescape_re = re.compile(r'^#####(.*?)#####(\s*)$')
 
 
 def find_record_for_flowblock(ctx, blck):
@@ -169,7 +170,7 @@ def process_flowblock_data(raw_value):
                 buf = []
             block = block_start.group(1)
             continue
-        buf.append(line)
+        buf.append(_line_unescape_re.sub('####\\1####\\2', line))
 
     if block is not None:
         blocks.append((block, buf))
