@@ -32,7 +32,7 @@ function parseFlowFormat(value) {
       continue;
     }
 
-    var blockStart = line.match(/^####\s*(.*?)\s*####\s*$/);
+    var blockStart = line.match(/^####\s*([^#]*?)\s*####\s*$/);
     if (!blockStart) {
       if (block === null) {
         // bad format :(
@@ -47,7 +47,7 @@ function parseFlowFormat(value) {
       continue;
     }
 
-    buf.push(line);
+    buf.push(line.replace(/^#####(.*?)#####$/, '####$1####'));
   }
 
   if (block !== null) {
@@ -62,7 +62,9 @@ function serializeFlowFormat(blocks) {
   blocks.forEach(function(block) {
     var [blockName, lines] = block;
     rv.push('#### ' + blockName + ' ####\n');
-    rv.push.apply(rv, lines);
+    lines.forEach((line) => {
+      rv.push(line.replace(/^(####(.*)####)(\r?\n)?$/, '#$1#$3'));
+    });
   });
 
   rv = rv.join('');
@@ -79,24 +81,24 @@ function serializeFlowFormat(blocks) {
 
 function deserializeFlowBlock(flowBlockModel, lines, localId) {
   var data = {};
+  var rawData = {};
 
   metaformat.tokenize(lines).forEach(function(item) {
     var [key, lines] = item;
-    var field = flowBlockModel.fields[key];
     var value = lines.join('');
-    var Widget = null;
+    rawData[key] = value;
+  });
 
-    if (field !== undefined) {
-      Widget = getWidgetComponent(field.type);
-      if (!value && field['default']) {
-        value = field['default'];
-      }
-      if (Widget && Widget.deserializeValue) {
-        value = Widget.deserializeValue(value, field.type);
-      }
+  flowBlockModel.fields.forEach((field) => {
+    var value = rawData[field.name] || '';
+    var Widget = getWidgetComponent(field.type);
+    if (!value && field['default']) {
+      value = field['default'];
     }
-
-    data[key] = value;
+    if (Widget && Widget.deserializeValue) {
+      value = Widget.deserializeValue(value, field.type);
+    }
+    data[field.name] = value;
   });
 
   return {
@@ -119,8 +121,8 @@ function serializeFlowBlock(flockBlockModel, data) {
       return;
     }
 
-    if (Widget.deserializeValue) {
-      value = Widget.deserializeValue(value, field.type);
+    if (Widget.serializeValue) {
+      value = Widget.serializeValue(value, field.type);
     }
 
     rv.push([field.name, value]);
@@ -206,7 +208,7 @@ var FlowWidget = React.createClass({
     var placeholder = field['default'];
     var Widget = widgets.getWidgetComponentWithFallback(field.type);
     if (Widget.deserializeValue && placeholder != null) {
-      placeholder = Widget.deserializeValue(value, field.type);
+      placeholder = Widget.deserializeValue(placeholder, field.type);
     }
 
     var onChange = !this.props.onChange ? null : (value) => {

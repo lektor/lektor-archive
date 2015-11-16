@@ -239,8 +239,8 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
     if output_path is None:
         output_path = ctx.get_default_output_path()
     ctx.load_plugins()
-    print ' * Project path: %s' % ctx.get_project().project_path
-    print ' * Output path: %s' % output_path
+    click.echo(' * Project path: %s' % ctx.get_project().project_path)
+    click.echo(' * Output path: %s' % output_path)
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity, ui_lang=ctx.ui_lang,
                lektor_dev=os.environ.get('LEKTOR_DEV') == '1',

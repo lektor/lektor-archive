@@ -33,6 +33,41 @@ def find_record_for_flowblock(ctx, blck):
     return Undefined('Associated record unavailable.', name='record')
 
 
+def discover_relevant_flowblock_models(flow, pad, record, alt):
+    """Returns a dictionary of all relevant flow blocks.  If no list of
+    flow block names is provided all flow blocks are returned.  Otherwise
+    only flow blocks that are in the list or are children of flowblocks
+    in the list are returned.
+    """
+    flow_blocks = flow.flow_blocks
+
+    all_blocks = pad.db.flowblocks
+    if flow_blocks is None:
+        return all_blocks.copy()
+
+    wanted_blocks = set()
+    to_process = flow_blocks[:]
+
+    while to_process:
+        block_name = to_process.pop()
+        flowblock = all_blocks.get(block_name)
+        if block_name in wanted_blocks or flowblock is None:
+            continue
+        wanted_blocks.add(block_name)
+        for field in flowblock.fields:
+            if isinstance(field.type, FlowType):
+                if field.type.flow_blocks is None:
+                    raise RuntimeError('Nested flow-blocks require explicit '
+                                       'list of involved blocks.')
+                to_process.extend(field.type.flow_blocks)
+
+    rv = {}
+    for block_name in wanted_blocks:
+        rv[block_name] = all_blocks[block_name].to_json(pad, record, alt)
+
+    return rv
+
+
 class BadFlowBlock(Exception):
 
     def __init__(self, message):
@@ -149,7 +184,6 @@ class FlowType(Type):
         self.flow_blocks = [
             x.strip() for x in options.get('flow_blocks', '').split(',')
             if x.strip()] or None
-        self.default_flow_block = options.get('default_flow_block')
 
     def value_from_raw(self, raw):
         if raw.value is None:
@@ -187,14 +221,8 @@ class FlowType(Type):
     def to_json(self, pad, record=None, alt=PRIMARY_ALT):
         rv = Type.to_json(self, pad, record, alt)
 
-        blocks = {}
-        for block_name, flowblock in pad.db.flowblocks.iteritems():
-            if self.flow_blocks is not None \
-               and block_name not in self.flow_blocks:
-                continue
-            blocks[block_name] = flowblock.to_json(pad, record, alt)
-
-        rv['flowblocks'] = blocks
+        rv['flowblocks'] = discover_relevant_flowblock_models(
+            self, pad, record, alt)
 
         block_order = self.flow_blocks
         if block_order is None:
