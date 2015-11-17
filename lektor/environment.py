@@ -328,6 +328,9 @@ class Environment(object):
             get_random_id=lambda: uuid.uuid4().hex,
         )
 
+        from lektor.types import builtin_types
+        self.types = builtin_types.copy()
+
         # The plugins that are loaded for this environment.  This is
         # modified by the plugin controller and registry methods on the
         # environment.

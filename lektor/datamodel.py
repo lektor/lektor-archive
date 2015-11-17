@@ -129,7 +129,7 @@ class Field(object):
 
     def __init__(self, env, name, type=None, options=None):
         if type is None:
-            type = types.builtin_types['string']
+            type = env.types['string']
         if options is None:
             options = {}
         self.options = options
@@ -357,7 +357,7 @@ class FlowBlockModel(object):
 
         self.field_map = dict((x.name, x) for x in fields)
         self.field_map['_flowblock'] = Field(
-            env, name='_flowblock', type=types.builtin_types['string'])
+            env, name='_flowblock', type=env.types['string'])
 
     @property
     def name(self):
@@ -450,7 +450,7 @@ def fields_from_data(env, data, parent_fields=None):
     known_fields = set()
 
     for name, options in data:
-        ty = types.builtin_types[options.get('type', 'string')]
+        ty = env.types[options.get('type', 'string')]
         fields.append(Field(env=env, name=name, type=ty, options=options))
         known_fields.add(name)
 
