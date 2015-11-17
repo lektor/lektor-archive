@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 import copy
 
 import jinja2
@@ -324,6 +325,7 @@ class Environment(object):
             site=site_proxy,
             config=config_proxy,
             bag=lookup_from_bag,
+            get_random_id=lambda: uuid.uuid4().hex,
         )
 
         # The plugins that are loaded for this environment.  This is
