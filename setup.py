@@ -16,7 +16,7 @@ setup(
         'Jinja2>=2.4',
         'click>=2.0',
         'watchdog',
-        'Markdown',
+        'mistune',
         'Flask',
         'EXIFRead',
         'inifile',
