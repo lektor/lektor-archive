@@ -437,6 +437,8 @@ class Page(Record):
         )
 
     def is_child_of(self, path):
+        if isinstance(path, Record):
+            path = path['_path']
         this_path = cleanup_path(self['_path']).split('/')
         crumbs = cleanup_path(path).split('/')
         return this_path[:len(crumbs)] == crumbs
