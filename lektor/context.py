@@ -74,6 +74,10 @@ class Context(object):
 
         self.flow_block_render_stack = []
 
+        # General cache system where other things can put their temporary
+        # stuff in.
+        self.cache = {}
+
     @property
     def env(self):
         """The environment of the context."""

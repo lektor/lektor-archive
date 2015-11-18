@@ -31,34 +31,57 @@ def make_markdown(env):
 
 
 def markdown_to_html(text):
+    ctx = get_ctx()
+    if ctx is None:
+        raise RuntimeError('Context is required for markdown rendering')
+
+    # These markdown parsers are all terrible.  Not one of them does not
+    # modify internal state.  So since we only do one of those per thread
+    # we can at least cache them on a thread local.
     md = getattr(_markdown_cache, 'md', None)
     if md is None:
-        ctx = get_ctx()
-        if ctx is None:
-            raise RuntimeError('Context is required for markdown rendering')
         md = make_markdown(ctx.env)
         _markdown_cache.md = md
-    return Markup(md(text))
+
+    meta = {}
+    ctx.env.plugin_controller.emit('markdown_meta_init', meta=meta)
+    md.renderer.meta = meta
+    rv = md(text)
+    ctx.env.plugin_controller.emit('markdown_meta_postprocess', meta=meta)
+    return rv, meta
 
 
 class Markdown(object):
 
     def __init__(self, source):
         self.source = source
-        self._html = None
+        self.__html = None
+        self.__meta = None
+
+    def __render(self):
+        if self.__html is None:
+            self.__html, self.__meta = markdown_to_html(self.source)
+
+    @property
+    def meta(self):
+        self.__render()
+        return self.__meta
 
     @property
     def html(self):
-        if self._html is not None:
-            return self._html
-        self._html = rv = markdown_to_html(self.source)
-        return rv
+        self.__render()
+        return Markup(self.__html)
+
+    def __getitem__(self, name):
+        return self.meta[name]
 
     def __unicode__(self):
-        return unicode(self.html)
+        self.__render()
+        return self.__html
 
     def __html__(self):
-        return self.html
+        self.__render()
+        return Markup(self.__html)
 
 
 class MarkdownType(Type):

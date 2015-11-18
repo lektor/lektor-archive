@@ -3,8 +3,10 @@ import sys
 import pkg_resources
 
 from weakref import ref as weakref
-
+from inifile import IniFile
 from werkzeug.utils import find_modules, import_string
+
+from lektor.context import get_ctx
 
 
 class Plugin(object):
@@ -31,6 +33,36 @@ class Plugin(object):
     @property
     def import_name(self):
         return self.__class__.__module__ + ':' + self.__class__.__name__
+
+    def get_lektor_config(self):
+        """Returns the global config."""
+        ctx = get_ctx()
+        if ctx is not None:
+            cfg = ctx.pad.db.config
+        else:
+            cfg = self.env.load_config()
+        return cfg
+
+    @property
+    def config_filename(self):
+        """The filename of the plugin specific config file."""
+        return os.path.join(self.env.root_path, 'configs', self.id + '.ini')
+
+    def get_config(self, fresh=False):
+        """Returns the config specific for this plugin.  By default this
+        will be cached for the current build context but this can be
+        disabled by passing ``fresh=True``.
+        """
+        ctx = get_ctx()
+        if ctx is not None and not fresh:
+            cache = ctx.cache.setdefault(__name__ + ':configs', {})
+            cfg = cache.get(self.id)
+            if cfg is None:
+                cfg = IniFile(self.config_filename)
+                cache[self.id] = cfg
+        else:
+            cfg = IniFile(self.config_filename)
+        return cfg
 
     def to_json(self):
         return {
