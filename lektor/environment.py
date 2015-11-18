@@ -58,7 +58,7 @@ DEFAULT_CONFIG = {
     'PACKAGES': {},
     'ALTERNATIVES': {},
     'PRIMARY_ALTERNATIVE': None,
-    'SERVERS': {}
+    'SERVERS': {},
 }
 
 
