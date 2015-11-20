@@ -281,18 +281,37 @@ def shell_cmd(ctx):
 @cli.command('project-info', short_help='Shows the info about a project.')
 @click.option('as_json', '--json', is_flag=True,
               help='Prints out the data as json.')
+@click.option('ops', '--name', is_flag=True, multiple=True,
+              flag_value='name', help='Print the project name')
+@click.option('ops', '--project-file', is_flag=True, multiple=True,
+              flag_value='project_file',
+              help='Print the path to the project file.')
+@click.option('ops', '--tree', is_flag=True, multiple=True,
+              flag_value='tree', help='Print the path to the tree.')
+@click.option('ops', '--output-path', is_flag=True, multiple=True,
+              flag_value='default_output_path',
+              help='Print the path to the default output path.')
 @pass_context
-def project_info_cmd(ctx, as_json):
-    """Prints out information about the project."""
+def project_info_cmd(ctx, as_json, ops):
+    """Prints out information about the project.  This is particular
+    useful for script usage or for discovering information about a
+    Lektor project that is not immediately obvious (like the paths
+    to the default output folder).
+    """
     project = ctx.get_project()
     if as_json:
         echo_json(project.to_json())
         return
 
-    click.echo('Name: %s' % project.name)
-    click.echo('File: %s' % project.project_file)
-    click.echo('Tree: %s' % project.tree)
-    click.echo('Output: %s' % project.get_output_path())
+    if ops:
+        data = project.to_json()
+        for op in ops:
+            click.echo(data.get(op, ''))
+    else:
+        click.echo('Name: %s' % project.name)
+        click.echo('File: %s' % project.project_file)
+        click.echo('Tree: %s' % project.tree)
+        click.echo('Output: %s' % project.get_output_path())
 
 
 @cli.command('content-file-info', short_help='Provides information for '
