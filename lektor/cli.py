@@ -350,13 +350,13 @@ def content_file_info_cmd(ctx, files, as_json):
             click.echo('  - %s' % project_file)
 
 
-@cli.command('plugins', short_help='Lists installed plugins')
+@cli.command('plugins', short_help='Lists installed plugins.')
 @click.option('as_json', '--json', is_flag=True,
               help='Prints out the data as json.')
 @click.option('--reinstall', is_flag=True,
               help='Forces a fresh installation of the plugins.')
 @click.option('--uninstall', is_flag=True,
-              help='Forces an uninstallation of all plutins.')
+              help='Forces an uninstallation of all plugins.')
 @pass_context
 def plugins_cmd(ctx, as_json, reinstall, uninstall):
     """Given a list of files this returns the information for those files
@@ -391,6 +391,16 @@ def plugins_cmd(ctx, as_json, reinstall, uninstall):
             click.echo('  %s' % line)
         click.echo('  path: %s' % plugin.path)
         click.echo('  import-name: %s' % plugin.import_name)
+
+
+@cli.command('quickstart', short_help='Starts a new empty project.')
+@click.option('--name', help='The name of the project.')
+@click.option('--path', type=click.Path(), help='Output directory')
+@pass_context
+def quickstart_cmd(ctx, **options):
+    """Starts a new empty project with a minimum boilerplate."""
+    from lektor.quickstart import run
+    run(options)
 
 
 main = cli
