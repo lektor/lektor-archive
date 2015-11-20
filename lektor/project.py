@@ -56,6 +56,7 @@ class Project(object):
             'name': self.name,
             'project_file': self.project_file,
             'project_path': self.project_path,
+            'default_output_path': self.get_output_path(),
             'id': self.id,
             'tree': self.tree,
         }

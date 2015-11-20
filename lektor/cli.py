@@ -292,6 +292,7 @@ def project_info_cmd(ctx, as_json):
     click.echo('Name: %s' % project.name)
     click.echo('File: %s' % project.project_file)
     click.echo('Tree: %s' % project.tree)
+    click.echo('Output: %s' % project.get_output_path())
 
 
 @cli.command('content-file-info', short_help='Provides information for '
