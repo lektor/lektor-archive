@@ -27,6 +27,7 @@ def create_tables(con):
                 source_mtime integer,
                 source_size integer,
                 source_checksum text,
+                is_dir integer,
                 is_primary_source integer,
                 primary key (artifact, source)
             );
@@ -188,7 +189,8 @@ class BuildState(object):
         try:
             cur = con.cursor()
             cur.execute('''
-                select source, source_mtime, source_size, source_checksum
+                select source, source_mtime, source_size,
+                       source_checksum, is_dir
                 from artifacts
                 where artifact = ?
             ''', [artifact_name])
@@ -196,8 +198,9 @@ class BuildState(object):
         finally:
             con.close()
 
-        for filename, mtime, size, checksum in rv:
-            yield FileInfo(self.env, filename, mtime, size, checksum)
+        for filename, mtime, size, checksum, is_dir in rv:
+            yield FileInfo(self.env, filename, mtime, size, checksum,
+                           bool(is_dir))
 
     def write_source_info(self, info):
         """Writes the source info into the database.  The source info is
@@ -340,16 +343,33 @@ class BuildState(object):
             con.close()
 
 
+def _describe_fs_path_for_checksum(path):
+    """Given a file system path this returns a basic description of what
+    this is.  This is used for checksum hashing on directories.
+    """
+    # This is not entirely correct as it does not detect changes for
+    # contents from alternatives.  However for the moment it's good
+    # enough.
+    if os.path.isfile(path):
+        return '\x01'
+    if os.path.isfile(os.path.join(path, 'contents.lr')):
+        return '\x02'
+    if os.path.isdir(path):
+        return '\x03'
+    return '\x00'
+
+
 class FileInfo(object):
     """A file info object holds metainformation of a file so that changes
     can be detected easily.
     """
 
-    def __init__(self, env, filename, mtime=None, size=None, checksum=None):
+    def __init__(self, env, filename, mtime=None, size=None,
+                 checksum=None, is_dir=None):
         self.env = env
         self.filename = filename
-        if mtime is not None and size is not None:
-            self._stat = (mtime, size)
+        if mtime is not None and size is not None and is_dir is not None:
+            self._stat = (mtime, size, is_dir)
         else:
             self._stat = None
         self._checksum = checksum
@@ -364,11 +384,13 @@ class FileInfo(object):
             mtime = int(st.st_mtime)
             if stat.S_ISDIR(st.st_mode):
                 size = len(os.listdir(self.filename))
+                is_dir = True
             else:
                 size = int(st.st_size)
-            rv = mtime, size
+                is_dir = False
+            rv = mtime, size, is_dir
         except OSError:
-            rv = 0, -1
+            rv = 0, -1, False
         self._stat = rv
         return rv
 
@@ -383,6 +405,11 @@ class FileInfo(object):
         dictionary then the size is actually the number of files in it.
         """
         return self._get_stat()[1]
+
+    @property
+    def is_dir(self):
+        """Is this a directory?"""
+        return self._get_stat()[2]
 
     @property
     def exists(self):
@@ -404,7 +431,10 @@ class FileInfo(object):
                         continue
                     if isinstance(filename, unicode):
                         filename = filename.encode('utf-8')
-                    h.update(filename + '\x00')
+                    h.update(filename)
+                    h.update(_describe_fs_path_for_checksum(
+                        os.path.join(self.filename, filename)))
+                    h.update('\x00')
             else:
                 with open(self.filename, 'rb') as f:
                     while 1:
@@ -418,19 +448,19 @@ class FileInfo(object):
         self._checksum = checksum
         return checksum
 
-    def __eq__(self, other):
-        if type(other) is not FileInfo:
-            return False
-
+    def unchanged(self, other):
+        """Given another file info checks if the are similar enough to
+        not consider it changed.
+        """
         # If mtime and size match, we skip the checksum comparison which
         # might require a file read which we do not want in those cases.
-        if self.mtime == other.mtime and self.size == other.size:
+        # (Except if it's a directory, then we won't do that)
+        if not self.is_dir and \
+           self.mtime == other.mtime and \
+           self.size == other.size:
             return True
 
         return self.checksum == other.checksum
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
 
 class Artifact(object):
@@ -494,7 +524,7 @@ class Artifact(object):
                 return False
 
             # If the file info is different, then it clearly changed.
-            if info != self.build_state.get_file_info(info.filename):
+            if not info.unchanged(self.build_state.get_file_info(info.filename)):
                 return False
 
         return True
@@ -553,7 +583,7 @@ class Artifact(object):
                     continue
                 info = self.build_state.get_file_info(source)
                 rows.append((self.artifact_name, source, info.mtime,
-                             info.size, info.checksum,
+                             info.size, info.checksum, info.is_dir,
                              source in primary_sources))
                 seen.add(source)
 
@@ -566,8 +596,8 @@ class Artifact(object):
                 cur.executemany('''
                     insert into artifacts (artifact, source, source_mtime,
                                            source_size, source_checksum,
-                                           is_primary_source)
-                    values (?, ?, ?, ?, ?, ?)
+                                           is_dir, is_primary_source)
+                    values (?, ?, ?, ?, ?, ?, ?)
                 ''', rows)
             cur.close()
 
