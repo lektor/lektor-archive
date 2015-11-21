@@ -1,4 +1,3 @@
-import sys
 import traceback
 from lektor.types import Type
 from lektor.environment import Expression, FormatExpression, PRIMARY_ALT

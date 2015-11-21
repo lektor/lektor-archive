@@ -15,9 +15,8 @@ from threading import Thread
 from datetime import datetime
 from contextlib import contextmanager
 
-from urlparse import urlparse
-
 from werkzeug.http import http_date
+from werkzeug.urls import url_parse
 from werkzeug import urls
 from werkzeug.posixemulation import rename
 from jinja2 import is_undefined
@@ -321,13 +320,22 @@ class Url(object):
 
     def __init__(self, value):
         self.url = value
-        self.host = urlparse(value).netloc
+        u = url_parse(value)
+        i = u.to_iri_tuple()
+        self.ascii_url = str(u)
+        self.host = i.host
+        self.ascii_host = u.ascii_host
+        self.port = u.port
+        self.path = i.path
+        self.query = u.query
+        self.anchor = i.fragment
+        self.scheme = u.scheme
 
     def __unicode__(self):
         return self.url
 
     def __str__(self):
-        return self.url
+        return self.ascii_url
 
 
 def is_unsafe_to_delete(path, base):
