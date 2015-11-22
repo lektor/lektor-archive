@@ -190,3 +190,12 @@ def test_basic_query_syntax_template(pad, eval_expr):
 
     assert len(encumbered) == 2
     assert [x['name'] for x in encumbered] == ['Master', 'Slave']
+
+
+def test_is_child_of(pad):
+    projects = pad.get('/projects')
+    assert projects.is_child_of(projects)
+    assert not projects.is_child_of(projects, strict=True)
+    child = projects.children.first()
+    assert child.is_child_of(projects)
+    assert child.is_child_of(projects, strict=True)

@@ -296,6 +296,14 @@ class Record(SourceObject):
         """The negated version of :attr:`is_hidden`."""
         return not self.is_hidden
 
+    def is_child_of(self, path, strict=False):
+        if isinstance(path, Record):
+            path = path['_path']
+        this_path = cleanup_path(self['_path']).split('/')
+        crumbs = cleanup_path(path).split('/')
+        return this_path[:len(crumbs)] == crumbs and \
+            (not strict or len(this_path) > len(crumbs))
+
     def get_fallback_record_label(self, lang):
         if not self['_id']:
             return '(Index)'
@@ -435,13 +443,6 @@ class Page(Record):
             self.datamodel.pagination_config.url_suffix.strip('/'),
             self.page_num,
         )
-
-    def is_child_of(self, path):
-        if isinstance(path, Record):
-            path = path['_path']
-        this_path = cleanup_path(self['_path']).split('/')
-        crumbs = cleanup_path(path).split('/')
-        return this_path[:len(crumbs)] == crumbs
 
     def resolve_url_path(self, url_path):
         # If we hit the end of the url path, then we found our target.

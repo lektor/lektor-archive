@@ -7,6 +7,10 @@ from lektor.environment import PRIMARY_ALT
 class SourceObject(object):
     source_classification = 'generic'
 
+    # We consider this class at least what public usage is to considered
+    # to be from another place.
+    __module__ = 'db'
+
     def __init__(self, pad):
         self._pad = weakref(pad)
 
@@ -30,7 +34,7 @@ class SourceObject(object):
 
     @property
     def path(self):
-        """Return the full pato to the source object."""
+        """Return the full path to the source object."""
         return self.url_path.strip('/')
 
     @property
