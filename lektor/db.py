@@ -99,7 +99,7 @@ class _CmpHelper(object):
 
 
 def _auto_wrap_expr(value):
-    if isinstance(value, _Expr):
+    if isinstance(value, Expression):
         return value
     return _Literal(value)
 
@@ -111,7 +111,7 @@ def save_eval(filter, record):
         return Undefined(e.message)
 
 
-class _Expr(object):
+class Expression(object):
 
     def __eval__(self, record):
         return record
@@ -167,11 +167,11 @@ class _Expr(object):
 
 
 # Query helpers for the template engine
-setattr(_Expr, 'and', lambda x, o: x & o)
-setattr(_Expr, 'or', lambda x, o: x | o)
+setattr(Expression, 'and', lambda x, o: x & o)
+setattr(Expression, 'or', lambda x, o: x | o)
 
 
-class _IsBoolExpr(_Expr):
+class _IsBoolExpr(Expression):
 
     def __init__(self, expr, true):
         self.__expr = expr
@@ -183,7 +183,7 @@ class _IsBoolExpr(_Expr):
                 val not in (None, 0, False, '')) == self.__true
 
 
-class _Literal(_Expr):
+class _Literal(Expression):
 
     def __init__(self, value):
         self.__value = value
@@ -192,7 +192,7 @@ class _Literal(_Expr):
         return self.__value
 
 
-class _BinExpr(_Expr):
+class _BinExpr(Expression):
 
     def __init__(self, left, right, op):
         self.__left = left
@@ -206,7 +206,7 @@ class _BinExpr(_Expr):
         )
 
 
-class _ContainmentExpr(_Expr):
+class _ContainmentExpr(Expression):
 
     def __init__(self, seq, item):
         self.__seq = seq
@@ -220,7 +220,7 @@ class _ContainmentExpr(_Expr):
         return item in seq
 
 
-class _RecordQueryField(_Expr):
+class _RecordQueryField(Expression):
 
     def __init__(self, field):
         self.__field = field
@@ -505,10 +505,6 @@ class Page(Record):
         return self.datamodel.pagination_config.slice_query_for_page(
             self.children, self.page_num)
 
-    def find_page(self, path):
-        """Finds a child page."""
-        return self.children.get(path)
-
     @property
     def attachments(self):
         """Returns a query for the attachments of this record."""
@@ -698,13 +694,6 @@ class Query(object):
         """
         rv = self._clone(mark_dirty=True)
         rv._include_hidden = value
-        return rv
-
-    @property
-    def with_attachments(self):
-        """Includes attachments as well."""
-        rv = self._clone(mark_dirty=True)
-        rv._include_attachments = True
         return rv
 
     def request_page(self, page_num):
