@@ -33,6 +33,7 @@ _slashes_re = re.compile(r'/+')
 _last_num_re = re.compile(r'^(.*)(\d+)(.*?)$')
 _list_marker = object()
 _value_marker = object()
+_slug_re = re.compile(r'([a-zA-Z0-9.-_]+)')
 
 # Figure out our fs encoding, if it's ascii we upgrade to utf-8
 fs_enc = sys.getfilesystemencoding()
@@ -312,8 +313,10 @@ class WorkerPool(object):
 
 def slugify(value):
     # XXX: not good enough
-    return u'-'.join(value.strip().encode(
+    rv = u' '.join(value.strip().encode(
         'ascii', 'ignore').strip().split()).lower()
+    words = _slug_re.findall(rv)
+    return '-'.join(words)
 
 
 class Url(object):

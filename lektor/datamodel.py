@@ -279,7 +279,7 @@ class DataModel(object):
         """Formats out the child slug."""
         slug_format = self.child_config.slug_format
         if slug_format is None:
-            return slugify(data['_id'])
+            return data['_id']
 
         if self._child_slug_tmpl is None or \
            self._child_slug_tmpl[0] != slug_format:
