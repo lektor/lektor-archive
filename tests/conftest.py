@@ -6,9 +6,9 @@ import tempfile
 
 @pytest.fixture(scope='function')
 def project(request):
-    from lektor.project import load_project
-    return load_project(os.path.join(os.path.dirname(__file__),
-                                     'demo-project'))
+    from lektor.project import Project
+    return Project.from_path(os.path.join(os.path.dirname(__file__),
+                                          'demo-project'))
 
 
 @pytest.fixture(scope='function')

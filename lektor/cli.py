@@ -7,7 +7,7 @@ import pkg_resources
 
 from .i18n import get_default_lang, is_valid_language
 from .utils import secure_url
-from .project import discover_project, load_project
+from .project import Project
 
 
 version = pkg_resources.get_distribution('Lektor').version
@@ -45,9 +45,9 @@ class Context(object):
         if self._project is not None:
             return self._project
         if self._project_path is not None:
-            rv = load_project(self._project_path)
+            rv = Project.from_path(self._project_path)
         else:
-            rv = discover_project()
+            rv = Project.discover()
         if rv is None:
             raise click.UsageError('Could not find project')
         self._project = rv
@@ -85,7 +85,7 @@ def validate_language(ctx, param, value):
     return value
 
 
-@click.group()
+@click.group(chain=True)
 @click.option('--project', type=click.Path(),
               help='The path to the lektor project to work with.')
 @click.option('--language', default=None, callback=validate_language,
@@ -96,7 +96,9 @@ def cli(ctx, project=None, language=None):
     """The lektor management application.
 
     This command can invoke lektor locally and serve up the website.  It's
-    intended for local development of websites.
+    intended for local development of websites.  Multiple commands can be
+    executed in a chain if needed.  So `clean --yes build deploy staging`
+    is a valid command line.
     """
     if language is not None:
         ctx.ui_lang = language
@@ -122,7 +124,20 @@ def cli(ctx, project=None, language=None):
 @pass_context
 def build_cmd(ctx, output_path, watch, prune, verbosity,
               source_info_only):
-    """Builds the entire site out."""
+    """Builds the entire project into the final artifacts.
+
+    The default behavior is to build the project into the default build
+    output path which can be discovered with the `project-info` command
+    but an alternative output folder can be provided with the `--output-path`
+    option.
+
+    The default behavior is to perform a build followed by a pruning step
+    which removes no longer referenced artifacts from the output folder.
+    Lektor will only build the files that require rebuilding if the output
+    folder is reused.
+
+    To enforce a clean build you have to issue a `clean` command first.
+    """
     from lektor.builder import Builder
     from lektor.reporter import CliReporter
 
@@ -165,7 +180,11 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
 @click.confirmation_option(help='Confirms the cleaning.')
 @pass_context
 def clean_cmd(ctx, output_path, verbosity):
-    """Cleans the entire build folder."""
+    """Cleans the entire build folder.
+
+    If not build folder is provided, the default build folder of the project
+    in the Lektor cache is used.
+    """
     from lektor.builder import Builder
     from lektor.reporter import CliReporter
 
@@ -186,6 +205,13 @@ def clean_cmd(ctx, output_path, verbosity):
               help='The output path.')
 @pass_context
 def deploy_cmd(ctx, server, output_path):
+    """This command deploys the entire contents of the build folder
+    (`--output-path`) onto a configured remote server.  The name of the
+    server must fit the name from a target in the project configuration.
+
+    This is commonly chained with the `build` command to ensure that the
+    current version is pushed: `lektor build publish production`.
+    """
     from lektor.publisher import publish
 
     if output_path is None:
@@ -250,7 +276,11 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
 @cli.command('shell', short_help='Starts a python shell.')
 @pass_context
 def shell_cmd(ctx):
-    """Starts a Python shell in the context of the program."""
+    """Starts a Python shell in the context of the program.
+
+    This is particularly useful for debugging plugins and to explore the
+    API.  To quit the shell just use `quit()`.
+    """
     ctx.load_plugins()
     import code
     from lektor.db import F, Tree
@@ -334,7 +364,7 @@ def content_file_info_cmd(ctx, files, as_json):
         raise click.UsageError('Could not find content file info: %s' % msg)
 
     for filename in files:
-        this_project = discover_project(filename)
+        this_project = Project.discover(filename)
         if this_project is None:
             fail('no project found')
         if project is None:

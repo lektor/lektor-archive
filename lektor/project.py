@@ -15,6 +15,62 @@ class Project(object):
         self.tree = os.path.normpath(tree)
         self.id = hashlib.md5(self.tree.encode('utf-8')).hexdigest()
 
+    @classmethod
+    def from_file(cls, filename):
+        inifile = IniFile(filename)
+        if inifile.is_new:
+            return None
+
+        name = inifile.get('project.name') or os.path.basename(
+            filename).rsplit('.')[0].title()
+        path = os.path.join(os.path.dirname(filename),
+                            to_os_path(inifile.get('project.path') or '.'))
+        return cls(
+            name=name,
+            project_file=filename,
+            tree=path,
+        )
+
+    @classmethod
+    def from_path(cls, path, extension_required=False):
+        """Locates the project for a path."""
+        path = os.path.abspath(path)
+        if os.path.isfile(path) and (not extension_required or
+                                     path.endswith('.lektorproject')):
+            return cls.from_file(path)
+
+        try:
+            files = [x for x in os.listdir(path)
+                     if x.lower().endswith('.lektorproject')]
+        except OSError:
+            return None
+
+        if len(files) == 1:
+            return cls.from_file(os.path.join(path, files[0]))
+
+        if os.path.isdir(path) and \
+           os.path.isfile(os.path.join(path, 'content/contents.lr')):
+            return cls(
+                name=os.path.basename(path),
+                project_file=None,
+                tree=path,
+            )
+
+    @classmethod
+    def discover(cls, base=None):
+        """Auto discovers the closest project."""
+        if base is None:
+            base = os.getcwd()
+        here = base
+        while 1:
+            project = cls.from_path(here, extension_required=True)
+            if project is not None:
+                return project
+            node = os.path.dirname(here)
+            if node == here:
+                break
+            here = node
+
     @property
     def project_path(self):
         return self.project_file or self.tree
@@ -60,59 +116,3 @@ class Project(object):
             'id': self.id,
             'tree': self.tree,
         }
-
-
-def project_from_file(filename):
-    inifile = IniFile(filename)
-    if inifile.is_new:
-        return None
-
-    name = inifile.get('project.name') or os.path.basename(
-        filename).rsplit('.')[0].title()
-    path = os.path.join(os.path.dirname(filename),
-                        to_os_path(inifile.get('project.path') or '.'))
-    return Project(
-        name=name,
-        project_file=filename,
-        tree=path,
-    )
-
-
-def load_project(path, extension_required=False):
-    """Locates the project for a path."""
-    path = os.path.abspath(path)
-    if os.path.isfile(path) and (not extension_required or
-                                 path.endswith('.lektorproject')):
-        return project_from_file(path)
-
-    try:
-        files = [x for x in os.listdir(path)
-                 if x.lower().endswith('.lektorproject')]
-    except OSError:
-        return None
-
-    if len(files) == 1:
-        return project_from_file(os.path.join(path, files[0]))
-
-    if os.path.isdir(path) and \
-       os.path.isfile(os.path.join(path, 'content/contents.lr')):
-        return Project(
-            name=os.path.basename(path),
-            project_file=None,
-            tree=path,
-        )
-
-
-def discover_project(base=None):
-    """Auto discovers the closest project."""
-    if base is None:
-        base = os.getcwd()
-    here = base
-    while 1:
-        project = load_project(here, extension_required=True)
-        if project is not None:
-            return project
-        node = os.path.dirname(here)
-        if node == here:
-            break
-        here = node
