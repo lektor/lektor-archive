@@ -217,8 +217,9 @@ def locate_executable(exe_file, cwd=None, include_bundle_path=True):
         resolve = False
 
     extensions = os.environ.get('PATHEXT', '').split(';')
-    # not for windows!
-    if os.name != 'nt' and '' not in extensions:
+
+    _, ext = os.path.splitext(exe_file)
+    if os.name != 'nt' and '' not in extensions or ext in extensions:
         extensions.insert(0, '')
 
     if resolve:
