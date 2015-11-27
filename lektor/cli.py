@@ -41,7 +41,7 @@ class Context(object):
         self._project_path = value
         self._project = None
 
-    def get_project(self):
+    def get_project(self, silent=False):
         if self._project is not None:
             return self._project
         if self._project_path is not None:
@@ -49,6 +49,8 @@ class Context(object):
         else:
             rv = Project.discover()
         if rv is None:
+            if silent:
+                return None
             raise click.UsageError('Could not find project')
         self._project = rv
         return rv
@@ -404,8 +406,8 @@ def plugins_cmd(ctx, as_json, reinstall, uninstall):
 @pass_context
 def quickstart_cmd(ctx, **options):
     """Starts a new empty project with a minimum boilerplate."""
-    from lektor.quickstart import run
-    run(options)
+    from lektor.quickstart import project_quickstart
+    project_quickstart(options)
 
 
 from .devcli import cli as devcli
