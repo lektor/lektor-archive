@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Lektor',
-    version='0.2.0',
+    version='0.3.0',
     url='http://github.com/mitsuhiko/lektor/',
     license='BSD',
     author='Armin Ronacher',
