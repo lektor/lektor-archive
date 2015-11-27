@@ -1,4 +1,9 @@
-all: test
+all: build-js
+
+build-js:
+	@echo "---> building static files"
+	@cd lektor/admin; npm install .
+	@cd lektor/admin/static; ../node_modules/.bin/webpack
 
 pex:
 	virtualenv pex-build-cache
@@ -13,6 +18,7 @@ pex:
 	rm -rf pex-build-cache
 
 test:
+	@echo "---> running tests"
 	@cd tests; py.test . --tb=short -v
 
 osx-dmg:

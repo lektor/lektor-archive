@@ -18,9 +18,15 @@ a Mac because that's right now the only thing that's really supported.
 
 Downloadable releases are on github: [go to releases](https://github.com/mitsuhiko/lektor/releases)
 
+If you want to use the command line version make sure to install it
+as Python package into a virtualenv and to build the js files before:
+
+    $ pip install --editable .
+    $ make build-js
+
 So how do you use it?  Just launch the app and open a project like the
-example project.  To get access to the command line executables you can
-go to Lektor -> Install Shell Command.
+example project.  If you installe the GUI and you want to get access to the
+command line executables you can go to Lektor -> Install Shell Command.
 
 Afterwards you can use the `lektor` executable from the command line.
 
