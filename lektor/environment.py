@@ -297,7 +297,7 @@ def lookup_from_bag(*args):
 
 class Environment(object):
 
-    def __init__(self, project):
+    def __init__(self, project, load_plugins=True):
         self.project = project
         self.root_path = os.path.abspath(project.tree)
 
@@ -340,6 +340,9 @@ class Environment(object):
         self.special_file_assets = {}
         self.special_file_suffixes = {}
 
+        if load_plugins:
+            self.load_plugins()
+
     @property
     def asset_path(self):
         return os.path.join(self.root_path, 'assets')
@@ -348,9 +351,21 @@ class Environment(object):
     def temp_path(self):
         return os.path.join(self.root_path, 'temp')
 
+    def load_plugins(self):
+        """Loads the plugins."""
+        from .packages import load_packages
+        from .pluginsystem import initialize_plugins
+        load_packages(self)
+        initialize_plugins(self)
+
     def load_config(self):
         """Loads the current config."""
         return Config(self.project.project_file)
+
+    def new_pad(self):
+        """Convenience function to create a database and pad."""
+        from lektor.db import Database
+        return Database(self).new_pad()
 
     def is_uninteresting_source_name(self, filename):
         """These files are always ignored when sources are built into

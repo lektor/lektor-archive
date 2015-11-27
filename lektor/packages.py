@@ -6,8 +6,13 @@ import click
 import shutil
 import tempfile
 import pkg_resources
+from subprocess import PIPE
 
 from .utils import portable_popen
+
+
+class PackageException(Exception):
+    pass
 
 
 def download_and_install_package(package_root, package=None, version=None,
@@ -69,6 +74,44 @@ def install_local_package(package_root, path):
                                          requirements_file=requires)
     finally:
         shutil.rmtree(tmp)
+
+
+def get_package_info(path):
+    """Returns the name of a package at a path."""
+    rv = portable_popen([
+        sys.executable,
+        'setup.py', '--quiet', '--name', '--author', '--author-email',
+        '--license', '--url',
+    ], cwd=path, stdout=PIPE).communicate()[0].splitlines()
+    def _process(value):
+        value = value.strip()
+        if value == 'UNKNOWN':
+            return None
+        return value.decode('utf-8', 'replace')
+    return {
+        'name': _process(rv[0]),
+        'author': _process(rv[1]),
+        'author_email': _process(rv[2]),
+        'license': _process(rv[3]),
+        'url': _process(rv[4]),
+        'path': path,
+    }
+
+
+def register_package(path):
+    """Registers the plugin at the given path."""
+    portable_popen([
+        sys.executable,
+        'setup.py', 'register'
+    ], cwd=path).wait()
+
+
+def publish_package(path):
+    """Registers the plugin at the given path."""
+    portable_popen([
+        sys.executable,
+        'setup.py', 'sdist', 'bdist_wheel', 'upload'
+    ], cwd=path).wait()
 
 
 def load_manifest(filename):

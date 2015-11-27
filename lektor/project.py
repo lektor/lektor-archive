@@ -17,6 +17,7 @@ class Project(object):
 
     @classmethod
     def from_file(cls, filename):
+        """Reads a project from a project file."""
         inifile = IniFile(filename)
         if inifile.is_new:
             return None
@@ -106,6 +107,11 @@ class Project(object):
         prefix = os.path.commonprefix([content_path, file_path])
         if prefix == content_path:
             return '/' + '/'.join(file_path[len(content_path):])
+
+    def make_env(self, load_plugins=True):
+        """Create a new environment for this project."""
+        from lektor.environment import Environment
+        return Environment(self, load_plugins=load_plugins)
 
     def to_json(self):
         return {

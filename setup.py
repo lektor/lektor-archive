@@ -14,7 +14,7 @@ setup(
     platforms='any',
     install_requires=[
         'Jinja2>=2.4',
-        'click>=2.0',
+        'click>=6.0',
         'watchdog',
         'mistune',
         'Flask',

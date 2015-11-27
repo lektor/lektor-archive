@@ -210,7 +210,7 @@ export class LektorInterop {
     options.port = options.port || 5000;
     let exe = this.getLektorExecutable();
     let child = spawnLektor(
-      exe, ['--project', projectPath, 'devserver', '--port',
+      exe, ['--project', projectPath, 'server', '--port',
             options.port + '']);
     return new LektorServer(child, options);
   }

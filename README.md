@@ -30,4 +30,4 @@ To build projects:
 
 To open up the admin ui and dev server:
 
-    lektor devserver --browse
+    lektor server --browse

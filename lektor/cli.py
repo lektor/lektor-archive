@@ -60,14 +60,9 @@ class Context(object):
         if self._env is not None:
             return self._env
         from lektor.environment import Environment
-        env = Environment(self.get_project())
+        env = Environment(self.get_project(), load_plugins=False)
         self._env = env
         return env
-
-    def new_pad(self):
-        from lektor.db import Database
-        env = self.get_env()
-        return Database(env).new_pad()
 
     def load_plugins(self, reinstall=False):
         from .packages import load_packages
@@ -85,7 +80,7 @@ def validate_language(ctx, param, value):
     return value
 
 
-@click.group(chain=True)
+@click.group()
 @click.option('--project', type=click.Path(),
               help='The path to the lektor project to work with.')
 @click.option('--language', default=None, callback=validate_language,
@@ -96,9 +91,7 @@ def cli(ctx, project=None, language=None):
     """The lektor management application.
 
     This command can invoke lektor locally and serve up the website.  It's
-    intended for local development of websites.  Multiple commands can be
-    executed in a chain if needed.  So `clean --yes build deploy staging`
-    is a valid command line.
+    intended for local development of websites.
     """
     if language is not None:
         ctx.ui_lang = language
@@ -149,7 +142,7 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
     env = ctx.get_env()
 
     def _build():
-        builder = Builder(ctx.new_pad(), output_path)
+        builder = Builder(env.new_pad(), output_path)
         if source_info_only:
             builder.update_all_source_infos()
         else:
@@ -195,7 +188,7 @@ def clean_cmd(ctx, output_path, verbosity):
 
     reporter = CliReporter(env, verbosity=verbosity)
     with reporter:
-        builder = Builder(ctx.new_pad(), output_path)
+        builder = Builder(env.new_pad(), output_path)
         builder.prune(all=True)
 
 
@@ -208,9 +201,6 @@ def deploy_cmd(ctx, server, output_path):
     """This command deploys the entire contents of the build folder
     (`--output-path`) onto a configured remote server.  The name of the
     server must fit the name from a target in the project configuration.
-
-    This is commonly chained with the `build` command to ensure that the
-    current version is pushed: `lektor build publish production`.
     """
     from lektor.publisher import publish
 
@@ -239,7 +229,7 @@ def deploy_cmd(ctx, server, output_path):
     click.echo('Done!')
 
 
-@cli.command('devserver', short_help='Launch a local development server.')
+@cli.command('server', short_help='Launch a local server.')
 @click.option('-h', '--host', default='127.0.0.1',
               help='The network interface to bind to.  The default is the '
               'loopback device, but by setting it to 0.0.0.0 it becomes '
@@ -253,8 +243,8 @@ def deploy_cmd(ctx, server, output_path):
               help='Increases the verbosity of the logging.')
 @click.option('--browse', is_flag=True)
 @pass_context
-def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
-    """The devserver command will launch a local server for development.
+def server_cmd(ctx, host, port, output_path, verbosity, browse):
+    """The server command will launch a local server for development.
 
     Lektor's developemnt server will automatically build all files into
     pages similar to how the build command with the `--watch` switch
@@ -271,41 +261,6 @@ def devserver_cmd(ctx, host, port, output_path, verbosity, browse):
                verbosity=verbosity, ui_lang=ctx.ui_lang,
                lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
                browse=browse)
-
-
-@cli.command('shell', short_help='Starts a python shell.')
-@pass_context
-def shell_cmd(ctx):
-    """Starts a Python shell in the context of the program.
-
-    This is particularly useful for debugging plugins and to explore the
-    API.  To quit the shell just use `quit()`.
-    """
-    ctx.load_plugins()
-    import code
-    from lektor.db import F, Tree
-    from lektor.builder import Builder
-    banner = 'Python %s on %s\nLektor Project: %s' % (
-        sys.version,
-        sys.platform,
-        ctx.get_env().root_path,
-    )
-    ns = {}
-    startup = os.environ.get('PYTHONSTARTUP')
-    if startup and os.path.isfile(startup):
-        with open(startup, 'r') as f:
-            eval(compile(f.read(), startup, 'exec'), ns)
-    pad = ctx.new_pad()
-    ns.update(
-        env=ctx.get_env(),
-        pad=pad,
-        tree=Tree(pad),
-        config=ctx.get_env().load_config(),
-        make_builder=lambda: Builder(ctx.new_pad(),
-                                     ctx.get_default_output_path()),
-        F=F
-    )
-    code.interact(banner=banner, local=ns)
 
 
 @cli.command('project-info', short_help='Shows the info about a project.')
@@ -451,6 +406,10 @@ def quickstart_cmd(ctx, **options):
     """Starts a new empty project with a minimum boilerplate."""
     from lektor.quickstart import run
     run(options)
+
+
+from .devcli import cli as devcli
+cli.add_command(devcli, 'dev')
 
 
 main = cli
