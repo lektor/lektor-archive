@@ -1,10 +1,6 @@
-title: Welcome
+title: Welcome to Example!
 ---
 body:
 
-#### text####
-content: Welcome to this pretty nifty website.
-#### quote####
-text: Pretty cool
-----
-citation: A wise guy
+This is a basic demo website that shows how to use Lektor for a basic
+website with some pages and a blog.

@@ -1,0 +1,20 @@
+[site]
+name = Example
+ 
+# [alternatives.en]
+# name = English
+# primary = yes
+#
+# [alternatives.de]
+# name = German
+# url_prefix = /de/
+
+# [servers.production]
+# enabled = yes
+# name = Staging
+# target = rsync://myserver.com/path/to/website
+# 
+# [servers.staging]
+# enabled = yes
+# name = Staging
+# target = rsync://myserver.com/path/to/website
