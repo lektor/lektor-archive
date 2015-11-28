@@ -214,7 +214,7 @@ class AttachmentBuildProgram(BuildProgram):
 
     def build_artifact(self, artifact):
         with artifact.open('wb') as df:
-            with open(self.source.attachment_filename) as sf:
+            with open(self.source.attachment_filename, 'rb') as sf:
                 shutil.copyfileobj(sf, df)
 
 
