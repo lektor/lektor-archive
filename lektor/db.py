@@ -386,14 +386,6 @@ class Record(SourceObject):
     def __getitem__(self, name):
         return self._data[name]
 
-    def __setitem__(self, name, value):
-        self.pad.cache.persist_if_cached(self)
-        self._data[name] = value
-
-    def __delitem__(self, name):
-        self.pad.cache.persist_if_cached(self)
-        del self._data[name]
-
     def __eq__(self, other):
         if self is other:
             return True
