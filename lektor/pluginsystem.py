@@ -64,6 +64,9 @@ class Plugin(object):
             cfg = IniFile(self.config_filename)
         return cfg
 
+    def emit(self, event, **kwargs):
+        return self.env.pluginsystem.emit(self.id + '-' + event, **kwargs)
+
     def to_json(self):
         return {
             'id': self.id,
@@ -101,7 +104,7 @@ def initialize_plugins(env):
     plugins = load_plugins()
     for plugin_id, plugin_cls in plugins.iteritems():
         env.plugin_controller.instanciate_plugin(plugin_id, plugin_cls)
-    env.plugin_controller.emit('setup_env')
+    env.plugin_controller.emit('setup-env')
 
 
 class PluginController(object):
@@ -132,8 +135,9 @@ class PluginController(object):
 
     def emit(self, event, **kwargs):
         rv = {}
+        funcname = 'on_' + event.replace('-', '_')
         for plugin in self.iter_plugins():
-            handler = getattr(plugin, 'on_' + event, None)
+            handler = getattr(plugin, funcname, None)
             if handler is not None:
                 rv[plugin.id] = handler(**kwargs)
         return rv

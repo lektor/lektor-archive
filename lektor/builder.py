@@ -799,7 +799,7 @@ class Builder(object):
         """
         with reporter.build(all and 'clean' or 'prune', self):
             self.env.plugin_controller.emit(
-                'before_prune', builder=self, all=all)
+                'before-prune', builder=self, all=all)
             with self.new_build_state() as build_state:
                 for aft in build_state.iter_unreferenced_artifacts(all=all):
                     reporter.report_pruned_artifact(aft)
@@ -811,7 +811,7 @@ class Builder(object):
             if all:
                 build_state.vacuum()
             self.env.plugin_controller.emit(
-                'after_prune', builder=self, all=all)
+                'after-prune', builder=self, all=all)
 
     def build(self, source):
         """Given a source object, builds it."""
@@ -819,25 +819,25 @@ class Builder(object):
             with reporter.process_source(source):
                 prog = self.get_build_program(source, build_state)
                 self.env.plugin_controller.emit(
-                    'before_build', builder=self, build_state=build_state,
+                    'before-build', builder=self, build_state=build_state,
                     source=source, prog=prog)
                 self.update_source_info(prog, build_state)
                 prog.build()
                 self.env.plugin_controller.emit(
-                    'after_build', builder=self, build_state=build_state,
+                    'after-build', builder=self, build_state=build_state,
                     source=source, prog=prog)
                 return prog
 
     def build_all(self):
         """Builds the entire tree."""
         with reporter.build('build', self):
-            self.env.plugin_controller.emit('before_build_all', builder=self)
+            self.env.plugin_controller.emit('before-build-all', builder=self)
             to_build = self.pad.get_all_roots()
             while to_build:
                 source = to_build.pop()
                 prog = self.build(source)
                 to_build.extend(prog.iter_child_sources())
-            self.env.plugin_controller.emit('after_build_all', builder=self)
+            self.env.plugin_controller.emit('after-build-all', builder=self)
 
     def update_all_source_infos(self):
         """Fast way to update all source infos without having to build

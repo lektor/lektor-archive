@@ -51,6 +51,16 @@ def get_ctx():
     return _ctx_stack.top
 
 
+def get_locale(default='en_US'):
+    """Returns the current locale."""
+    ctx = get_ctx()
+    if ctx is not None:
+        rv = ctx.locale
+        if rv is not None:
+            return rv
+    return default
+
+
 class Context(object):
     """The context is a thread local object that provides the system with
     general information about in which state it is.  The context is created
@@ -89,6 +99,15 @@ class Context(object):
         rv = self.source
         if rv is not None and rv.source_classification == 'record':
             return rv
+
+    @property
+    def locale(self):
+        """Returns the current locale if it's available, otherwise `None`."""
+        source = self.source
+        if source is not None:
+            alt_cfg = self.pad.db.config['ALTERNATIVES'].get(source.alt)
+            if alt_cfg:
+                return alt_cfg['locale']
 
     def push(self):
         _ctx_stack.push(self)

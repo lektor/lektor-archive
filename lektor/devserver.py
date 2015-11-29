@@ -258,7 +258,7 @@ class DevTools(object):
     def start(self):
         if self.watcher is not None:
             return
-        self.signal_state = self.env.plugin_controller.emit('devtools_start')
+        self.signal_state = self.env.plugin_controller.emit('devtools-start')
 
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
@@ -271,7 +271,7 @@ class DevTools(object):
     def stop(self):
         if self.watcher is None:
             return
-        self.env.plugin_controller.emit('devtools_stop')
+        self.env.plugin_controller.emit('devtools-stop')
         self.watcher.kill()
         self.watcher.wait()
         self.watcher = None
@@ -299,7 +299,7 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
         background_builder = BackgroundBuilder(env, output_path, verbosity)
         background_builder.setDaemon(True)
         background_builder.start()
-        env.plugin_controller.emit('server_spawn', bindaddr=bindaddr)
+        env.plugin_controller.emit('server-spawn', bindaddr=bindaddr)
 
     app = WsgiApp(env, output_path, verbosity, debug=lektor_dev,
                   ui_lang=ui_lang)
@@ -322,4 +322,4 @@ def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
         if dt is not None:
             dt.stop()
         if in_main_process:
-            env.plugin_controller.emit('server_stop')
+            env.plugin_controller.emit('server-stop')

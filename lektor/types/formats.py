@@ -25,7 +25,7 @@ class MarkdownConfig(object):
 
 def make_markdown(env):
     cfg = MarkdownConfig()
-    env.plugin_controller.emit('markdown_config', config=cfg)
+    env.plugin_controller.emit('markdown-config', config=cfg)
     renderer = cfg.make_renderer()
     return mistune.Markdown(renderer, **cfg.options)
 
@@ -44,10 +44,10 @@ def markdown_to_html(text):
         _markdown_cache.md = md
 
     meta = {}
-    ctx.env.plugin_controller.emit('markdown_meta_init', meta=meta)
+    ctx.env.plugin_controller.emit('markdown-meta-init', meta=meta)
     md.renderer.meta = meta
     rv = md(text)
-    ctx.env.plugin_controller.emit('markdown_meta_postprocess', meta=meta)
+    ctx.env.plugin_controller.emit('markdown-meta-postprocess', meta=meta)
     return rv, meta
 
 

@@ -2,15 +2,17 @@ import os
 import re
 import uuid
 import copy
+from functools import update_wrapper
 
 import jinja2
+from babel import dates
 
 from inifile import IniFile
 
 from lektor.utils import tojson_filter, secure_url
 from lektor.i18n import get_i18n_block
 from lektor.context import url_to, get_asset_url, site_proxy, \
-     config_proxy, get_ctx
+     config_proxy, get_ctx, get_locale
 from lektor.pluginsystem import PluginController
 
 
@@ -62,6 +64,14 @@ DEFAULT_CONFIG = {
 }
 
 
+def _pass_locale(func):
+    def new_func(*args, **kwargs):
+        if kwargs.get('locale', None) is None:
+            kwargs['locale'] = get_locale('en_US')
+        return func(*args, **kwargs)
+    return update_wrapper(new_func, func)
+
+
 def update_config_from_ini(config, inifile):
     def set_simple(target, source_path):
         rv = config.get(source_path)
@@ -91,6 +101,7 @@ def update_config_from_ini(config, inifile):
                 'url_prefix': inifile.get('alternatives.%s.url_prefix' % alt),
                 'url_suffix': inifile.get('alternatives.%s.url_suffix' % alt),
                 'primary': inifile.get_bool('alternatives.%s.primary' % alt),
+                'locale': inifile.get('alternatives.%s.locale' % alt, 'en_US'),
             }
 
     for alt, alt_data in config['ALTERNATIVES'].iteritems():
@@ -327,6 +338,11 @@ class Environment(object):
             bag=lookup_from_bag,
             get_random_id=lambda: uuid.uuid4().hex,
         )
+        self.jinja_env.filters.update(
+            datetimeformat=_pass_locale(dates.format_datetime),
+            dateformat=_pass_locale(dates.format_date),
+            timeformat=_pass_locale(dates.format_time),
+        )
 
         from lektor.types import builtin_types
         self.types = builtin_types.copy()
@@ -386,10 +402,12 @@ class Environment(object):
         return fn[:1] in '._' or fn in IGNORED_FILES
 
     def render_template(self, name, pad=None, this=None, values=None, alt=None):
-        ctx = self.make_default_tmpl_values(pad, this, values, alt)
+        ctx = self.make_default_tmpl_values(pad, this, values, alt,
+                                            template=name)
         return self.jinja_env.get_or_select_template(name).render(ctx)
 
-    def make_default_tmpl_values(self, pad=None, this=None, values=None, alt=None):
+    def make_default_tmpl_values(self, pad=None, this=None, values=None, alt=None,
+                                 template=None):
         values = dict(values or ())
 
         # If not provided, pick the alt from the provided "this" object.
@@ -415,7 +433,8 @@ class Environment(object):
             values['this'] = this
         if alt is not None:
             values['alt'] = alt
-        self.plugin_controller.emit('process_template_context', context=values)
+        self.plugin_controller.emit('process-template-context',
+                                    context=values, template=template)
         return values
 
     def select_jinja_autoescape(self, filename):

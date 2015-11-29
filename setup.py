@@ -20,6 +20,7 @@ setup(
         'Flask',
         'EXIFRead',
         'inifile',
+        'Babel',
         'setuptools',
         'pip',
     ],
