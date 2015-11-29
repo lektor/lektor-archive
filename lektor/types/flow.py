@@ -23,7 +23,8 @@ def discover_relevant_flowblock_models(flow, pad, record, alt):
 
     all_blocks = pad.db.flowblocks
     if flow_blocks is None:
-        return all_blocks.copy()
+        return dict((k, v.to_json(pad, record, alt))
+                    for k, v in all_blocks.iteritems())
 
     wanted_blocks = set()
     to_process = flow_blocks[:]
