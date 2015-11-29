@@ -256,6 +256,7 @@ class Record(SourceObject):
     def __init__(self, pad, data, page_num=None):
         SourceObject.__init__(self, pad)
         self._data = data
+        self._bound_data = {}
         if page_num is not None and not self.supports_pagination:
             raise RuntimeError('%s does not support pagination' %
                                self.__class__.__name__)
@@ -363,28 +364,18 @@ class Record(SourceObject):
             rv[idx] = _CmpHelper(self._data.get(field), reverse)
         return rv
 
-    def to_dict(self):
-        """Returns a clone of the internal data dictionary."""
-        return dict(self._data)
-
-    def iter_fields(self):
-        """Iterates over all fields and values."""
-        return self._data.iteritems()
-
-    def iter_record_path(self):
-        """Iterates over all records that lead up to the current record."""
-        rv = []
-        node = self
-        while node is not None:
-            rv.append(node)
-            node = node.parent
-        return reversed(rv)
-
     def __contains__(self, name):
         return name in self._data and not is_undefined(self._data[name])
 
     def __getitem__(self, name):
-        return self._data[name]
+        rv = self._bound_data.get(name, Ellipsis)
+        if rv is not Ellipsis:
+            return rv
+        rv = self._data[name]
+        if hasattr(rv, '__get__'):
+            rv = rv.__get__(self)
+            self._bound_data[name] = rv
+        return rv
 
     def __eq__(self, other):
         if self is other:

@@ -1,6 +1,6 @@
 import re
 
-from jinja2 import is_undefined, Undefined, TemplateNotFound
+from jinja2 import is_undefined, TemplateNotFound
 from markupsafe import Markup
 
 from lektor.types import Type
@@ -11,27 +11,6 @@ from lektor.environment import PRIMARY_ALT
 
 _block_re = re.compile(r'^####\s*([^#]*?)\s*####\s*$')
 _line_unescape_re = re.compile(r'^#####(.*?)#####(\s*)$')
-
-
-def find_record_for_flowblock(ctx, blck):
-    """The record that contains this flow block.  This might be unavailable
-    in certain situations, it is however very useful when using the generic
-    block template rendering.
-    """
-    record = ctx.record
-    if record is None:
-        raise RuntimeError('Context does not point to a record')
-
-    # It's only the correct record, if we are contained as a field in it.
-    # This could be improved by making a better mapping for this on the
-    # datamodel probably but it's good enough for the moment.
-    for key, value in record.iter_fields():
-        if isinstance(value, Flow):
-            for other_blck in value.blocks:
-                if other_blck is blck:
-                    return record
-
-    return Undefined('Associated record unavailable.', name='record')
 
 
 def discover_relevant_flowblock_models(flow, pad, record, alt):
@@ -78,9 +57,11 @@ class BadFlowBlock(Exception):
 class FlowBlock(object):
     """Represents a flowblock for the template."""
 
-    def __init__(self, data, pad):
+    def __init__(self, data, pad, record):
         self._data = data
+        self._bound_data = {}
         self.pad = pad
+        self.record = record
 
     @property
     def flowblockmodel(self):
@@ -96,7 +77,15 @@ class FlowBlock(object):
         ctx = get_ctx()
         if ctx is not None:
             ctx.record_dependency(self.flowblockmodel.filename)
-        return self._data[name]
+
+        rv = self._bound_data.get(name, Ellipsis)
+        if rv is not Ellipsis:
+            return rv
+        rv = self._data[name]
+        if hasattr(rv, '__get__'):
+            rv = rv.__get__(self.record)
+            self._bound_data[name] = rv
+        return rv
 
     def __html__(self):
         ctx = get_ctx()
@@ -109,14 +98,13 @@ class FlowBlock(object):
         ctx.flow_block_render_stack.append(self)
         try:
             try:
-                record = find_record_for_flowblock(ctx, self)
                 return self.pad.db.env.render_template(
                     ['blocks/%s.html' % self._data['_flowblock'],
                      'blocks/default.html'],
                     pad=self.pad,
                     this=self,
-                    alt=record and record.alt or None,
-                    values={'record': record}
+                    alt=self.record and self.record.alt or None,
+                    values={'record': self.record}
                 )
             except TemplateNotFound:
                 return Markup('[could not find snippet template]')
@@ -132,8 +120,9 @@ class FlowBlock(object):
 
 class Flow(object):
 
-    def __init__(self, blocks):
+    def __init__(self, blocks, record):
         self.blocks = blocks
+        self.record = record
 
     def __html__(self):
         return Markup(u'\n\n'.join(x.__html__() for x in self.blocks))
@@ -146,6 +135,19 @@ class Flow(object):
             self.__class__.__name__,
             self.blocks,
         )
+
+
+class FlowDescriptor(object):
+
+    def __init__(self, blocks, pad):
+        self._blocks = blocks
+        self._pad = pad
+
+    def __get__(self, obj, type=None):
+        if obj is None:
+            return self
+        return Flow([FlowBlock(data, self._pad, obj)
+                     for data in self._blocks], obj)
 
 
 def process_flowblock_data(raw_value):
@@ -210,14 +212,11 @@ class FlowType(Type):
                 d = {}
                 for key, lines in tokenize(block_lines):
                     d[key] = u''.join(lines)
-                rv.append(FlowBlock(
-                    flowblock.process_raw_data(d, pad=raw.pad),
-                    pad=raw.pad
-                ))
+                rv.append(flowblock.process_raw_data(d, pad=raw.pad))
         except BadFlowBlock as e:
             return raw.bad_value(e.message)
 
-        return Flow(rv)
+        return FlowDescriptor(rv, raw.pad)
 
     def to_json(self, pad, record=None, alt=PRIMARY_ALT):
         rv = Type.to_json(self, pad, record, alt)
