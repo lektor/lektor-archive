@@ -2,6 +2,7 @@ import posixpath
 
 from weakref import ref as weakref
 from lektor.environment import PRIMARY_ALT
+from lektor.utils import make_relative_url
 
 
 class SourceObject(object):
@@ -53,38 +54,28 @@ class SourceObject(object):
         if not url_path:
             return self
 
-    def url_to(self, path, alt=None):
+    def url_to(self, path, alt=None, absolute=False):
         """Calculates the URL from the current source object to the given
         other source object.  Alternatively a path can also be provided
         instead of a source object.  If the path starts with a leading
         bang (``!``) then no resolving is performed.
         """
         if alt is None:
-            alt = self.alt
+            alt = getattr(path, 'alt', None)
+            if alt is None:
+                alt = self.alt
 
         resolve = True
-        if hasattr(path, 'url_path'):
-            path = path.url_path
-        elif path[:1] == '!':
+        path = getattr(path, 'url_path', path)
+        if path[:1] == '!':
             resolve = False
             path = path[1:]
-
-        this = self.url_path
-        if this == '/':
-            depth = 0
-            prefix = './'
-        else:
-            depth = ('/' + this.strip('/')).count('/')
-            prefix = ''
 
         if resolve:
             source = self.pad.get(posixpath.join(self.path, path), alt=alt)
             if source is not None:
                 path = source.url_path
 
-        ends_in_slash = path[-1:] == '/'
-        path = posixpath.normpath(posixpath.join(this, path))
-        if ends_in_slash and path[-1:] != '/':
-            path += '/'
-
-        return (prefix + '../' * depth).rstrip('/') + path
+        if absolute:
+            return path
+        return make_relative_url(self.url_path, path)

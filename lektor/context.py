@@ -1,8 +1,10 @@
 from jinja2 import Undefined
+from contextlib import contextmanager
 
 from werkzeug.local import LocalStack, LocalProxy
 
 from lektor.reporter import reporter
+from lektor.utils import make_relative_url
 
 
 _ctx_stack = LocalStack()
@@ -13,7 +15,7 @@ def url_to(*args, **kwargs):
     ctx = get_ctx()
     if ctx is None:
         raise RuntimeError('No context found')
-    return ctx.source.url_to(*args, **kwargs)
+    return ctx.url_to(*args, **kwargs)
 
 
 def get_asset_url(asset):
@@ -84,9 +86,13 @@ class Context(object):
 
         self.flow_block_render_stack = []
 
+        self._forced_base_url = None
+
         # General cache system where other things can put their temporary
         # stuff in.
         self.cache = {}
+
+        self._dependency_collectors = []
 
     @property
     def env(self):
@@ -122,6 +128,25 @@ class Context(object):
     def __exit__(self, exc_type, exc_value, tb):
         self.pop()
 
+    @property
+    def base_url(self):
+        """The URL path for the current context."""
+        if self._forced_base_url:
+            return self._forced_base_url
+        if self.source is not None:
+            return self.source.url_path
+        return '/'
+
+    def url_to(self, path, alt=None, absolute=False):
+        """Returns a URL to another path."""
+        if self.source is None:
+            raise RuntimeError('Can only generate paths to other pages if '
+                               'the context has a source document set.')
+        rv = self.source.url_to(path, alt=alt, absolute=True)
+        if absolute:
+            return rv
+        return make_relative_url(self.base_url, rv)
+
     def sub_artifact(self, *args, **kwargs):
         """Decorator version of :func:`add_sub_artifact`."""
         def decorator(f):
@@ -147,3 +172,26 @@ class Context(object):
     def record_dependency(self, filename):
         """Records a dependency from processing."""
         self.referenced_dependencies.add(filename)
+        for coll in self._dependency_collectors:
+            coll(filename)
+
+    @contextmanager
+    def collected_dependencies(self, func):
+        """For the duration of the `with` block the provided function will be
+        invoked for all dependencies encountered.
+        """
+        self._dependency_collectors.append(func)
+        try:
+            yield
+        finally:
+            self._dependency_collectors.pop()
+
+    @contextmanager
+    def changed_base_url(self, value):
+        """Temporarily overrides the URL path of the context."""
+        old = self._forced_base_url
+        self._forced_base_url = value
+        try:
+            yield
+        finally:
+            self._forced_base_url = old

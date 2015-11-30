@@ -104,7 +104,7 @@ class FlowBlock(object):
                      'blocks/default.html'],
                     pad=self.pad,
                     this=self,
-                    alt=self.record and self.record.alt or None,
+                    alt=self.record.alt,
                     values={'record': self.record}
                 )
             except TemplateNotFound:

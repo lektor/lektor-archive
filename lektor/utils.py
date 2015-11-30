@@ -458,6 +458,23 @@ def bool_from_string(val, default=None):
     return None
 
 
+def make_relative_url(base, target):
+    """Returns a relative URL from base to target."""
+    if base == '/':
+        depth = 0
+        prefix = './'
+    else:
+        depth = ('/' + base.strip('/')).count('/')
+        prefix = ''
+
+    ends_in_slash = target[-1:] == '/'
+    target = posixpath.normpath(posixpath.join(base, target))
+    if ends_in_slash and target[-1:] != '/':
+        target += '/'
+
+    return (prefix + '../' * depth).rstrip('/') + target
+
+
 def get_structure_hash(params):
     """Given a Python structure this generates a hash.  This is useful for
     storing artifact config hashes.  Not all Python types are supported, but
