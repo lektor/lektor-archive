@@ -33,6 +33,12 @@ def create_tables(con):
             );
         ''')
         con.execute('''
+            create table if not exists artifact_config_hashes (
+                artifact text,
+                config_hash text
+            );
+        ''')
+        con.execute('''
             create index if not exists artifacts_source on artifacts (
                 source
             )
@@ -169,12 +175,12 @@ class BuildState(object):
         return filename.replace(os.path.sep, '/')
 
     def new_artifact(self, artifact_name, sources=None, source_obj=None,
-                     extra=None):
+                     extra=None, config_hash=None):
         """Creates a new artifact and returns it."""
         dst_filename = self.get_destination_filename(artifact_name)
         key = self.artifact_name_from_destination_filename(dst_filename)
         return Artifact(self, key, dst_filename, sources, source_obj=source_obj,
-                        extra=extra)
+                        extra=extra, config_hash=config_hash)
 
     def artifact_exists(self, artifact_name):
         """Given an artifact name this checks if it was already produced."""
@@ -277,6 +283,20 @@ class BuildState(object):
             con.close()
 
         return len(rv) > 0
+
+    def get_artifact_config_hash(self, artifact_name):
+        """Returns the artifact's config hash."""
+        con = self.connect_to_database()
+        try:
+            cur = con.cursor()
+            cur.execute('''
+                select config_hash from artifact_config_hashes
+                 where artifact = ?
+            ''', [artifact_name])
+            rv = cur.fetchone()
+        finally:
+            con.close()
+        return rv and rv[0] or None
 
     def iter_unreferenced_artifacts(self, all=False):
         """Finds all unreferenced artifacts in the build folder and yields
@@ -467,7 +487,7 @@ class Artifact(object):
     """This class represents a build artifact."""
 
     def __init__(self, build_state, artifact_name, dst_filename, sources,
-                 source_obj=None, extra=None):
+                 source_obj=None, extra=None, config_hash=None):
         self.build_state = build_state
         self.artifact_name = artifact_name
         self.dst_filename = dst_filename
@@ -476,6 +496,7 @@ class Artifact(object):
         self.updated = False
         self.source_obj = source_obj
         self.extra = extra
+        self.config_hash = config_hash
 
         self._new_artifact_file = None
         self._pending_update_ops = []
@@ -508,6 +529,11 @@ class Artifact(object):
         """Checks if the artifact is current."""
         # If the artifact does not exist, we're not current.
         if not os.path.isfile(self.dst_filename):
+            return False
+
+        # The artifact config changed
+        if self.config_hash != self.build_state.get_artifact_config_hash(
+                self.artifact_name):
             return False
 
         # If one of our source files is explicitly marked as dirty in the
@@ -566,9 +592,10 @@ class Artifact(object):
             self.ensure_dir()
         self._new_artifact_file = filename
 
-    def memorize_dependencies(self, dependencies=None):
+    def _memorize_dependencies(self, dependencies=None):
         """This updates the dependencies recorded for the artifact based
-        on the direct sources plus the provided dependencies.
+        on the direct sources plus the provided dependencies.  This also
+        stores the config hash.
         """
         @self._auto_deferred_update_operation
         def operation(con):
@@ -599,6 +626,18 @@ class Artifact(object):
                                            is_dir, is_primary_source)
                     values (?, ?, ?, ?, ?, ?, ?)
                 ''', rows)
+
+            if self.config_hash is None:
+                cur.execute('''
+                    delete from artifact_config_hashes
+                     where artifact = ?
+                ''', [self.artifact_name])
+            else:
+                cur.execute('''
+                    insert or replace into artifact_config_hashes
+                           (artifact, config_hash) values (?, ?)
+                ''', [self.artifact_name, self.config_hash])
+
             cur.close()
 
     def clear_dirty_flag(self):
@@ -717,7 +756,7 @@ class Artifact(object):
         if not self.in_update_block:
             raise RuntimeError('Artifact is not open for updates.')
         ctx.pop()
-        self.memorize_dependencies(ctx.referenced_dependencies)
+        self._memorize_dependencies(ctx.referenced_dependencies)
         self.in_update_block = False
         self.updated = True
 

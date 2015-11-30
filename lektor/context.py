@@ -130,7 +130,7 @@ class Context(object):
         return decorator
 
     def add_sub_artifact(self, artifact_name, build_func=None,
-                         sources=None, source_obj=None):
+                         sources=None, source_obj=None, config_hash=None):
         """Sometimes it can happen that while building an artifact another
         artifact needs building.  This function is generally used to record
         this request.
@@ -139,6 +139,7 @@ class Context(object):
             artifact_name=artifact_name,
             sources=sources,
             source_obj=source_obj,
+            config_hash=config_hash,
         )
         self.sub_artifacts.append((aft, build_func))
         reporter.report_sub_artifact(aft)

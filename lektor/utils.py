@@ -10,6 +10,7 @@ import posixpath
 import traceback
 import unicodedata
 import multiprocessing
+import hashlib
 from Queue import Queue
 from threading import Thread
 from datetime import datetime
@@ -455,3 +456,41 @@ def bool_from_string(val, default=None):
     elif val in (False, 0, 'false', 'no', '0'):
         return False
     return None
+
+
+def get_structure_hash(params):
+    """Given a Python structure this generates a hash.  This is useful for
+    storing artifact config hashes.  Not all Python types are supported, but
+    quite a few are.
+    """
+    h = hashlib.md5()
+    def _hash(obj):
+        if obj is None:
+            h.update('N;')
+        elif obj is True:
+            h.update('T;')
+        elif obj is False:
+            h.update('F;')
+        elif isinstance(obj, dict):
+            h.update('D%d;' % len(obj))
+            for key, value in sorted(obj.items()):
+                _hash(key)
+                _hash(value)
+        elif isinstance(obj, tuple):
+            h.update('T%d;' % len(obj))
+            for item in obj:
+                _hash(item)
+        elif isinstance(obj, list):
+            h.update('L%d;' % len(obj))
+            for item in obj:
+                _hash(item)
+        elif isinstance(obj, (int, long)):
+            h.update('T%d;' % obj)
+        elif isinstance(obj, bytes):
+            h.update('B%d;%s;' % (len(obj), obj))
+        elif isinstance(obj, unicode):
+            h.update('S%d;%s;' % (len(obj), obj.encode('utf-8')))
+        elif hasattr(obj, '__get_lektor_param_hash__'):
+            obj.__get_lektor_param_hash__(h)
+    _hash(params)
+    return h.hexdigest()
