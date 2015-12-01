@@ -137,7 +137,7 @@ class Context(object):
             return self.source.url_path
         return '/'
 
-    def url_to(self, path, alt=None, absolute=False):
+    def url_to(self, path, alt=None, absolute=False, external=False):
         """Returns a URL to another path."""
         if self.source is None:
             raise RuntimeError('Can only generate paths to other pages if '
@@ -145,6 +145,8 @@ class Context(object):
         rv = self.source.url_to(path, alt=alt, absolute=True)
         if absolute:
             return rv
+        elif external:
+            return self.pad.make_absolute_url(rv)
         return make_relative_url(self.base_url, rv)
 
     def sub_artifact(self, *args, **kwargs):

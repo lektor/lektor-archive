@@ -54,7 +54,7 @@ class SourceObject(object):
         if not url_path:
             return self
 
-    def url_to(self, path, alt=None, absolute=False):
+    def url_to(self, path, alt=None, absolute=False, external=False):
         """Calculates the URL from the current source object to the given
         other source object.  Alternatively a path can also be provided
         instead of a source object.  If the path starts with a leading
@@ -78,4 +78,6 @@ class SourceObject(object):
 
         if absolute:
             return path
+        elif external:
+            return self.pad.make_absolute_url(path)
         return make_relative_url(self.url_path, path)

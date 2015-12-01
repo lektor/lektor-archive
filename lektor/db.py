@@ -10,6 +10,8 @@ from jinja2 import Undefined, is_undefined
 from jinja2.utils import LRUCache
 from jinja2.exceptions import UndefinedError
 
+from werkzeug.urls import url_join
+
 from lektor import metaformat
 from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, \
      fs_enc
@@ -1113,6 +1115,14 @@ class Pad(object):
         self.db = db
         self.cache = RecordCache(db.config['EPHEMERAL_RECORD_CACHE_SIZE'])
         self.databags = Databags(db.env)
+
+    def make_absolute_url(self, url):
+        """Given a URL this makes it absolute if this is possible."""
+        base_url = self.db.config['SITE'].get('url')
+        if base_url is None:
+            raise RuntimeError('To use absolute URLs you need to configure '
+                               'the URL in the project config.')
+        return url_join(base_url.rstrip('/') + '/', url.lstrip('/'))
 
     def resolve_url_path(self, url_path, include_invisible=False,
                          include_assets=True, alt_fallback=True):

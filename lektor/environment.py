@@ -56,6 +56,7 @@ DEFAULT_CONFIG = {
     'SITE': {
         'name': None,
         'language': 'en',
+        'url': None,
     },
     'PACKAGES': {},
     'ALTERNATIVES': {},
