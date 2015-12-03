@@ -282,18 +282,13 @@ class Record(SourceObject):
     @property
     def is_hidden(self):
         """Indicates if a record is hidden.  A record is considered hidden
-        if the record itself got hidden or any of the parent is.
+        if the record itself is hidden or the parent is.
         """
         if not is_undefined(self._data['_hidden']):
             return self._data['_hidden']
 
-        node = self.parent
-        while node is not None:
-            if node.is_hidden:
-                return True
-            node = node.parent
-
-        return False
+        parent = self.parent
+        return parent is not None and parent.is_hidden
 
     @property
     def is_visible(self):
@@ -1188,7 +1183,7 @@ class Pad(object):
     def get(self, path, alt=PRIMARY_ALT, page_num=None, persist=True):
         """Loads a record by path."""
         rv = self.cache.get(path, alt, page_num)
-        if rv is not UNCACHED:
+        if rv is not Ellipsis:
             return rv
 
         raw_data = self.db.load_raw_data(path, alt=alt)
@@ -1413,9 +1408,6 @@ class Tree(object):
                                    datamodel=datamodel)
 
 
-UNCACHED = object()
-
-
 class RecordCache(object):
     """The record cache holds records eitehr in an persistent or ephemeral
     section which helps the pad not load records it already saw.
@@ -1465,13 +1457,13 @@ class RecordCache(object):
     def get(self, path, alt=PRIMARY_ALT, page_num=None):
         """Looks up a record from the cache."""
         cache_key = self._get_cache_key(path, alt, page_num)
-        rv = self.persistent.get(cache_key, UNCACHED)
-        if rv is not UNCACHED:
+        rv = self.persistent.get(cache_key, Ellipsis)
+        if rv is not Ellipsis:
             return rv
-        rv = self.ephemeral.get(cache_key, UNCACHED)
-        if rv is not UNCACHED:
+        rv = self.ephemeral.get(cache_key, Ellipsis)
+        if rv is not Ellipsis:
             return rv
-        return UNCACHED
+        return Ellipsis
 
     def remember_as_missing(self, path, alt=PRIMARY_ALT, page_num=None):
         cache_key = self._get_cache_key(path, alt, page_num)
