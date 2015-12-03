@@ -94,10 +94,10 @@ class Reporter(object):
         pass
 
     @contextmanager
-    def build_artifact(self, artifact, build_func):
+    def build_artifact(self, artifact, build_func, is_current):
         now = time.time()
         self.artifact_stack.append(artifact)
-        self.start_artifact_build()
+        self.start_artifact_build(is_current)
         self.report_build_func(build_func)
         try:
             yield
@@ -105,7 +105,7 @@ class Reporter(object):
             self.artifact_stack.pop()
             self.finish_artifact_build(now)
 
-    def start_artifact_build(self):
+    def start_artifact_build(self, is_current):
         pass
 
     def finish_artifact_build(self, start_time):
@@ -191,9 +191,9 @@ class CliReporter(Reporter):
         self._write_line(style('Finished %s in %.2f sec' % (
             activity, time.time() - start_time), fg='cyan'))
 
-    def start_artifact_build(self):
+    def start_artifact_build(self, is_current):
         artifact = self.current_artifact
-        if artifact.is_current:
+        if is_current:
             if not self.show_current_artifacts:
                 return
             sign = click.style('X', fg='cyan')

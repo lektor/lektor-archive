@@ -329,7 +329,7 @@ class Environment(object):
             url=jinja2.contextfilter(
                 lambda ctx, *a, **kw: url_to(*a, **kw)),
             asseturl=jinja2.contextfilter(
-                lambda ctx, *a, **kw: url_to(get_asset_url(*a, **kw))),
+                lambda ctx, *a, **kw: get_asset_url(*a, **kw)),
         )
         self.jinja_env.globals.update(
             F=F,

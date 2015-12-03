@@ -116,9 +116,11 @@ def cli(ctx, project=None, language=None):
               'source info is used by the web admin panel to quickly find '
               'information about the source files (for instance jump to '
               'files).')
+@click.option('--profile', is_flag=True,
+              help='Enable build profiler.')
 @pass_context
 def build_cmd(ctx, output_path, watch, prune, verbosity,
-              source_info_only):
+              source_info_only, profile):
     """Builds the entire project into the final artifacts.
 
     The default behavior is to build the project into the default build
@@ -148,7 +150,11 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
         if source_info_only:
             builder.update_all_source_infos()
         else:
-            builder.build_all()
+            if profile:
+                from .utils import profile_func
+                profile_func(builder.build_all)
+            else:
+                builder.build_all()
             if prune:
                 builder.prune()
 

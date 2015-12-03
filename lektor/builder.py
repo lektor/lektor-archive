@@ -30,13 +30,7 @@ def create_tables(con):
                 is_dir integer,
                 is_primary_source integer,
                 primary key (artifact, source)
-            );
-        ''')
-        con.execute('''
-            create table if not exists artifact_config_hashes (
-                artifact text,
-                config_hash text
-            );
+            ) without rowid;
         ''')
         con.execute('''
             create index if not exists artifacts_source on artifacts (
@@ -44,10 +38,17 @@ def create_tables(con):
             )
         ''')
         con.execute('''
+            create table if not exists artifact_config_hashes (
+                artifact text,
+                config_hash text,
+                primary key (artifact)
+            ) without rowid;
+        ''')
+        con.execute('''
             create table if not exists dirty_sources (
                 source text,
                 primary key (source)
-            );
+            ) without rowid;
         ''')
         con.execute('''
             create table if not exists source_info (
@@ -58,7 +59,7 @@ def create_tables(con):
                 source text,
                 title text,
                 primary key (path, alt, lang)
-            )
+            ) without rowid
         ''')
     finally:
         con.close()
@@ -66,13 +67,12 @@ def create_tables(con):
 
 class BuildState(object):
 
-    def __init__(self, generator):
+    def __init__(self, generator, path_cache):
         self.builder = generator
 
-        self.file_info_cache = {}
         self.named_temporaries = set()
-
-        create_tables(self.connect_to_database())
+        self.updated_artifacts = []
+        self.path_cache = path_cache
 
     @property
     def pad(self):
@@ -118,46 +118,14 @@ class BuildState(object):
         return fn
 
     def get_file_info(self, filename):
-        """Returns the file info for a given file.  This will be cached
-        on the generator for the lifetime of it.  This means that further
-        accesses to this file info will not cause more IO but it might not
-        be safe to use the generator after modifications to the original
-        files have been performed on the outside.
-
-        Generally this function can be used to acquire the file info for
-        any file on the file system but it should onl be used for source
-        files or carefully for other things.
-
-        The filename given can be a source filename.
-        """
-        # XXX: this works on windows because slashes are still accepted.
-        fn = os.path.join(self.env.root_path, filename)
-        rv = self.file_info_cache.get(fn)
-        if rv is None:
-            self.file_info_cache[fn] = rv = FileInfo(self.env, fn)
-        return rv
+        return self.path_cache.get_file_info(filename)
 
     def to_source_filename(self, filename):
-        """Given a path somewhere below the environment this will return the
-        short source filename that is used internally.  Unlike the given
-        path, this identifier is also platform independent.
-        """
-        folder = os.path.abspath(self.env.root_path)
-        filename = os.path.normpath(os.path.join(folder, filename))
-        if filename.startswith(folder):
-            filename = filename[len(folder):].lstrip(os.path.sep)
-            if os.path.altsep:
-                filename = filename.lstrip(os.path.altsep)
-        else:
-            raise ValueError('The given value (%r) is not below the '
-                             'source folder (%r)' %
-                             (filename, self.env.root_path))
-        return filename.replace(os.path.sep, '/')
+        return self.path_cache.to_source_filename(filename)
 
     def connect_to_database(self):
         """Returns a database connection for the build state db."""
-        return sqlite3.connect(self.builder.buildstate_database_filename,
-                               timeout=10, check_same_thread=False)
+        return self.builder.connect_to_database()
 
     def get_destination_filename(self, artifact_name):
         """Returns the destination filename for an artifact name."""
@@ -187,26 +155,39 @@ class BuildState(object):
         dst_filename = self.get_destination_filename(artifact_name)
         return os.path.exists(dst_filename)
 
-    def iter_artifact_dependencies(self, artifact_name):
-        """Given an artifact name this will iterate over all dependencies
-        of it as file info objects.
-        """
+    def get_artifact_dependency_infos(self, artifact_name, sources):
         con = self.connect_to_database()
-        try:
-            cur = con.cursor()
-            cur.execute('''
-                select source, source_mtime, source_size,
-                       source_checksum, is_dir
-                from artifacts
-                where artifact = ?
-            ''', [artifact_name])
-            rv = cur.fetchall()
-        finally:
-            con.close()
+        cur = con.cursor()
+        rv = list(self._iter_artifact_dependency_infos(
+            cur, artifact_name, sources))
+        con.close()
+        return rv
 
+    def _iter_artifact_dependency_infos(self, cur, artifact_name, sources):
+        """This iterates over all dependencies as file info objects."""
+        cur.execute('''
+            select source, source_mtime, source_size,
+                   source_checksum, is_dir
+            from artifacts
+            where artifact = ?
+        ''', [artifact_name])
+        rv = cur.fetchall()
+
+        found = set()
         for filename, mtime, size, checksum, is_dir in rv:
-            yield FileInfo(self.env, filename, mtime, size, checksum,
-                           bool(is_dir))
+            file_info = FileInfo(self.env, filename, mtime, size, checksum,
+                                 bool(is_dir))
+            filename = self.to_source_filename(file_info.filename)
+            found.add(filename)
+            yield filename, file_info
+
+        # In any case we also iterate over our direct sources, even if the
+        # build state does not know about them yet.  This can be caused by
+        # an initial build or a change in original configuration.
+        for source in sources:
+            filename = self.to_source_filename(source)
+            if filename not in found:
+                yield source, None
 
     def write_source_info(self, info):
         """Writes the source info into the database.  The source info is
@@ -264,7 +245,7 @@ class BuildState(object):
         finally:
             con.close()
 
-    def any_sources_are_dirty(self, sources):
+    def _any_sources_are_dirty(self, cur, sources):
         """Given a list of sources this checks if any of them are marked
         as dirty.
         """
@@ -272,31 +253,49 @@ class BuildState(object):
         if not sources:
             return False
 
-        con = self.connect_to_database()
-        try:
-            cur = con.cursor()
-            cur.execute('''
-                select source from dirty_sources where source in (%s)
-            ''' % ', '.join(['?'] * len(sources)), sources)
-            rv = cur.fetchall()
-        finally:
-            con.close()
+        cur.execute('''
+            select source from dirty_sources where source in (%s) limit 1
+        ''' % ', '.join(['?'] * len(sources)), sources)
+        return cur.fetchone() is not None
 
-        return len(rv) > 0
-
-    def get_artifact_config_hash(self, artifact_name):
+    def _get_artifact_config_hash(self, cur, artifact_name):
         """Returns the artifact's config hash."""
+        cur.execute('''
+            select config_hash from artifact_config_hashes
+             where artifact = ?
+        ''', [artifact_name])
+        rv = cur.fetchone()
+        return rv and rv[0] or None
+
+    def check_artifact_is_current(self, artifact_name, sources, config_hash):
         con = self.connect_to_database()
+        cur = con.cursor()
         try:
-            cur = con.cursor()
-            cur.execute('''
-                select config_hash from artifact_config_hashes
-                 where artifact = ?
-            ''', [artifact_name])
-            rv = cur.fetchone()
+            # The artifact config changed
+            if config_hash != self._get_artifact_config_hash(cur, artifact_name):
+                return False
+
+            # If one of our source files is explicitly marked as dirty in the
+            # build state, we are not current.
+            if self._any_sources_are_dirty(cur, sources):
+                return False
+
+            # If we do have an already existing artifact, we need to check if
+            # any of the source files we depend on changed.
+            for source_name, info in self._iter_artifact_dependency_infos(
+                    cur, artifact_name, sources):
+                # if we get a missing source info it means that we never
+                # saw this before.  This means we need to build it.
+                if info is None:
+                    return False
+
+                # If the file info is different, then it clearly changed.
+                if not info.unchanged(self.get_file_info(info.filename)):
+                    return False
+
+            return True
         finally:
             con.close()
-        return rv and rv[0] or None
 
     def iter_unreferenced_artifacts(self, all=False):
         """Finds all unreferenced artifacts in the build folder and yields
@@ -507,23 +506,6 @@ class Artifact(object):
             self.dst_filename,
         )
 
-    def iter_dependency_infos(self):
-        """This iterates over all dependencies as file info objects."""
-        i = self.build_state.iter_artifact_dependencies(self.artifact_name)
-        found = set()
-        for file_info in i:
-            filename = self.build_state.to_source_filename(file_info.filename)
-            found.add(filename)
-            yield filename, file_info
-
-        # In any case we also iterate over our direct sources, even if the
-        # build state does not know about them yet.  This can be caused by
-        # an initial build or a change in original configuration.
-        for source in self.sources:
-            filename = self.build_state.to_source_filename(source)
-            if filename not in found:
-                yield source, None
-
     @property
     def is_current(self):
         """Checks if the artifact is current."""
@@ -531,29 +513,12 @@ class Artifact(object):
         if not os.path.isfile(self.dst_filename):
             return False
 
-        # The artifact config changed
-        if self.config_hash != self.build_state.get_artifact_config_hash(
-                self.artifact_name):
-            return False
+        return self.build_state.check_artifact_is_current(
+            self.artifact_name, self.sources, self.config_hash)
 
-        # If one of our source files is explicitly marked as dirty in the
-        # build state, we are not current.
-        if self.build_state.any_sources_are_dirty(self.sources):
-            return False
-
-        # If we do have an already existing artifact, we need to check if
-        # any of the source files we depend on changed.
-        for source_name, info in self.iter_dependency_infos():
-            # if we get a missing source info it means that we never
-            # saw this before.  This means we need to build it.
-            if info is None:
-                return False
-
-            # If the file info is different, then it clearly changed.
-            if not info.unchanged(self.build_state.get_file_info(info.filename)):
-                return False
-
-        return True
+    def get_dependency_infos(self):
+        return self.build_state.get_artifact_dependency_infos(
+            self.artifact_name, self.sources)
 
     def ensure_dir(self):
         """Creates the directory if it does not exist yet."""
@@ -706,6 +671,8 @@ class Artifact(object):
                 con.commit()
                 con.close()
                 con = None
+
+            self.build_state.updated_artifacts.append(self)
         finally:
             if con is not None:
                 con.rollback()
@@ -761,6 +728,56 @@ class Artifact(object):
         self.updated = True
 
 
+class PathCache(object):
+
+    def __init__(self, env):
+        self.file_info_cache = {}
+        self.source_filename_cache = {}
+        self.env = env
+
+    def to_source_filename(self, filename):
+        """Given a path somewhere below the environment this will return the
+        short source filename that is used internally.  Unlike the given
+        path, this identifier is also platform independent.
+        """
+        key = filename
+        rv = self.source_filename_cache.get(key)
+        if rv is not None:
+            return rv
+        folder = os.path.abspath(self.env.root_path)
+        filename = os.path.normpath(os.path.join(folder, filename))
+        if filename.startswith(folder):
+            filename = filename[len(folder):].lstrip(os.path.sep)
+            if os.path.altsep:
+                filename = filename.lstrip(os.path.altsep)
+        else:
+            raise ValueError('The given value (%r) is not below the '
+                             'source folder (%r)' %
+                             (filename, self.env.root_path))
+        rv = filename.replace(os.path.sep, '/')
+        self.source_filename_cache[key] = rv
+        return rv
+
+    def get_file_info(self, filename):
+        """Returns the file info for a given file.  This will be cached
+        on the generator for the lifetime of it.  This means that further
+        accesses to this file info will not cause more IO but it might not
+        be safe to use the generator after modifications to the original
+        files have been performed on the outside.
+
+        Generally this function can be used to acquire the file info for
+        any file on the file system but it should onl be used for source
+        files or carefully for other things.
+
+        The filename given can be a source filename.
+        """
+        fn = os.path.join(self.env.root_path, filename)
+        rv = self.file_info_cache.get(fn)
+        if rv is None:
+            self.file_info_cache[fn] = rv = FileInfo(self.env, fn)
+        return rv
+
+
 class Builder(object):
 
     def __init__(self, pad, destination_path):
@@ -768,6 +785,17 @@ class Builder(object):
         self.destination_path = os.path.abspath(os.path.join(
             pad.db.env.root_path, destination_path))
         self.meta_path = os.path.join(self.destination_path, '.lektor')
+
+        try:
+            os.makedirs(self.meta_path)
+        except OSError:
+            pass
+
+        con = self.connect_to_database()
+        try:
+            create_tables(con)
+        finally:
+            con.close()
 
     @property
     def env(self):
@@ -778,6 +806,10 @@ class Builder(object):
     def buildstate_database_filename(self):
         """The filename for the build state database."""
         return os.path.join(self.meta_path, 'buildstate')
+
+    def connect_to_database(self):
+        return sqlite3.connect(self.buildstate_database_filename,
+                               timeout=10, check_same_thread=False)
 
     def touch_site_config(self):
         """Touches the site config which typically will trigger a rebuild."""
@@ -794,13 +826,11 @@ class Builder(object):
         """
         return find_files(self, query, alt, lang, limit, types)
 
-    def new_build_state(self):
+    def new_build_state(self, path_cache=None):
         """Creates a new build state."""
-        try:
-            os.makedirs(self.meta_path)
-        except OSError:
-            pass
-        return BuildState(self)
+        if path_cache is None:
+            path_cache = PathCache(self.env)
+        return BuildState(self, path_cache)
 
     def get_build_program(self, source, build_state):
         """Finds the right build function for the given source file."""
@@ -818,8 +848,9 @@ class Builder(object):
         The return value is the ctx that was used to build this thing
         if it was built, or `None` otherwise.
         """
-        with reporter.build_artifact(artifact, build_func):
-            if not artifact.is_current:
+        is_current = artifact.is_current
+        with reporter.build_artifact(artifact, build_func, is_current):
+            if not is_current:
                 with artifact.update() as ctx:
                     build_func(artifact)
                     return ctx
@@ -836,10 +867,11 @@ class Builder(object):
         """This cleans up data left in the build folder that does not
         correspond to known artifacts.
         """
+        path_cache = PathCache(self.env)
         with reporter.build(all and 'clean' or 'prune', self):
             self.env.plugin_controller.emit(
                 'before-prune', builder=self, all=all)
-            with self.new_build_state() as build_state:
+            with self.new_build_state(path_cache=path_cache) as build_state:
                 for aft in build_state.iter_unreferenced_artifacts(all=all):
                     reporter.report_pruned_artifact(aft)
                     filename = build_state.get_destination_filename(aft)
@@ -852,16 +884,17 @@ class Builder(object):
             self.env.plugin_controller.emit(
                 'after-prune', builder=self, all=all)
 
-    def build(self, source):
+    def build(self, source, path_cache=None):
         """Given a source object, builds it."""
-        with self.new_build_state() as build_state:
+        with self.new_build_state(path_cache=path_cache) as build_state:
             with reporter.process_source(source):
                 prog = self.get_build_program(source, build_state)
                 self.env.plugin_controller.emit(
                     'before-build', builder=self, build_state=build_state,
                     source=source, prog=prog)
-                self.update_source_info(prog, build_state)
                 prog.build()
+                if build_state.updated_artifacts:
+                    self.update_source_info(prog, build_state)
                 self.env.plugin_controller.emit(
                     'after-build', builder=self, build_state=build_state,
                     source=source, prog=prog)
@@ -869,12 +902,13 @@ class Builder(object):
 
     def build_all(self):
         """Builds the entire tree."""
+        path_cache = PathCache(self.env)
         with reporter.build('build', self):
             self.env.plugin_controller.emit('before-build-all', builder=self)
             to_build = self.pad.get_all_roots()
             while to_build:
                 source = to_build.pop()
-                prog = self.build(source)
+                prog = self.build(source, path_cache=path_cache)
                 to_build.extend(prog.iter_child_sources())
             self.env.plugin_controller.emit('after-build-all', builder=self)
 

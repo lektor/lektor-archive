@@ -7,12 +7,12 @@ import threading
 from StringIO import StringIO
 from zlib import adler32
 
-from werkzeug.serving import run_simple, WSGIRequestHandler
 from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.wsgi import wrap_file, pop_path_info
 from werkzeug.utils import append_slash_redirect
+from werkzeug.serving import run_simple, WSGIRequestHandler
 
 from lektor.db import Database
 from lektor.builder import Builder

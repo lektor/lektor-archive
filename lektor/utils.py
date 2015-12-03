@@ -511,3 +511,19 @@ def get_structure_hash(params):
             obj.__get_lektor_param_hash__(h)
     _hash(params)
     return h.hexdigest()
+
+
+def profile_func(func):
+    from cProfile import Profile
+    from pstats import Stats
+
+    p = Profile()
+    rv = []
+    p.runcall(lambda: rv.append(func()))
+    p.dump_stats('/tmp/lektor-%s.prof' % func.__name__)
+
+    stats = Stats(p, stream=sys.stderr)
+    stats.sort_stats('time', 'calls')
+    stats.print_stats()
+
+    return rv[0]

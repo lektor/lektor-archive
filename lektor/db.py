@@ -11,6 +11,7 @@ from jinja2.utils import LRUCache
 from jinja2.exceptions import UndefinedError
 
 from werkzeug.urls import url_join
+from werkzeug.utils import cached_property
 
 from lektor import metaformat
 from lektor.utils import sort_normalize_string, cleanup_path, to_os_path, \
@@ -376,7 +377,7 @@ class Record(SourceObject):
         rv = self._data[name]
         if hasattr(rv, '__get__'):
             rv = rv.__get__(self)
-            self._bound_data[name] = rv
+        self._bound_data[name] = rv
         return rv
 
     def __eq__(self, other):
@@ -461,7 +462,7 @@ class Page(Record):
                 if rv is not None:
                     return rv
 
-    @property
+    @cached_property
     def parent(self):
         """The parent of the record."""
         this_path = self._data['_path']
@@ -1187,11 +1188,12 @@ class Pad(object):
     def get(self, path, alt=PRIMARY_ALT, page_num=None, persist=True):
         """Loads a record by path."""
         rv = self.cache.get(path, alt, page_num)
-        if rv is not None:
+        if rv is not UNCACHED:
             return rv
 
         raw_data = self.db.load_raw_data(path, alt=alt)
         if raw_data is None:
+            self.cache.remember_as_missing(path, alt, page_num)
             return
 
         rv = self.instance_from_data(raw_data, page_num=page_num)
@@ -1411,28 +1413,26 @@ class Tree(object):
                                    datamodel=datamodel)
 
 
+UNCACHED = object()
+
+
 class RecordCache(object):
     """The record cache holds records eitehr in an persistent or ephemeral
     section which helps the pad not load records it already saw.
     """
 
-    def __init__(self, ephemeral_cache_size=500):
+    def __init__(self, ephemeral_cache_size=1000):
         self.persistent = {}
         self.ephemeral = LRUCache(ephemeral_cache_size)
 
     def _get_cache_key(self, record_or_path, alt=PRIMARY_ALT, page_num=None):
         if isinstance(record_or_path, basestring):
-            path = record_or_path
+            path = record_or_path.strip('/')
         else:
-            path = record_or_path['_path']
+            path = record_or_path['_path'].strip('/')
             alt = record_or_path.alt
             page_num = record_or_path.page_num
-        rv = path
-        if alt != PRIMARY_ALT:
-            rv = '%s+%s' % (rv, alt)
-        if page_num is not None:
-            rv = '%s@%s' % (rv, page_num)
-        return rv
+        return (path, alt, page_num)
 
     def is_persistent(self, record):
         """Indicates if a record is in the persistent record cache."""
@@ -1465,9 +1465,15 @@ class RecordCache(object):
     def get(self, path, alt=PRIMARY_ALT, page_num=None):
         """Looks up a record from the cache."""
         cache_key = self._get_cache_key(path, alt, page_num)
-        rv = self.persistent.get(cache_key)
-        if rv is not None:
+        rv = self.persistent.get(cache_key, UNCACHED)
+        if rv is not UNCACHED:
             return rv
-        rv = self.ephemeral.get(cache_key)
-        if rv is not None:
+        rv = self.ephemeral.get(cache_key, UNCACHED)
+        if rv is not UNCACHED:
             return rv
+        return UNCACHED
+
+    def remember_as_missing(self, path, alt=PRIMARY_ALT, page_num=None):
+        cache_key = self._get_cache_key(path, alt, page_num)
+        self.persistent.pop(cache_key, None)
+        self.ephemeral[cache_key] = None
