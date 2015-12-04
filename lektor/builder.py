@@ -19,6 +19,12 @@ from werkzeug.posixemulation import rename
 
 
 def create_tables(con):
+    can_disable_rowid = ('3', '8') >= sqlite3.sqlite_version.split('.')
+    if can_disable_rowid:
+        without_rowid = 'without rowid'
+    else:
+        without_rowid = ''
+
     try:
         con.execute('''
             create table if not exists artifacts (
@@ -30,26 +36,26 @@ def create_tables(con):
                 is_dir integer,
                 is_primary_source integer,
                 primary key (artifact, source)
-            ) without rowid;
-        ''')
+            ) %s;
+        ''' % without_rowid)
         con.execute('''
             create index if not exists artifacts_source on artifacts (
                 source
-            )
+            );
         ''')
         con.execute('''
             create table if not exists artifact_config_hashes (
                 artifact text,
                 config_hash text,
                 primary key (artifact)
-            ) without rowid;
-        ''')
+            ) %s;
+        ''' % without_rowid)
         con.execute('''
             create table if not exists dirty_sources (
                 source text,
                 primary key (source)
-            ) without rowid;
-        ''')
+            ) %s;
+        ''' % without_rowid)
         con.execute('''
             create table if not exists source_info (
                 path text,
@@ -59,8 +65,8 @@ def create_tables(con):
                 source text,
                 title text,
                 primary key (path, alt, lang)
-            ) without rowid
-        ''')
+            ) %s;
+        ''' % without_rowid)
     finally:
         con.close()
 
