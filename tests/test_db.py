@@ -21,9 +21,9 @@ def test_paginated_children(pad):
 
     assert page1.children.count() == 7
     assert page1.page_num == 1
-    assert page1.paginated_children.count() == 4
+    assert page1.pagination.items.count() == 4
 
-    children = page1.paginated_children.all()
+    children = page1.pagination.items.all()
     assert len(children) == 4
     assert [x['name'] for x in children] == [
         u'Bagpipe',
@@ -32,16 +32,16 @@ def test_paginated_children(pad):
         u'Oven',
     ]
 
-    assert '/projects@1' in pad.cache.persistent
-    assert '/projects@2' not in pad.cache.persistent
+    assert ('projects', '_primary', 1) in pad.cache.persistent
+    assert ('projects', '_primary', 2) not in pad.cache.persistent
 
     page2 = pad.get('/projects', page_num=2)
 
     assert page2.children.count() == 7
     assert page2.page_num == 2
-    assert page2.paginated_children.count() == 3
+    assert page2.pagination.items.count() == 3
 
-    children = page2.paginated_children.all()
+    children = page2.pagination.items.all()
     assert len(children) == 3
     assert [x['name'] for x in children] == [
         u'Postage',
@@ -49,16 +49,16 @@ def test_paginated_children(pad):
         u'Wolf',
     ]
 
-    assert '/projects@2' in pad.cache.persistent
+    assert ('projects', '_primary', 2) in pad.cache.persistent
 
 
 def test_unpaginated_children(pad):
     page_all = pad.get('/projects')
 
-    assert page_all.paginated_children.count() == 7
+    assert page_all.pagination.items.count() == 7
     assert page_all.page_num is None
 
-    children = page_all.paginated_children.all()
+    children = page_all.pagination.items.all()
     assert len(children) == 7
     assert [x['name'] for x in children] == [
         u'Bagpipe',
@@ -115,10 +115,10 @@ def test_pagination_url_paths(pad):
 def test_unpaginated_children_other_alt(pad):
     page_all = pad.get('/projects', alt='de')
 
-    assert page_all.paginated_children.count() == 8
+    assert page_all.pagination.items.count() == 8
     assert page_all.page_num is None
 
-    children = page_all.paginated_children.all()
+    children = page_all.pagination.items.all()
     assert len(children) == 8
     assert [x['name'] for x in children] == [
         u'Dudelsack',

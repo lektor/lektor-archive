@@ -290,6 +290,13 @@ class Record(SourceObject):
         parent = self.parent
         return parent is not None and parent.is_hidden
 
+    @cached_property
+    def pagination(self):
+        """Returns the pagination controller for the record."""
+        if not self.supports_pagination:
+            raise AttributeError()
+        return self.datamodel.pagination_config.get_pagination_controller(self)
+
     @property
     def is_visible(self):
         """The negated version of :attr:`is_hidden`."""
@@ -477,14 +484,6 @@ class Page(Record):
         else:
             q = Query(path=self['_path'], pad=self.pad, alt=self.alt)
         return q.include_hidden(False)
-
-    @property
-    def paginated_children(self):
-        """Returns the correctly paginated children if there is pagination
-        on the page.
-        """
-        return self.datamodel.pagination_config.slice_query_for_page(
-            self.children, self.page_num)
 
     @property
     def attachments(self):

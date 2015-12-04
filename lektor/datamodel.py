@@ -8,6 +8,7 @@ from lektor import types
 from lektor.utils import slugify, bool_from_string
 from lektor.environment import Expression, FormatExpression, PRIMARY_ALT
 from lektor.i18n import load_i18n_block, get_i18n_block
+from lektor.pagination import Pagination
 
 
 class ChildConfig(object):
@@ -97,8 +98,13 @@ class PaginationConfig(object):
 
         # Page needs to have at least a single child.
         rv = self.get_record_for_page(record, page_num)
-        if rv.paginated_children.first() is not None:
+        if rv.pagination.items.first() is not None:
             return rv
+
+    def get_pagination_controller(self, record):
+        if not self.enabled:
+            raise RuntimeError('Pagination is disabled')
+        return Pagination(record, self)
 
     def to_json(self):
         return {
