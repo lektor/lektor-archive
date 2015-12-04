@@ -19,7 +19,7 @@ from werkzeug.posixemulation import rename
 
 
 def create_tables(con):
-    can_disable_rowid = ('3', '8') >= sqlite3.sqlite_version.split('.')
+    can_disable_rowid = ('3', '8') >= tuple(sqlite3.sqlite_version.split('.'))
     if can_disable_rowid:
         without_rowid = 'without rowid'
     else:
