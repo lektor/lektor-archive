@@ -184,7 +184,7 @@ class PageBuildProgram(BuildProgram):
         child_sources = []
 
         if pagination_enabled:
-            child_sources.append(self.source.paginated_children)
+            child_sources.append(self.source.pagination.items)
             if self.source.page_num == 1:
                 child_sources.append(self._iter_paginated_children())
         else:

@@ -1183,6 +1183,8 @@ class Pad(object):
         """Loads a record by path."""
         rv = self.cache.get(path, alt, page_num)
         if rv is not Ellipsis:
+            if rv is not None:
+                self.db.track_record_dependency(rv)
             return rv
 
         raw_data = self.db.load_raw_data(path, alt=alt)
