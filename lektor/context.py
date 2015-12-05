@@ -178,7 +178,7 @@ class Context(object):
             coll(filename)
 
     @contextmanager
-    def collected_dependencies(self, func):
+    def gather_dependencies(self, func):
         """For the duration of the `with` block the provided function will be
         invoked for all dependencies encountered.
         """
