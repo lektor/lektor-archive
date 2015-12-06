@@ -60,6 +60,7 @@ def get_locale(default='en_US'):
         rv = ctx.locale
         if rv is not None:
             return rv
+        return ctx.pad.db.config.site_locale
     return default
 
 
@@ -108,7 +109,9 @@ class Context(object):
 
     @property
     def locale(self):
-        """Returns the current locale if it's available, otherwise `None`."""
+        """Returns the current locale if it's available, otherwise `None`.
+        This does not fall back to the site locale.
+        """
         source = self.source
         if source is not None:
             alt_cfg = self.pad.db.config['ALTERNATIVES'].get(source.alt)

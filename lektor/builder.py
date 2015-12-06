@@ -16,6 +16,7 @@ from lektor.utils import prune_file_and_folder
 from lektor.environment import PRIMARY_ALT
 
 from werkzeug.posixemulation import rename
+from werkzeug.debug.tbtools import Traceback
 
 
 def create_tables(con):
@@ -563,6 +564,24 @@ class Artifact(object):
             self.ensure_dir()
         self._new_artifact_file = filename
 
+    def render_template_into(self, template_name, this, fail=False,
+                             **extra):
+        """Renders a template into the artifact.  The default behavior is to
+        catch the error and render it into the template with a failure marker.
+        """
+        try:
+            rv = self.build_state.env.render_template(
+                template_name, self.build_state.pad,
+                this=this, **extra)
+        except Exception:
+            if fail:
+                raise
+            tb = Traceback(*sys.exc_info())
+            rv = tb.render_full()
+            self.set_dirty_flag()
+        with self.open('wb') as f:
+            f.write(rv.encode('utf-8') + b'\n')
+
     def _memorize_dependencies(self, dependencies=None):
         """This updates the dependencies recorded for the artifact based
         on the direct sources plus the provided dependencies.  This also
@@ -912,6 +931,8 @@ class Builder(object):
         with reporter.build('build', self):
             self.env.plugin_controller.emit('before-build-all', builder=self)
             to_build = self.pad.get_all_roots()
+            for func in self.env.custom_generators:
+                to_build.extend(func(self.pad))
             while to_build:
                 source = to_build.pop()
                 prog = self.build(source, path_cache=path_cache)

@@ -2,7 +2,7 @@ import posixpath
 
 from weakref import ref as weakref
 from lektor.environment import PRIMARY_ALT
-from lektor.utils import make_relative_url
+from lektor.utils import make_relative_url, cleanup_path
 
 
 class SourceObject(object):
@@ -23,10 +23,18 @@ class SourceObject(object):
     @property
     def source_filename(self):
         """The primary source filename of this source object."""
-        raise NotImplementedError()
+
+    is_hidden = False
+
+    @property
+    def is_visible(self):
+        """The negated version of :attr:`is_hidden`."""
+        return not self.is_hidden
 
     def iter_source_filenames(self):
-        yield self.source_filename
+        fn = self.source_filename
+        if fn is not None:
+            yield self.source_filename
 
     @property
     def url_path(self):
@@ -35,8 +43,11 @@ class SourceObject(object):
 
     @property
     def path(self):
-        """Return the full path to the source object."""
-        return self.url_path.strip('/')
+        """Return the full path to the source object.  Not every source
+        object actually has a path but source objects without paths need
+        to subclass `VirtualSourceObject`.
+        """
+        raise NotImplementedError()
 
     @property
     def pad(self):
@@ -53,6 +64,19 @@ class SourceObject(object):
         """
         if not url_path:
             return self
+
+    def is_child_of(self, path, strict=False):
+        """Checks if the current object is a child of the passed object
+        or path.
+        """
+        if isinstance(path, SourceObject):
+            path = path.path
+        if self.path is None or path is None:
+            return False
+        this_path = cleanup_path(self.path).split('/')
+        crumbs = cleanup_path(path).split('/')
+        return this_path[:len(crumbs)] == crumbs and \
+            (not strict or len(this_path) > len(crumbs))
 
     def url_to(self, path, alt=None, absolute=False, external=False):
         """Calculates the URL from the current source object to the given
@@ -81,3 +105,28 @@ class SourceObject(object):
         elif external:
             return self.pad.make_absolute_url(path)
         return make_relative_url(self.url_path, path)
+
+
+class VirtualSourceObject(SourceObject):
+    """Virtual source objects live below a parent record but do not
+    originate from the source tree with a separate file.
+    """
+
+    def __init__(self, pad, parent):
+        SourceObject.__init__(self, pad)
+        self.parent = parent
+
+    def is_child_of(self, path, strict=False):
+        # cannot be strict going down
+        return self.parent.is_child_of(path, strict=False)
+
+    def path(self):
+        return None
+
+    @property
+    def alt(self):
+        return self.parent.alt
+
+    @property
+    def source_filename(self):
+        return self.parent.source_filename

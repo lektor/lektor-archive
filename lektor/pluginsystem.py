@@ -62,6 +62,8 @@ class Plugin(object):
                 cache[self.id] = cfg
         else:
             cfg = IniFile(self.config_filename)
+        if ctx is not None:
+            ctx.record_dependency(self.config_filename)
         return cfg
 
     def emit(self, event, **kwargs):

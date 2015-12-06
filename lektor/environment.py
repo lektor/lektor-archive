@@ -55,7 +55,7 @@ DEFAULT_CONFIG = {
     },
     'SITE': {
         'name': None,
-        'language': 'en',
+        'locale': 'en_US',
         'url': None,
     },
     'PACKAGES': {},
@@ -206,14 +206,12 @@ class Config(object):
         return self.values[name]
 
     @property
-    def site_language(self):
-        """The language of this site."""
-        return self.values['SITE']['language']
+    def site_locale(self):
+        """The locale of this site."""
+        return self.values['SITE']['locale']
 
     def get_servers(self, public=False):
-        """Returns a list of servers (data translated to the given
-        language).
-        """
+        """Returns a list of servers."""
         rv = {}
         for server in self.values['SERVERS']:
             server_info = self.get_server(server, public=public)
@@ -248,6 +246,18 @@ class Config(object):
     def list_alternatives(self):
         """Returns a sorted list of alternative IDs."""
         return sorted(self.values['ALTERNATIVES'])
+
+    def iter_alternatives(self):
+        """Iterates over all alterantives.  If the system is disabled this
+        yields '_primary'.
+        """
+        found = False
+        for alt in self.values['ALTERNATIVES']:
+            if alt != PRIMARY_ALT:
+                yield alt
+                found = True
+        if not found:
+            yield PRIMARY_ALT
 
     def get_alternative(self, alt):
         """Returns the config setting of the given alt."""
@@ -356,6 +366,8 @@ class Environment(object):
         self.build_programs = []
         self.special_file_assets = {}
         self.special_file_suffixes = {}
+        self.custom_url_resolvers = []
+        self.custom_generators = []
 
         if load_plugins:
             self.load_plugins()
@@ -443,7 +455,16 @@ class Environment(object):
             return False
         return filename.endswith(('.html', '.htm', '.xml', '.xhtml'))
 
+    def resolve_custom_url_path(self, obj, url_path):
+        for resolver in self.custom_url_resolvers:
+            rv = resolver(obj, url_path)
+            if rv is not None:
+                return rv
+
     # -- methods for the plugin system
+
+    def add_build_program(self, cls, program):
+        self.build_programs.append((cls, program))
 
     def add_asset_type(self, asset_cls, build_program):
         self.build_programs.append((asset_cls, build_program))
@@ -451,3 +472,11 @@ class Environment(object):
         if asset_cls.artifact_extension:
             cext = asset_cls.source_extension + asset_cls.artifact_extension
             self.special_file_suffixes[cext] = asset_cls.source_extension
+
+    def urlresolver(self, func):
+        self.custom_url_resolvers.append(func)
+        return func
+
+    def generator(self, func):
+        self.custom_generators.append(func)
+        return func

@@ -297,19 +297,6 @@ class Record(SourceObject):
             raise AttributeError()
         return self.datamodel.pagination_config.get_pagination_controller(self)
 
-    @property
-    def is_visible(self):
-        """The negated version of :attr:`is_hidden`."""
-        return not self.is_hidden
-
-    def is_child_of(self, path, strict=False):
-        if isinstance(path, Record):
-            path = path['_path']
-        this_path = cleanup_path(self['_path']).split('/')
-        crumbs = cleanup_path(path).split('/')
-        return this_path[:len(crumbs)] == crumbs and \
-            (not strict or len(this_path) > len(crumbs))
-
     def get_fallback_record_label(self, lang):
         if not self['_id']:
             return '(Index)'
@@ -448,8 +435,13 @@ class Page(Record):
             if child is None:
                 attachment = self.attachments.filter(F._slug == piece).first()
                 if attachment is None:
-                    continue
-                node = attachment
+                    obj = self.pad.db.env.resolve_custom_url_path(
+                        self, url_path)
+                    if obj is None:
+                        continue
+                    node = obj
+                else:
+                    node = attachment
             else:
                 node = child
 
@@ -458,11 +450,12 @@ class Page(Record):
                 return rv
 
             # Try to resolve the correctly paginated version here.
-            pg = node.datamodel.pagination_config
-            if pg.enabled:
-                rv = pg.match_pagination(node, url_path[idx + 1:])
-                if rv is not None:
-                    return rv
+            if isinstance(node, Record):
+                pg = node.datamodel.pagination_config
+                if pg.enabled:
+                    rv = pg.match_pagination(node, url_path[idx + 1:])
+                    if rv is not None:
+                        return rv
 
     @cached_property
     def parent(self):
@@ -1110,6 +1103,11 @@ class Pad(object):
         self.db = db
         self.cache = RecordCache(db.config['EPHEMERAL_RECORD_CACHE_SIZE'])
         self.databags = Databags(db.env)
+
+    @property
+    def config(self):
+        """The config for this pad."""
+        return self.db.config
 
     def make_absolute_url(self, url):
         """Given a URL this makes it absolute if this is possible."""
