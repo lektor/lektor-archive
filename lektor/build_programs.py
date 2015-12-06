@@ -150,7 +150,10 @@ class PageBuildProgram(BuildProgram):
                 )
 
     def produce_artifacts(self):
-        if self.source.is_visible:
+        pagination_enabled = self.source.datamodel.pagination_config.enabled
+
+        if self.source.is_visible and \
+           (self.source.page_num is not None or not pagination_enabled):
             self.declare_artifact(
                 posixpath.join(self.source.url_path, 'index.html'),
                 sources=list(self.source.iter_source_filenames()))
@@ -161,7 +164,7 @@ class PageBuildProgram(BuildProgram):
 
     def _iter_paginated_children(self):
         total = self.source.datamodel.pagination_config.count_pages(self.source)
-        for page_num in xrange(2, total + 1):
+        for page_num in xrange(1, total + 1):
             yield Page(self.source.pad, self.source._data,
                        page_num=page_num)
 
@@ -169,13 +172,30 @@ class PageBuildProgram(BuildProgram):
         pagination_enabled = self.source.datamodel.pagination_config.enabled
         child_sources = []
 
+        # So this requires a bit of explanation:
+        #
+        # the basic logic is that if we have pagination enabled then we
+        # need to consider two cases:
+        #
+        # 1. our build program has page_num = None which means that we
+        #    are not yet pointing to a page.  In that case we want to
+        #    itever over all children which will yield the pages.
+        # 2. we are pointing to a page, then our child sources are the
+        #    items that are shown on that page.
+        #
+        # In addition attachments are considered to go on page 1 if
+        # pagination is enabled or to go on the unpaginated page if
+        # pagination is disabled.
         if pagination_enabled:
-            child_sources.append(self.source.pagination.items)
-            if self.source.page_num == 1:
+            if self.source.page_num is None:
                 child_sources.append(self._iter_paginated_children())
+            else:
+                child_sources.append(self.source.pagination.items)
+                if self.source.page_num == 1:
+                    child_sources.append(self.source.attachments)
         else:
             child_sources.append(self.source.children)
-        child_sources.append(self.source.attachments)
+            child_sources.append(self.source.attachments)
 
         return chain(*child_sources)
 
