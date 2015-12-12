@@ -363,6 +363,7 @@ class Environment(object):
         # environment.
         self.plugin_controller = PluginController(self)
         self.plugins = {}
+        self.plugin_ids_by_class = {}
         self.build_programs = []
         self.special_file_assets = {}
         self.special_file_suffixes = {}

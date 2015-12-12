@@ -9,6 +9,22 @@ from werkzeug.utils import find_modules, import_string
 from lektor.context import get_ctx
 
 
+def get_plugin(plugin_id_or_class, env=None):
+    """Looks up the plugin instance by id or class."""
+    if env is None:
+        ctx = get_ctx()
+        if ctx is None:
+            raise RuntimeError('Context is unavailable and no enviroment '
+                               'was passed to the function.')
+        env = ctx.env
+    plugin_id = env.plugin_ids_by_class.get(plugin_id_or_class,
+                                            plugin_id_or_class)
+    try:
+        return env.plugins[plugin_id]
+    except KeyError:
+        raise LookupError('Plugin %r not found' % plugin_id)
+
+
 class Plugin(object):
     """This needs to be subclassed for custom plugins."""
     name = 'Your Plugin Name'
@@ -130,6 +146,7 @@ class PluginController(object):
             raise RuntimeError('Plugin "%s" is already registered'
                                % plugin_id)
         env.plugins[plugin_id] = plugin_cls(env, plugin_id)
+        env.plugin_ids_by_class[plugin_cls] = plugin_id
 
     def iter_plugins(self):
         # XXX: sort?

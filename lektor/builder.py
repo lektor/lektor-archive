@@ -1,12 +1,14 @@
 import os
 import sys
 import stat
+import shutil
 import sqlite3
 import hashlib
 import tempfile
 
 from contextlib import contextmanager
 from itertools import chain
+from collections import deque
 
 from lektor.context import Context
 from lektor.build_programs import builtin_build_programs
@@ -555,14 +557,19 @@ class Artifact(object):
             return os.fdopen(fd, mode)
         return open(self._new_artifact_file, mode)
 
-    def replace_with_file(self, filename, ensure_dir=True):
+    def replace_with_file(self, filename, ensure_dir=True, copy=False):
         """This is similar to open but it will move over a given named
         file.  The file will be deleted by a rollback or renamed by a
         commit.
         """
         if ensure_dir:
             self.ensure_dir()
-        self._new_artifact_file = filename
+        if copy:
+            with self.open('wb') as df:
+                with open(filename, 'rb') as sf:
+                    shutil.copyfileobj(sf, df)
+        else:
+            self._new_artifact_file = filename
 
     def render_template_into(self, template_name, this, fail=False,
                              **extra):
@@ -925,18 +932,25 @@ class Builder(object):
                     source=source, prog=prog)
                 return prog
 
+    def get_initial_build_queue(self):
+        """Returns the initial build queue as deque."""
+        return deque(self.pad.get_all_roots())
+
+    def extend_build_queue(self, queue, prog):
+        queue.extend(prog.iter_child_sources())
+        for func in self.env.custom_generators:
+            queue.extend(func(prog.source) or ())
+
     def build_all(self):
         """Builds the entire tree."""
         path_cache = PathCache(self.env)
         with reporter.build('build', self):
             self.env.plugin_controller.emit('before-build-all', builder=self)
-            to_build = self.pad.get_all_roots()
-            for func in self.env.custom_generators:
-                to_build.extend(func(self.pad))
+            to_build = self.get_initial_build_queue()
             while to_build:
-                source = to_build.pop()
+                source = to_build.popleft()
                 prog = self.build(source, path_cache=path_cache)
-                to_build.extend(prog.iter_child_sources())
+                self.extend_build_queue(to_build, prog)
             self.env.plugin_controller.emit('after-build-all', builder=self)
 
     def update_all_source_infos(self):
@@ -945,11 +959,11 @@ class Builder(object):
         """
         with reporter.build('source info update', self):
             with self.new_build_state() as build_state:
-                to_build = self.pad.get_all_roots()
+                to_build = self.get_initial_build_queue()
                 while to_build:
-                    source = to_build.pop()
+                    source = to_build.popleft()
                     with reporter.process_source(source):
                         prog = self.get_build_program(source, build_state)
                         self.update_source_info(prog, build_state)
-                    to_build.extend(prog.iter_child_sources())
+                    self.extend_build_queue(to_build, prog)
             build_state.prune_source_infos()

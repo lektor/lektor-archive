@@ -1109,6 +1109,11 @@ class Pad(object):
         """The config for this pad."""
         return self.db.config
 
+    @property
+    def env(self):
+        """The env for this pad."""
+        return self.db.env
+
     def make_absolute_url(self, url):
         """Given a URL this makes it absolute if this is possible."""
         base_url = self.db.config['SITE'].get('url')

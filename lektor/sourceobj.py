@@ -47,7 +47,7 @@ class SourceObject(object):
         object actually has a path but source objects without paths need
         to subclass `VirtualSourceObject`.
         """
-        raise NotImplementedError()
+        return None
 
     @property
     def pad(self):
@@ -112,16 +112,13 @@ class VirtualSourceObject(SourceObject):
     originate from the source tree with a separate file.
     """
 
-    def __init__(self, pad, parent):
-        SourceObject.__init__(self, pad)
+    def __init__(self, parent):
+        SourceObject.__init__(self, parent.pad)
         self.parent = parent
 
     def is_child_of(self, path, strict=False):
         # cannot be strict going down
         return self.parent.is_child_of(path, strict=False)
-
-    def path(self):
-        return None
 
     @property
     def alt(self):
