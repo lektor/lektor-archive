@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import re
@@ -527,3 +528,28 @@ def profile_func(func):
     stats.print_stats()
 
     return rv[0]
+
+
+def deg_to_dms(deg):
+    d = int(deg)
+    md = abs(deg - d) * 60
+    m = int(md)
+    sd = (md - m) * 60
+    return (d, m, sd)
+
+
+def format_lat_long(lat=None, long=None, secs=True):
+    def _format(value, sign):
+        d, m, sd = deg_to_dms(value)
+        return u'%d° %d′ %s%s' % (
+            abs(d),
+            abs(m),
+            secs and (u'%d″ ' % abs(sd)) or '',
+            sign[d < 0],
+        )
+    rv = []
+    if lat is not None:
+        rv.append(_format(lat, 'NS'))
+    if long is not None:
+        rv.append(_format(long, 'EW'))
+    return u', '.join(rv)

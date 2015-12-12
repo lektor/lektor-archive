@@ -9,7 +9,7 @@ from babel import dates
 
 from inifile import IniFile
 
-from lektor.utils import tojson_filter, secure_url
+from lektor.utils import tojson_filter, secure_url, format_lat_long
 from lektor.i18n import get_i18n_block
 from lektor.context import url_to, get_asset_url, site_proxy, \
      config_proxy, get_ctx, get_locale
@@ -333,6 +333,9 @@ class Environment(object):
         from lektor.db import F
         self.jinja_env.filters.update(
             tojson=tojson_filter,
+            latformat=lambda x, secs=True: format_lat_long(lat=x, secs=secs),
+            longformat=lambda x, secs=True: format_lat_long(long=x, secs=secs),
+            latlongformat=lambda x, secs=True: format_lat_long(secs=secs, *x),
             # By default filters need to be side-effect free.  This is not
             # the case for this one, so we need to make it as a dummy
             # context filter so that jinja2 will not inline it.

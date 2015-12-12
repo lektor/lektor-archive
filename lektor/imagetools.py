@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import imghdr
 import struct
@@ -111,7 +112,7 @@ class EXIFInfo(object):
 
     @property
     def f(self):
-        return u'f/%s' % self.f_num
+        return u'ƒ/%s' % self.f_num
 
     @property
     def exposure_time(self):
