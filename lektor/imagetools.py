@@ -5,7 +5,6 @@ import exifread
 import posixpath
 
 from datetime import datetime
-from jinja2 import Undefined
 
 from lektor.utils import get_dependent_url, portable_popen, locate_executable
 from lektor.reporter import reporter
@@ -16,64 +15,181 @@ from lektor.uilink import BUNDLE_BIN_PATH
 datetime.strptime('', '')
 
 
+def _convert_gps(coords, hem):
+    deg, min, sec = [float(x.num) / float(x.den) for x in coords]
+    sign = hem in 'SW' and -1 or 1
+    return sign * (deg + min / 60.0 + sec / 3600.0)
+
+
+def _combine_make(make, model):
+    make = make or ''
+    model = model or ''
+    if make and model.startswith(make):
+        return make
+    return u' '.join([make, model]).strip()
+
+
 class EXIFInfo(object):
 
     def __init__(self, d):
         self._mapping = d
 
-    def __getitem__(self, name):
-        key = name.replace('.', ' ').replace('_', ' ')
-        try:
-            rv = self._mapping[key]
-        except KeyError:
-            try:
-                rv = self._mapping['EXIF ' + key]
-            except KeyError:
-                raise KeyError(name)
+    def to_dict(self):
+        rv = {}
+        for key, value in self.__class__.__dict__.iteritems():
+            if key[:1] != '_' and isinstance(value, property):
+                rv[key] = getattr(self, key)
+        return rv
 
-        if isinstance(rv, basestring):
-            return rv
-        return rv.printable
+    def _get_string(self, key):
+        try:
+            return self._mapping[key].values.decode('utf-8', 'replace')
+        except KeyError:
+            return None
+
+    def _get_int(self, key):
+        try:
+            return self._mapping[key].values[0]
+        except LookupError:
+            return None
+
+    def _get_float(self, key, precision=4):
+        try:
+            val = self._mapping[key].values[0]
+            if isinstance(val, int):
+                return float(val)
+            return round(float(val.num) / float(val.den), precision)
+        except LookupError:
+            return None
+
+    def _get_frac_string(self, key):
+        try:
+            val = self._mapping[key].values[0]
+            return '%s/%s' % (val.num, val.den)
+        except LookupError:
+            return None
 
     @property
     def artist(self):
-        """Returns the artist of the image."""
-        try:
-            return self['Image.Artist'].decode('utf-8', 'replace')
-        except KeyError:
-            return Undefined('The exif data does not contain an artist.')
+        return self._get_string('Image Artist')
 
     @property
     def copyright(self):
-        """Returns the copyright of image."""
-        try:
-            return self['Image.Copyright'].decode('utf-8', 'replace')
-        except KeyError:
-            return Undefined('The exif data does not contain copyright info.')
+        return self._get_string('Image Copyright')
 
     @property
-    def make(self):
-        """The make of the image."""
-        try:
-            return self['Image.Make'].decode('utf-8', 'replace')
-        except KeyError:
-            return Undefined('The exif data does not contain a make.')
+    def camera_make(self):
+        return self._get_string('Image Make')
 
     @property
-    def software(self):
-        """The software used for processing the image."""
+    def camera_model(self):
+        return self._get_string('Image Model')
+
+    @property
+    def camera(self):
+        return _combine_make(self.camera_make, self.camera_model)
+
+    @property
+    def lens_make(self):
+        return self._get_string('EXIF LensMake')
+
+    @property
+    def lens_model(self):
+        return self._get_string('EXIF LensModel')
+
+    @property
+    def lens(self):
+        return _combine_make(self.lens_make, self.lens_model)
+
+    @property
+    def aperture(self):
+        return self._get_float('EXIF ApertureValue')
+
+    @property
+    def f_num(self):
+        return self._get_float('EXIF FNumber')
+
+    @property
+    def f(self):
+        return u'f/%s' % self.f_num
+
+    @property
+    def exposure_time(self):
+        return self._get_frac_string('EXIF ExposureTime')
+
+    @property
+    def shutter_speed(self):
+        val = self._get_float('EXIF ShutterSpeedValue')
+        if val is not None:
+            return '1/%d' % round(1 / (2 ** -val))
+
+    @property
+    def focal_length(self):
+        val = self._get_float('EXIF FocalLength')
+        if val is not None:
+            return u'%smm' % val
+
+    @property
+    def focal_length_35mm(self):
+        val = self._get_float('EXIF FocalLengthIn35mmFilm')
+        if val is not None:
+            return u'%dmm' % val
+
+    @property
+    def flash_info(self):
         try:
-            return self['Image.Software'].decode('utf-8', 'replace')
+            return self._mapping['EXIF Flash'].printable.decode('utf-8')
         except KeyError:
-            return Undefined('The exif data does not contain software info.')
+            return None
+
+    @property
+    def iso(self):
+        val = self._get_int('EXIF ISOSpeedRatings')
+        if val is not None:
+            return val
 
     @property
     def created_at(self):
-        """Date the image was created."""
         try:
-            return datetime.strptime(self['Image.DateTime'], '%Y:%m:%d %H:%M:%S')
+            return datetime.strptime(self._mapping['Image DateTime'].printable,
+                                     '%Y:%m:%d %H:%M:%S')
+        except (KeyError, ValueError):
+            return None
+
+    @property
+    def gps_longitude(self):
+        try:
+            return _convert_gps(self._mapping['GPS GPSLongitude'].values,
+                                self._mapping['GPS GPSLongitudeRef'].printable)
         except KeyError:
-            return Undefined('The exif data does not contain a creation date.')
+            return None
+
+    @property
+    def gps_latitude(self):
+        try:
+            return _convert_gps(self._mapping['GPS GPSLatitude'].values,
+                                self._mapping['GPS GPSLatitudeRef'].printable)
+        except KeyError:
+            return None
+
+    @property
+    def gps_altitude(self):
+        val = self._get_float('GPS GPSAltitude')
+        if val is not None:
+            try:
+                ref = self._mapping['GPS GPSAltitudeRef'].values[0]
+            except LookupError:
+                ref = 0
+            if ref == 1:
+                val *= -1
+            return val
+
+    @property
+    def gps_location(self):
+        lat = self.gps_latitude
+        long = self.gps_longitude
+        if lat is not None and long is not None:
+            return (lat, long)
 
 
 def get_suffix(width, height):
