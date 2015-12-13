@@ -86,8 +86,11 @@ def magic_split_ext(filename, ext_check=True):
 
 def iter_dotted_path_prefixes(dotted_path):
     pieces = dotted_path.split('.')
-    for x in xrange(1, len(pieces)):
-        yield '.'.join(pieces[:x]), '.'.join(pieces[x:])
+    if len(pieces) == 1:
+        yield dotted_path, None
+    else:
+        for x in xrange(1, len(pieces)):
+            yield '.'.join(pieces[:x]), '.'.join(pieces[x:])
 
 
 def resolve_dotted_value(obj, dotted_path):
@@ -110,7 +113,7 @@ def resolve_dotted_value(obj, dotted_path):
     return node
 
 
-def decode_flat_data(itemiter):
+def decode_flat_data(itemiter, dict_cls=dict):
     def _split_key(name):
         result = name.split('.')
         for idx, part in enumerate(result):
@@ -120,7 +123,7 @@ def decode_flat_data(itemiter):
 
     def _enter_container(container, key):
         if key not in container:
-            return container.setdefault(key, {})
+            return container.setdefault(key, dict_cls())
         return container[key]
 
     def _convert(container):
@@ -134,21 +137,14 @@ def decode_flat_data(itemiter):
             if not force_list and len(values) == 1:
                 values = values[0]
 
-            # We had nothing remaining, return
             if not container:
                 return values
-
-            # Values remain.  Assume that the user left out the .value
-            # part and recurse.  This exists in order to allow this
-            # usage: foo.__type=integer&foo=42
-            result = _convert(container)
-            result.setdefault('value', values)
-            return result
+            return _convert(container)
         elif container.pop(_list_marker, False):
             return [_convert(x[1]) for x in sorted(container.items())]
-        return dict((k, _convert(v)) for k, v in container.iteritems())
+        return dict_cls((k, _convert(v)) for k, v in container.iteritems())
 
-    result = {}
+    result = dict_cls()
 
     for key, value in itemiter:
         parts = _split_key(key)

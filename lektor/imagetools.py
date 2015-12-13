@@ -35,6 +35,9 @@ class EXIFInfo(object):
     def __init__(self, d):
         self._mapping = d
 
+    def __nonzero__(self):
+        return bool(self._mapping)
+
     def to_dict(self):
         rv = {}
         for key, value in self.__class__.__dict__.iteritems():

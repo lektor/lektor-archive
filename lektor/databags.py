@@ -2,6 +2,7 @@ import os
 import json
 import errno
 
+from collections import OrderedDict
 from inifile import IniFile
 
 from lektor.context import get_ctx
@@ -13,9 +14,10 @@ def load_databag(filename):
     try:
         if filename.endswith('.json'):
             with open(filename, 'r') as f:
-                return json.load(f)
+                return json.load(f, object_pairs_hook=OrderedDict)
         elif filename.endswith('.ini'):
-            return decode_flat_data(IniFile(filename).items())
+            return decode_flat_data(IniFile(filename).items(),
+                                    dict_cls=OrderedDict)
     except (OSError, IOError) as e:
         if e.errno != errno.ENOENT:
             raise
@@ -43,7 +45,7 @@ class Databags(object):
         rv = self._bags.get(name)
         if rv is None:
             filenames = []
-            rv = {}
+            rv = OrderedDict()
             for filename in sources:
                 filename = os.path.join(self.root_path, filename)
                 rv = merge(rv, load_databag(filename))
@@ -63,4 +65,6 @@ class Databags(object):
         for prefix, local_key in iter_dotted_path_prefixes(key):
             bag = self.get_bag(prefix)
             if bag is not None:
+                if local_key is None:
+                    return bag
                 return resolve_dotted_value(bag, local_key)
