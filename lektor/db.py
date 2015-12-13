@@ -24,6 +24,7 @@ from lektor.assets import Directory
 from lektor.editor import make_editor_session
 from lektor.environment import PRIMARY_ALT
 from lektor.databags import Databags
+from lektor.filecontents import FileContents
 
 
 def _require_ctx(record):
@@ -297,6 +298,10 @@ class Record(SourceObject):
             raise AttributeError()
         return self.datamodel.pagination_config.get_pagination_controller(self)
 
+    @cached_property
+    def contents(self):
+        return FileContents(self.source_filename)
+
     def get_fallback_record_label(self, lang):
         if not self['_id']:
             return '(Index)'
@@ -506,6 +511,10 @@ class Attachment(Record):
         """The associated record for this attachment."""
         return self.pad.get(self._data['_attachment_for'],
                             persist=self.pad.cache.is_persistent(self))
+
+    @cached_property
+    def contents(self):
+        return FileContents(self.attachment_filename)
 
     def get_fallback_record_label(self, lang):
         return self['_id']
