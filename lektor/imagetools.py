@@ -158,7 +158,7 @@ class EXIFInfo(object):
             return None
 
     @property
-    def gps_longitude(self):
+    def longitue(self):
         try:
             return _convert_gps(self._mapping['GPS GPSLongitude'].values,
                                 self._mapping['GPS GPSLongitudeRef'].printable)
@@ -166,7 +166,7 @@ class EXIFInfo(object):
             return None
 
     @property
-    def gps_latitude(self):
+    def latitude(self):
         try:
             return _convert_gps(self._mapping['GPS GPSLatitude'].values,
                                 self._mapping['GPS GPSLatitudeRef'].printable)
@@ -174,7 +174,7 @@ class EXIFInfo(object):
             return None
 
     @property
-    def gps_altitude(self):
+    def altitude(self):
         val = self._get_float('GPS GPSAltitude')
         if val is not None:
             try:
@@ -186,9 +186,9 @@ class EXIFInfo(object):
             return val
 
     @property
-    def gps_location(self):
-        lat = self.gps_latitude
-        long = self.gps_longitude
+    def location(self):
+        lat = self.latitude
+        long = self.longitude
         if lat is not None and long is not None:
             return (lat, long)
 
