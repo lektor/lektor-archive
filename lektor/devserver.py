@@ -152,6 +152,7 @@ class WsgiApp(object):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
+        self.build_flags = build_flags
         self.admin = WebAdmin(env, debug=debug, ui_lang=ui_lang,
                               output_path=output_path,
                               build_flags=build_flags)
@@ -162,8 +163,8 @@ class WsgiApp(object):
         return pad
 
     def get_builder(self, pad):
-        return Builder(pad, self.admin.output_path,
-                       build_flags=self.admin.build_flags)
+        return Builder(pad, self.output_path,
+                       build_flags=self.build_flags)
 
     def refresh_pad(self):
         self._pad = None
