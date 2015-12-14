@@ -15,7 +15,7 @@ from werkzeug.utils import append_slash_redirect
 from werkzeug.serving import run_simple, WSGIRequestHandler
 
 from lektor.db import Database
-from lektor.builder import Builder
+from lektor.builder import Builder, process_build_flags
 from lektor.watcher import Watcher
 from lektor.reporter import CliReporter
 from lektor.admin import WebAdmin
@@ -148,12 +148,13 @@ def safe_join(directory, filename):
 class WsgiApp(object):
 
     def __init__(self, env, output_path, verbosity=0, debug=False,
-                 ui_lang='en'):
+                 ui_lang='en', build_flags=None):
         self.env = env
         self.output_path = output_path
         self.verbosity = verbosity
         self.admin = WebAdmin(env, debug=debug, ui_lang=ui_lang,
-                              output_path=output_path)
+                              output_path=output_path,
+                              build_flags=build_flags)
 
     def get_pad(self):
         db = Database(self.env)
@@ -161,7 +162,8 @@ class WsgiApp(object):
         return pad
 
     def get_builder(self, pad):
-        return Builder(pad, self.output_path)
+        return Builder(pad, self.admin.output_path,
+                       build_flags=self.admin.build_flags)
 
     def refresh_pad(self):
         self._pad = None
@@ -217,7 +219,7 @@ class WsgiApp(object):
 
 class BackgroundBuilder(threading.Thread):
 
-    def __init__(self, env, output_path, verbosity=0):
+    def __init__(self, env, output_path, verbosity=0, build_flags=None):
         threading.Thread.__init__(self)
         watcher = Watcher(env, output_path)
         watcher.observer.start()
@@ -226,11 +228,13 @@ class BackgroundBuilder(threading.Thread):
         self.output_path = output_path
         self.verbosity = verbosity
         self.last_build = time.time()
+        self.build_flags = build_flags
 
     def build(self, update_source_info_first=False):
         try:
             db = Database(self.env)
-            builder = Builder(db.new_pad(), self.output_path)
+            builder = Builder(db.new_pad(), self.output_path,
+                              build_flags=self.build_flags)
             if update_source_info_first:
                 builder.update_all_source_infos()
             builder.build_all()
@@ -258,8 +262,6 @@ class DevTools(object):
     def start(self):
         if self.watcher is not None:
             return
-        self.signal_state = self.env.plugin_controller.emit('devtools-start')
-
         from lektor import admin
         admin = os.path.dirname(admin.__file__)
         portable_popen(['npm', 'install', '.'], cwd=admin).wait()
@@ -271,7 +273,6 @@ class DevTools(object):
     def stop(self):
         if self.watcher is None:
             return
-        self.env.plugin_controller.emit('devtools-stop')
         self.watcher.kill()
         self.watcher.wait()
         self.watcher = None
@@ -288,21 +289,24 @@ def browse_to_address(addr):
 
 
 def run_server(bindaddr, env, output_path, verbosity=0, lektor_dev=False,
-               ui_lang='en', browse=False):
+               ui_lang='en', browse=False, build_flags=None):
     """This runs a server but also spawns a background process.  It's
     not safe to call this more than once per python process!
     """
     wz_as_main = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
     in_main_process = not lektor_dev or wz_as_main
+    build_flags = process_build_flags(build_flags)
 
     if in_main_process:
-        background_builder = BackgroundBuilder(env, output_path, verbosity)
+        background_builder = BackgroundBuilder(env, output_path, verbosity,
+                                               build_flags)
         background_builder.setDaemon(True)
         background_builder.start()
-        env.plugin_controller.emit('server-spawn', bindaddr=bindaddr)
+        env.plugin_controller.emit('server-spawn', bindaddr=bindaddr,
+                                   build_flags=build_flags)
 
     app = WsgiApp(env, output_path, verbosity, debug=lektor_dev,
-                  ui_lang=ui_lang)
+                  ui_lang=ui_lang, build_flags=build_flags)
 
     dt = None
     if lektor_dev and not wz_as_main:

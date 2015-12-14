@@ -810,9 +810,23 @@ class PathCache(object):
         return rv
 
 
+def process_build_flags(flags):
+    if isinstance(flags, dict):
+        return flags
+    rv = {}
+    for flag in flags:
+        if ':' in flag:
+            k, v = flag.split(':', 1)
+            rv[k] = v
+        else:
+            rv[flag] = flag
+    return rv
+
+
 class Builder(object):
 
-    def __init__(self, pad, destination_path):
+    def __init__(self, pad, destination_path, build_flags=None):
+        self.build_flags = process_build_flags(build_flags)
         self.pad = pad
         self.destination_path = os.path.abspath(os.path.join(
             pad.db.env.root_path, destination_path))

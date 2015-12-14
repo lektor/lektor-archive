@@ -17,6 +17,14 @@ def echo_json(data):
     click.echo(json.dumps(data, indent=2).rstrip())
 
 
+def buildflag(cli):
+    return click.option(
+        '-f', '--build-flag', 'build_flags', multiple=True,
+        help='Defines an arbitrary build flag.  These can be used by plugins '
+        'to customize the build process.  More information can be found in '
+        'the documentation of affected plugins.')(cli)
+
+
 class Context(object):
 
     def __init__(self):
@@ -116,11 +124,12 @@ def cli(ctx, project=None, language=None):
               'source info is used by the web admin panel to quickly find '
               'information about the source files (for instance jump to '
               'files).')
+@buildflag
 @click.option('--profile', is_flag=True,
               help='Enable build profiler.')
 @pass_context
 def build_cmd(ctx, output_path, watch, prune, verbosity,
-              source_info_only, profile):
+              source_info_only, profile, build_flags):
     """Builds the entire project into the final artifacts.
 
     The default behavior is to build the project into the default build
@@ -146,7 +155,8 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
     env = ctx.get_env()
 
     def _build():
-        builder = Builder(env.new_pad(), output_path)
+        builder = Builder(env.new_pad(), output_path,
+                          build_flags=build_flags)
         if source_info_only:
             builder.update_all_source_infos()
         else:
@@ -249,9 +259,10 @@ def deploy_cmd(ctx, server, output_path):
               'the build command by default.')
 @click.option('-v', '--verbose', 'verbosity', count=True,
               help='Increases the verbosity of the logging.')
+@buildflag
 @click.option('--browse', is_flag=True)
 @pass_context
-def server_cmd(ctx, host, port, output_path, verbosity, browse):
+def server_cmd(ctx, host, port, output_path, verbosity, build_flags, browse):
     """The server command will launch a local server for development.
 
     Lektor's developemnt server will automatically build all files into
@@ -267,6 +278,7 @@ def server_cmd(ctx, host, port, output_path, verbosity, browse):
     click.echo(' * Output path: %s' % output_path)
     run_server((host, port), env=ctx.get_env(), output_path=output_path,
                verbosity=verbosity, ui_lang=ctx.ui_lang,
+               build_flags=build_flags,
                lektor_dev=os.environ.get('LEKTOR_DEV') == '1',
                browse=browse)
 
