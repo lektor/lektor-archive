@@ -43,7 +43,6 @@ def shell_cmd(ctx):
     - `env`: an environment for the loaded project.
     - `pad`: a database pad initialized for the project and environment
       that is ready to use.
-    - `aha`: blah
     """
     ctx.load_plugins()
     import code

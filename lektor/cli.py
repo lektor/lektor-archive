@@ -389,6 +389,10 @@ def plugins_add_cmd(ctx, name):
     """This command can add a new plugion to the project.  If just given
     the name of the plugin the latest version of that plugin is added to
     the project.
+
+    The argument is either the name of the plugin or the name of the plugin
+    suffixed with `@version` with the version.  For instance to install
+    the version 0.1 of the plugin demo you would do `demo@0.1`.
     """
     project = ctx.get_project()
     from .packages import add_package_to_project
@@ -408,7 +412,9 @@ def plugins_add_cmd(ctx, name):
 @click.argument('name')
 @pass_context
 def plugins_remove_cmd(ctx, name):
-    """This command can remove a plugion to the project again."""
+    """This command can remove a plugion to the project again.  The name
+    of the plugin is the only argument to the function.
+    """
     project = ctx.get_project()
     from .packages import remove_package_from_project
     try:
@@ -434,7 +440,10 @@ def plugins_remove_cmd(ctx, name):
 @pass_context
 def plugins_list_cmd(ctx, as_json, verbosity):
     """This returns a list of all currently actively installed plugins
-    in the project.
+    in the project.  By default it only prints out the plugin IDs and
+    version numbers but the entire information can be returned by
+    increasing verbosity with `-v`.  Additionally JSON output can be
+    requested with `--json`.
     """
     ctx.load_plugins()
     env = ctx.get_env()
@@ -468,7 +477,8 @@ def plugins_list_cmd(ctx, as_json, verbosity):
 @pass_context
 def plugins_flush_cache_cmd(ctx):
     """This uninstalls all plugins in the cache.  On next usage the plugins
-    will be reinstalled automatically.
+    will be reinstalled automatically.  This is mostly just useful during
+    plugin development when the cache got corrupted.
     """
     click.echo('Flushing plugin cache ...')
     from .packages import wipe_package_cache
@@ -479,7 +489,12 @@ def plugins_flush_cache_cmd(ctx):
 @plugins_cmd.command('reinstall', short_help='Reginstall all plugins.')
 @pass_context
 def plugins_reinstall_cmd(ctx):
-    """Forces a re-installation of all plugins"""
+    """Forces a re-installation of all plugins.  This will download the
+    requested versions of the plugins and install them into the plugin
+    cache folder.  Alternatively one can just use `flush-cache` to
+    flush the cache and on next build Lektor will automatically download
+    the plugins again.
+    """
     ctx.load_plugins(reinstall=True)
 
 
