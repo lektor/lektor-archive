@@ -1,9 +1,11 @@
 import os
 import sys
 import site
+import json
 import errno
 import click
 import shutil
+import urllib
 import tempfile
 import pkg_resources
 from subprocess import PIPE
@@ -13,6 +15,70 @@ from .utils import portable_popen
 
 class PackageException(Exception):
     pass
+
+
+def _get_package_version_from_project(cfg, name):
+    choices = (name.lower(), 'lektor-' + name.lower())
+    for pkg, version in cfg.section_as_dict('packages').iteritems():
+        if pkg.lower() in choices:
+            return {
+                'name': pkg,
+                'version': version
+            }
+
+
+def add_package_to_project(project, req):
+    """Given a pacakge requirement this returns the information about this
+    plugin.
+    """
+    if '@' in req:
+        name, version = req.split('@', 1)
+        version_hint = version
+    else:
+        name = req
+        version = None
+        version_hint = 'latest release'
+
+    cfg = project.open_config()
+    info = _get_package_version_from_project(cfg, name)
+    if info is not None:
+        raise RuntimeError('The package was already added to the project.')
+
+    for choice in name, 'lektor-' + name:
+        rv = urllib.urlopen('https://pypi.python.org/pypi/%s/json' % choice)
+        if rv.code != 200:
+            continue
+
+        data = json.load(rv)
+        canonical_name = data['info']['name']
+        if version is None:
+            version = data['info']['version']
+        version_info = data['releases'].get(version)
+        if version_info is None:
+            raise RuntimeError('Latest requested version (%s) could not '
+                               'be found' % version_hint)
+
+        cfg['packages.%s' % canonical_name] = version
+        cfg.save()
+        return {
+            'name': canonical_name,
+            'version': version
+        }
+
+    raise RuntimeError('The package could not be found on PyPI')
+
+
+def remove_package_from_project(project, name):
+    cfg = project.open_config()
+    choices = (name.lower(), 'lektor-' + name.lower())
+    for pkg, version in cfg.section_as_dict('packages').iteritems():
+        if pkg.lower() in choices:
+            del cfg['packages.%s' % pkg]
+            cfg.save()
+            return {
+                'name': pkg,
+                'version': version
+            }
 
 
 def download_and_install_package(package_root, package=None, version=None,

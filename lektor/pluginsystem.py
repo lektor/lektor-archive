@@ -4,7 +4,6 @@ import pkg_resources
 
 from weakref import ref as weakref
 from inifile import IniFile
-from werkzeug.utils import find_modules, import_string
 
 from lektor.context import get_ctx
 
@@ -42,9 +41,16 @@ class Plugin(object):
         return rv
 
     @property
+    def version(self):
+        from pkg_resources import get_distribution
+        return get_distribution('lektor-' + self.id).version
+
+    @property
     def path(self):
         mod = sys.modules[self.__class__.__module__.split('.')[0]]
-        return os.path.abspath(os.path.dirname(mod.__file__))
+        path = os.path.abspath(os.path.dirname(mod.__file__))
+        if not path.startswith(self.env.project.get_package_cache_path()):
+            return path
 
     @property
     def import_name(self):
@@ -89,31 +95,24 @@ class Plugin(object):
         return {
             'id': self.id,
             'name': self.name,
+            'version': self.version,
             'description': self.description,
             'path': self.path,
             'import_name': self.import_name,
         }
 
 
-def iter_builtin_plugins():
-    """Iterates over all built-in plugins that exist in Lektor."""
-    for module in find_modules('lektor.plugins', include_packages=True):
-        mod = import_string(module)
-        for key, value in mod.__dict__.iteritems():
-            try:
-                if key[:1] != '_' and value is not Plugin and \
-                   issubclass(value, Plugin):
-                    yield 'core-' + module.split('.')[-1], value
-            except TypeError:
-                pass
-
-
 def load_plugins():
     """Loads all available plugins and returns them."""
     rv = {}
     for ep in pkg_resources.iter_entry_points('lektor.plugins'):
+        match_name = 'lektor-' + ep.name.lower()
+        if match_name != ep.dist.project_name.lower():
+            raise RuntimeError('Mismatching entry point name.  Found '
+                               '"%s" but expected "%s" for package "%s".'
+                               % (ep.name, ep.dist.project_name[7:],
+                                  ep.dist.project_name))
         rv[ep.name] = ep.load()
-    rv.update(iter_builtin_plugins())
     return rv
 
 

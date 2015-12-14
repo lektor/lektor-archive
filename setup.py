@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 setup(
     name='Lektor',
     version='0.3.0',
-    url='http://github.com/mitsuhiko/lektor/',
+    url='http://github.com/lektor/lektor/',
     license='BSD',
     author='Armin Ronacher',
     author_email='armin.ronacher@active-4.com',

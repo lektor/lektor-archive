@@ -15,6 +15,11 @@ class Project(object):
         self.tree = os.path.normpath(tree)
         self.id = hashlib.md5(self.tree.encode('utf-8')).hexdigest()
 
+    def open_config(self):
+        if self.project_file is None:
+            raise RuntimeError('This project has no project file.')
+        return IniFile(self.project_file)
+
     @classmethod
     def from_file(cls, filename):
         """Reads a project from a project file."""

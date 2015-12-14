@@ -375,30 +375,68 @@ def content_file_info_cmd(ctx, files, as_json):
             click.echo('  - %s' % project_file)
 
 
-@cli.command('plugins', short_help='Lists installed plugins.')
+@cli.group('plugins', short_help='Manages plugins.')
+def plugins_cmd():
+    """This command group provides various helpers to manages plugins
+    in a Lektor project.
+    """
+
+
+@plugins_cmd.command('add', short_help='Adds a new plugin to the project.')
+@click.argument('name')
+@pass_context
+def plugins_add_cmd(ctx, name):
+    """This command can add a new plugion to the project.  If just given
+    the name of the plugin the latest version of that plugin is added to
+    the project.
+    """
+    project = ctx.get_project()
+    from .packages import add_package_to_project
+
+    try:
+        info = add_package_to_project(project, name)
+    except RuntimeError as e:
+        click.echo('Error: %s' % e, err=True)
+    else:
+        click.echo('Package %s (%s) was added to the project' % (
+            info['name'],
+            info['version'],
+        ))
+
+
+@plugins_cmd.command('remove', short_help='Removes a plugin from the project.')
+@click.argument('name')
+@pass_context
+def plugins_remove_cmd(ctx, name):
+    """This command can remove a plugion to the project again."""
+    project = ctx.get_project()
+    from .packages import remove_package_from_project
+    try:
+        old_info = remove_package_from_project(project, name)
+    except RuntimeError as e:
+        click.echo('Error: %s' % e, err=True)
+    else:
+        if old_info is None:
+            click.echo('Package was not registered with the project.  '
+                       'Nothing was removed.')
+        else:
+            click.echo('Removed package %s (%s)' % (
+                old_info['name'],
+                old_info['version'],
+            ))
+
+
+@plugins_cmd.command('list', short_help='List all plugins.')
 @click.option('as_json', '--json', is_flag=True,
               help='Prints out the data as json.')
-@click.option('--reinstall', is_flag=True,
-              help='Forces a fresh installation of the plugins.')
-@click.option('--uninstall', is_flag=True,
-              help='Forces an uninstallation of all plugins.')
+@click.option('-v', '--verbose', 'verbosity', count=True,
+              help='Increases the verbosity of the output.')
 @pass_context
-def plugins_cmd(ctx, as_json, reinstall, uninstall):
-    """Given a list of files this returns the information for those files
-    in the context of a project.  If the files are from different projects
-    an error is generated.
+def plugins_list_cmd(ctx, as_json, verbosity):
+    """This returns a list of all currently actively installed plugins
+    in the project.
     """
-    if uninstall:
-        click.echo('Uninstalling all plugins ...')
-        from .packages import wipe_package_cache
-        wipe_package_cache(ctx.get_env())
-        click.echo('All done!')
-        return
-
-    ctx.load_plugins(reinstall=reinstall)
-    if reinstall:
-        return
-
+    ctx.load_plugins()
     env = ctx.get_env()
     plugins = sorted(env.plugins.values(), key=lambda x: x.id.lower())
 
@@ -408,14 +446,41 @@ def plugins_cmd(ctx, as_json, reinstall, uninstall):
         })
         return
 
+    if verbosity == 0:
+        for plugin in plugins:
+            click.echo('%s (version %s)' % (plugin.id, plugin.version))
+        return
+
     for idx, plugin in enumerate(plugins):
         if idx:
             click.echo()
-        click.echo('%s: %s' % (plugin.id, plugin.name))
+        click.echo('%s (%s)' % (plugin.name, plugin.id))
         for line in plugin.description.splitlines():
             click.echo('  %s' % line)
-        click.echo('  path: %s' % plugin.path)
+        if plugin.path is not None:
+            click.echo('  path: %s' % plugin.path)
+        click.echo('  version: %s' % plugin.version)
         click.echo('  import-name: %s' % plugin.import_name)
+
+
+@plugins_cmd.command('flush-cache', short_help='Flushes the plugin '
+                     'installation cache.')
+@pass_context
+def plugins_flush_cache_cmd(ctx):
+    """This uninstalls all plugins in the cache.  On next usage the plugins
+    will be reinstalled automatically.
+    """
+    click.echo('Flushing plugin cache ...')
+    from .packages import wipe_package_cache
+    wipe_package_cache(ctx.get_env())
+    click.echo('All done!')
+
+
+@plugins_cmd.command('reinstall', short_help='Reginstall all plugins.')
+@pass_context
+def plugins_reinstall_cmd(ctx):
+    """Forces a re-installation of all plugins"""
+    ctx.load_plugins(reinstall=True)
 
 
 @cli.command('quickstart', short_help='Starts a new empty project.')
