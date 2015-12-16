@@ -16,7 +16,7 @@ class Component extends BaseComponent {
   getRoutingProps() {
     return {
       history: this.props.history,
-      location: this.props.history,
+      location: this.props.location,
       params: this.props.params,
       route: this.props.route,
       routeParams: this.props.routeParams,
