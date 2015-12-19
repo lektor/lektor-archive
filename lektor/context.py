@@ -78,6 +78,8 @@ class Context(object):
         self.artifact = artifact
         self.source = artifact.source_obj
 
+        self.exc_info = None
+
         self.build_state = self.artifact.build_state
         self.pad = self.build_state.pad
 

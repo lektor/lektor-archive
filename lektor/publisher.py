@@ -1,13 +1,67 @@
 import os
 import errno
+import select
+import shutil
 import hashlib
+import tempfile
 import posixpath
 import subprocess
+from contextlib import contextmanager
 from cStringIO import StringIO
 
 from werkzeug import urls
 
-from lektor.utils import portable_popen
+from lektor.utils import portable_popen, locate_executable
+
+
+class PublishError(Exception):
+    pass
+
+
+class Command(object):
+
+    def __init__(self, argline, cwd=None, env=None, capture=True):
+        environ = dict(os.environ)
+        if env:
+            environ.update(env)
+        kwargs = {'cwd': cwd, 'env': env}
+        if capture:
+            kwargs['stdout'] = subprocess.PIPE
+            kwargs['stderr'] = subprocess.PIPE
+        self.capture = capture
+        self._cmd = portable_popen(argline, **kwargs)
+
+    def wait(self):
+        return self._cmd.wait()
+
+    @property
+    def status(self):
+        return self._cmd.status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self._cmd.wait()
+
+    def __iter__(self):
+        if not self.capture:
+            raise RuntimeError('Not capturing')
+        streams = [self._cmd.stdout, self._cmd.stderr]
+        while streams:
+            for l in select.select(streams, [], streams):
+                for stream in l:
+                    line = stream.readline()
+                    if not line:
+                        if stream in streams:
+                            streams.remove(stream)
+                        break
+                    yield line.rstrip().decode('utf-8', 'replace')
+
+    def safe_iter(self):
+        with self:
+            for line in self:
+                yield line
 
 
 class Publisher(object):
@@ -16,53 +70,58 @@ class Publisher(object):
         self.env = env
         self.output_path = os.path.abspath(output_path)
 
-    def publish(self, target_url):
+    def publish(self, target_url, credentials=None):
         raise NotImplementedError()
 
 
 class ExternalPublisher(Publisher):
 
-    def get_command_line(self, target_url):
+    def get_command(self, target_url, credentails=None):
         raise NotImplementedError()
 
-    def publish(self, target_url):
-        argline = self.get_command_line(target_url)
-        cmd = portable_popen(argline, stdout=subprocess.PIPE)
-        try:
-            while 1:
-                line = cmd.stdout.readline()
-                if not line:
-                    break
-                yield line.rstrip().decode('utf-8', 'replace')
-        finally:
-            cmd.wait()
+    def publish(self, target_url, credentials=None):
+        client = self.get_command(target_url, credentials)
+        with client:
+            for line in client:
+                yield line
 
 
 class RsyncPublisher(ExternalPublisher):
 
-    def get_command_line(self, target_url):
-        argline = ['rsync', '-rclzv']
+    def get_command(self, target_url, credentials=None):
+        credentials = credentials or {}
+        argline = ['rsync', '-rclzv', '--exclude=.lektor']
         target = []
+        env = {}
 
         if target_url.port is not None:
             argline.append('-e')
             argline.append('ssh -p ' + str(target_url.port))
 
-        if target_url.username is not None:
-            target.append(target_url.username.encode('utf-8') + '@')
+        username = credentials.get('username') or target_url.username
+        if username:
+            target.append(username.encode('utf-8') + '@')
+
+        password = credentials.get('password') or target_url.password
+        if password:
+            env['RSYNC_PASSWORD'] = password.encode('utf-8')
+
         target.append(target_url.ascii_host)
         target.append(':' + target_url.path.encode('utf-8').rstrip('/') + '/')
 
         argline.append(self.output_path.rstrip('/\\') + '/')
         argline.append(''.join(target))
-        return argline
+        return Command(argline, env=env)
 
 
 class FtpConnection(object):
 
-    def __init__(self, url):
+    def __init__(self, url, credentials=None):
+        credentials = credentials or {}
         self.con = self.make_connection()
         self.url = url
+        self.username = credentials.get('username') or url.username
+        self.password = credentials.get('password') or url.password
         self.log_buffer = []
         self._known_folders = set()
 
@@ -93,8 +152,8 @@ class FtpConnection(object):
             return False
 
         try:
-            log.append(self.con.login(self.url.username.encode('utf-8'),
-                                      self.url.password.encode('utf-8')))
+            log.append(self.con.login(self.username.encode('utf-8'),
+                                      self.password.encode('utf-8')))
         except Exception as e:
             log.append('000 Could not authenticate.')
             log.append(str(e))
@@ -303,8 +362,8 @@ class FtpPublisher(Publisher):
             con.upload_file('.lektor/.listing.tmp', ''.join(listing))
             con.rename_file('.lektor/.listing.tmp', '.lektor/listing')
 
-    def publish(self, target_url):
-        con = self.connection_class(target_url)
+    def publish(self, target_url, credentials=None):
+        con = self.connection_class(target_url, credentials)
         connected = con.connect()
         for event in con.drain_log():
             yield event
@@ -339,15 +398,139 @@ class FtpTlsPublisher(FtpPublisher):
     connection_class = FtpTlsConnection
 
 
+class GithubPagesPublisher(Publisher):
+
+    @contextmanager
+    def temporary_repo(self):
+        folder = tempfile.mkdtemp()
+        repo = os.path.join(folder, 'repo')
+        os.mkdir(repo)
+        os.chmod(repo, 0755)
+        try:
+            yield repo
+        finally:
+            try:
+                shutil.rmtree(folder)
+            except (IOError, OSError):
+                pass
+
+    def get_credentials(self, url, credentials=None):
+        credentials = credentials or {}
+        username = credentials.get('username') or url.username
+        password = credentials.get('password') or url.password
+        rv = username
+        if username and password:
+            rv += ':' + password
+        return rv and rv.encode('utf-8') or None
+
+    def update_git_config(self, repo, url, branch, credentials=None):
+        path = (url.host + u'/' + url.path.strip(u'/')).encode('utf-8')
+        if url.scheme in ('ghpages', 'ghpages+ssh'):
+            push_url = 'git@github.com:%s.git' % path
+        else:
+            push_url = 'https://github.com/%s' % path
+
+        cred = self.get_credentials(url, credentials)
+        if cred:
+            cred_path = os.path.join(repo, '.git', 'credentials')
+            with open(cred_path, 'w') as f:
+                f.write('https://%s@github.com\n' % cred)
+
+        with open(os.path.join(repo, '.git', 'config'), 'a') as f:
+            f.write('[remote "origin"]\nurl = %s\n'
+                    'fetch = +refs/heads/%s:refs/remotes/origin/%s\n' %
+                    (push_url, branch, branch))
+            if url.auth:
+                f.write('[credential]\nhelper = store --file "%s"\n' %
+                        cred_path)
+
+    def link_artifacts(self, path):
+        try:
+            link = os.link
+        except AttributeError:
+            link = shutil.copy
+
+        # Clean old
+        for filename in os.listdir(path):
+            if filename == '.git':
+                continue
+            filename = os.path.join(path, filename)
+            try:
+                os.remove(filename)
+            except OSError:
+                shutil.rmtree(filename)
+
+        # Add new
+        for dirpath, dirnames, filenames in os.walk(self.output_path):
+            dirnames[:] = [x for x in dirnames if x != '.lektor']
+            for filename in filenames:
+                full_path = os.path.join(self.output_path, dirpath, filename)
+                dst = os.path.join(path, full_path[len(self.output_path):]
+                                   .lstrip(os.path.sep)
+                                   .lstrip(os.path.altsep or ''))
+                try:
+                    os.makedirs(os.path.dirname(dst))
+                except (OSError, IOError):
+                    pass
+                link(full_path, dst)
+
+    def write_cname(self, path, target_url):
+        params = target_url.decode_query()
+        cname = params.get('cname')
+        if cname is not None:
+            with open(os.path.join(path, 'CNAME'), 'w') as f:
+                f.write('%s\n' % cname.encode('utf-8'))
+
+    def publish(self, target_url, credentials=None):
+        if not locate_executable('git'):
+            raise PublishError('git executable not found; cannot deploy.')
+
+        # When pushing to the username.github.io repo we need to push to
+        # master, otherwise to gh-pages
+        if target_url.host + '.github.io' == target_url.path.strip('/'):
+            branch = 'master'
+        else:
+            branch = 'gh-pages'
+
+        with self.temporary_repo() as path:
+            def git(args, capture=True):
+                cmd = Command(['git'] + args, cwd=path, capture=capture)
+                if capture:
+                    return cmd.safe_iter()
+                return cmd
+
+            for line in git(['init']):
+                yield line
+            self.update_git_config(path, target_url, branch,
+                                   credentials)
+            for line in git(['remote', 'update']):
+                yield line
+
+            if git(['checkout', '-q', branch], capture=False).wait() != 0:
+                git(['checkout', '-qb', branch], capture=False).wait()
+
+            self.link_artifacts(path)
+            self.write_cname(path, target_url)
+            for line in git(['add', '-f', '--all', '.']):
+                yield line
+            for line in git(['commit', '-qm', 'Synchronized build']):
+                yield line
+            for line in git(['push', 'origin', branch]):
+                yield line
+
+
 publishers = {
     'rsync': RsyncPublisher,
     'ftp': FtpPublisher,
     'ftps': FtpTlsPublisher,
+    'ghpages': GithubPagesPublisher,
+    'ghpages+https': GithubPagesPublisher,
+    'ghpages+ssh': GithubPagesPublisher,
 }
 
 
-def publish(env, target, output_path):
+def publish(env, target, output_path, credentials=None):
     url = urls.url_parse(unicode(target))
     publisher = publishers.get(url.scheme)
     if publisher is not None:
-        return publisher(env, output_path).publish(url)
+        return publisher(env, output_path).publish(url, credentials)

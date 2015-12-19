@@ -28,7 +28,7 @@ def buildflag(cli):
 class Context(object):
 
     def __init__(self):
-        self._project_path = None
+        self._project_path = os.environ.get('LEKTOR_PROJECT') or None
         self._project = None
         self._env = None
         self._ui_lang = None
@@ -64,6 +64,9 @@ class Context(object):
         return rv
 
     def get_default_output_path(self):
+        rv = os.environ.get('LEKTOR_OUTPUT_PATH')
+        if rv is not None:
+            return rv
         return self.get_project().get_output_path()
 
     def get_env(self):
@@ -143,6 +146,9 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
     folder is reused.
 
     To enforce a clean build you have to issue a `clean` command first.
+
+    If the build fails the exit code will be `1` otherwise `0`.  This can be
+    used by external scripts to only deploy on successful build for instance.
     """
     from lektor.builder import Builder
     from lektor.reporter import CliReporter
@@ -159,20 +165,22 @@ def build_cmd(ctx, output_path, watch, prune, verbosity,
                           build_flags=build_flags)
         if source_info_only:
             builder.update_all_source_infos()
+            return True
+
+        if profile:
+            from .utils import profile_func
+            failures = profile_func(builder.build_all)
         else:
-            if profile:
-                from .utils import profile_func
-                profile_func(builder.build_all)
-            else:
-                builder.build_all()
-            if prune:
-                builder.prune()
+            failures = builder.build_all()
+        if prune:
+            builder.prune()
+        return failures == 0
 
     reporter = CliReporter(env, verbosity=verbosity)
     with reporter:
-        _build()
+        success = _build()
         if not watch:
-            return
+            return sys.exit(0 if success else 1)
 
         from lektor.watcher import watch
         click.secho('Watching for file system changes', fg='cyan')
@@ -211,16 +219,31 @@ def clean_cmd(ctx, output_path, verbosity):
 
 
 @cli.command('deploy', short_help='Deploy the website.')
-@click.argument('server', default='staging')
+@click.argument('server', required=False)
 @click.option('-O', '--output-path', type=click.Path(), default=None,
               help='The output path.')
+@click.option('--username', envvar='LEKTOR_DEPLOY_USERNAME',
+              help='An optional username to override the URL.')
+@click.option('--password', envvar='LEKTOR_DEPLOY_PASSWORD',
+              help='An optional password to override the URL or the '
+              'default prompt.')
 @pass_context
-def deploy_cmd(ctx, server, output_path):
+def deploy_cmd(ctx, server, output_path, **credentials):
     """This command deploys the entire contents of the build folder
     (`--output-path`) onto a configured remote server.  The name of the
     server must fit the name from a target in the project configuration.
+    If no server is supplied then the default server from the config is
+    used.
+
+    The deployment credentials are typically contained in the project config
+    file but it's also possible to supply them here explicitly.  In this
+    case the `--username` and `--password` parameters (as well as the
+    `LEKTOR_DEPLOY_USERNAME` and `LEKTOR_DEPLOY_PASSWORD` environment
+    variables) can override what's in the URL.
+
+    For more information see the deployment chapter in the documentation.
     """
-    from lektor.publisher import publish
+    from lektor.publisher import publish, PublishError
 
     if output_path is None:
         output_path = ctx.get_default_output_path()
@@ -229,12 +252,19 @@ def deploy_cmd(ctx, server, output_path):
     env = ctx.get_env()
     config = env.load_config()
 
-    server_info = config.get_server(server)
-    if server_info is None:
-        raise click.BadParameter('Server "%s" does not exist.' % server,
-                                 param_hint='server')
+    if server is None:
+        server_info = config.get_default_server()
+        if server_info is None:
+            raise click.BadParameter('No default server configured.',
+                                     param_hint='server')
+    else:
+        server_info = config.get_server(server)
+        if server_info is None:
+            raise click.BadParameter('Server "%s" does not exist.' % server,
+                                     param_hint='server')
 
-    event_iter = publish(env, server_info.target, output_path)
+    event_iter = publish(env, server_info.target, output_path,
+                         credentials=credentials)
     if event_iter is None:
         raise click.UsageError('Server "%s" is not configured for a valid '
                                'publishing method.' % server)
@@ -242,9 +272,13 @@ def deploy_cmd(ctx, server, output_path):
     click.echo('Deploying to %s' % server_info.name)
     click.echo('  Build cache: %s' % output_path)
     click.echo('  Target: %s' % secure_url(server_info.target))
-    for line in event_iter:
-        click.echo('  %s' % click.style(line, fg='cyan'))
-    click.echo('Done!')
+    try:
+        for line in event_iter:
+            click.echo('  %s' % click.style(line, fg='cyan'))
+    except PublishError as e:
+        click.secho('Error: %s' % e, fg='red')
+    else:
+        click.echo('Done!')
 
 
 @cli.command('server', short_help='Launch a local server.')

@@ -5,6 +5,9 @@ import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, DirModifiedEvent
 
+# Alias this as this can be called during interpreter shutdown
+_Empty = Queue.Empty
+
 
 class EventHandler(FileSystemEventHandler):
 
@@ -45,7 +48,7 @@ class BasicWatcher(object):
                 item = self.event_handler.queue.get(timeout=1)
                 if self.is_interesting(*item):
                     yield item
-            except Queue.Empty:
+            except _Empty:
                 pass
 
 

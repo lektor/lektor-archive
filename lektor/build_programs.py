@@ -1,6 +1,5 @@
 import os
 import shutil
-import posixpath
 
 from itertools import chain
 
@@ -79,31 +78,34 @@ class BuildProgram(object):
         self.produce_artifacts()
 
         sub_artifacts = []
+        failures = []
 
         gen = self.build_state.builder
         def _build(artifact, build_func):
             ctx = gen.build_artifact(artifact, build_func)
             if ctx is not None:
-                sub_artifacts.extend(ctx.sub_artifacts)
+                if ctx.exc_info is not None:
+                    failures.append(ctx.exc_info)
+                else:
+                    sub_artifacts.extend(ctx.sub_artifacts)
 
-        try:
-            # Step one is building the artifacts that this build program
-            # knows about.
-            for artifact in self.artifacts:
-                _build(artifact, self.build_artifact)
+        # Step one is building the artifacts that this build program
+        # knows about.
+        for artifact in self.artifacts:
+            _build(artifact, self.build_artifact)
 
-            # For as long as our ctx keeps producing sub artifacts, we
-            # want to process them as well.
-            while sub_artifacts:
-                artifact, build_func = sub_artifacts.pop()
-                _build(artifact, build_func)
-        except:
-            # If we fail here, we want to mark the sources of our own
-            # artifacts as dirty so that we do not miss out on that next
-            # time.
+        # For as long as our ctx keeps producing sub artifacts, we
+        # want to process them as well.
+        while sub_artifacts and not failures:
+            artifact, build_func = sub_artifacts.pop()
+            _build(artifact, build_func)
+
+        # If we failed anywhere we want to mark *all* artifacts as dirty.
+        # This means that if a sub-artifact failes we also rebuild the
+        # parent next time around.
+        if failures:
             for artifact in self.artifacts:
                 artifact.set_dirty_flag()
-            raise
 
     def produce_artifacts(self):
         """This produces the artifacts for building.  Usually this only
@@ -154,8 +156,12 @@ class PageBuildProgram(BuildProgram):
 
         if self.source.is_visible and \
            (self.source.page_num is not None or not pagination_enabled):
+            artifact_name = self.source.url_path
+            if artifact_name.endswith('/'):
+                artifact_name += 'index.html'
+
             self.declare_artifact(
-                posixpath.join(self.source.url_path, 'index.html'),
+                artifact_name,
                 sources=list(self.source.iter_source_filenames()))
 
     def build_artifact(self, artifact):

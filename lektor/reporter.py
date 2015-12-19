@@ -1,5 +1,6 @@
 import time
 import click
+import traceback
 
 from click import style
 
@@ -111,6 +112,12 @@ class Reporter(object):
     def finish_artifact_build(self, start_time):
         pass
 
+    def report_failure(self, artifact, exc_info):
+        pass
+
+    def report_build_all_failure(self, failures):
+        pass
+
     def report_dependencies(self, dependencies):
         for dep in dependencies:
             self.report_debug_info('dependency', dep[1])
@@ -205,6 +212,18 @@ class CliReporter(Reporter):
 
     def finish_artifact_build(self, start_time):
         self.outdent()
+
+    def report_build_all_failure(self, failures):
+        self._write_line(click.style(
+            'Error: Build failed with %s failure%s.' % (
+                failures, failures != 1 and 's' or ''), fg='red'))
+
+    def report_failure(self, artifact, exc_info):
+        sign = click.style('E', fg='red')
+        err = ' '.join(''.join(traceback.format_exception_only(
+            *exc_info[:2])).splitlines()).strip()
+        self._write_line('%s %s (%s)' % (
+            sign, artifact.artifact_name, err))
 
     def report_dirty_flag(self, value):
         if self.show_artifact_internals and (value or self.show_debug_info):

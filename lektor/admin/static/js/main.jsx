@@ -58,8 +58,11 @@ var routes = (function() {
   );
 })();
 
-ReactDOM.render((
-  <Router history={useBeforeUnload(createBrowserHistory)()}>
-    {routes}
-  </Router>
-), document.getElementById('dash'));
+var dash = document.getElementById('dash');
+if (dash) {
+  ReactDOM.render((
+    <Router history={useBeforeUnload(createBrowserHistory)()}>
+      {routes}
+    </Router>
+  ), dash);
+}

@@ -9,7 +9,8 @@ from babel import dates
 
 from inifile import IniFile
 
-from lektor.utils import tojson_filter, secure_url, format_lat_long
+from lektor.utils import tojson_filter, secure_url, format_lat_long, \
+     bool_from_string
 from lektor.i18n import get_i18n_block
 from lektor.context import url_to, get_asset_url, site_proxy, \
      config_proxy, get_ctx, get_locale
@@ -53,7 +54,7 @@ DEFAULT_CONFIG = {
         '.txt': 'text',
         '.log': 'text',
     },
-    'SITE': {
+    'PROJECT': {
         'name': None,
         'locale': 'en_US',
         'url': None,
@@ -88,7 +89,7 @@ def update_config_from_ini(config, inifile):
         (k.encode('ascii', 'replace'), v.encode('ascii', 'replace'))
         for k, v in inifile.section_as_dict('attachment_types'))
 
-    config['SITE'].update(inifile.section_as_dict('site'))
+    config['PROJECT'].update(inifile.section_as_dict('project'))
     config['PACKAGES'].update(inifile.section_as_dict('packages'))
 
     for sect in inifile.sections():
@@ -119,21 +120,21 @@ IGNORED_FILES = ['thumbs.db', 'desktop.ini', 'Icon\r']
 
 # These files are important for artifacts and must not be ignored when
 # they are built even though they start with dots.
-SPECIAL_SOURCES = ['_htaccess', '_htpasswd']
 SPECIAL_ARTIFACTS = ['.htaccess', '.htpasswd']
 
 
 class ServerInfo(object):
 
-    def __init__(self, id, name_i18n, target, enabled=True):
+    def __init__(self, id, name_i18n, target, enabled=True, default=False):
         self.id = id
         self.name_i18n = name_i18n
         self.target = target
         self.enabled = enabled
+        self.default = default
 
     @property
     def name(self):
-        return self.name_i18n.get('en')
+        return self.name_i18n.get('en') or self.id
 
     @property
     def short_target(self):
@@ -151,6 +152,7 @@ class ServerInfo(object):
             'target': self.target,
             'short_target': self.short_target,
             'enabled': self.enabled,
+            'default': self.default,
         }
 
 
@@ -207,8 +209,8 @@ class Config(object):
 
     @property
     def site_locale(self):
-        """The locale of this site."""
-        return self.values['SITE']['locale']
+        """The locale of this project."""
+        return self.values['PROJECT']['locale']
 
     def get_servers(self, public=False):
         """Returns a list of servers."""
@@ -219,6 +221,18 @@ class Config(object):
                 continue
             rv[server] = server_info
         return rv
+
+    def get_default_server(self, public=False):
+        """Returns the default server."""
+        choices = []
+        for server in self.values['SERVERS']:
+            server_info = self.get_server(server, public=public)
+            if server_info is not None:
+                if server_info.default:
+                    return server_info
+                choices.append(server_info)
+        if len(choices) == 1:
+            return choices[0]
 
     def get_server(self, name, public=False):
         """Looks up a server info by name."""
@@ -234,7 +248,8 @@ class Config(object):
             id=name,
             name_i18n=get_i18n_block(info, 'name'),
             target=target,
-            enabled=info.get('enabled', 'true').lower() in ('true', 'yes', '1'),
+            enabled=bool_from_string(info.get('enabled'), True),
+            default=bool_from_string(info.get('default'), False)
         )
 
     def is_valid_alternative(self, alt):
@@ -405,18 +420,18 @@ class Environment(object):
         artifacts.
         """
         fn = filename.lower()
-        if fn in SPECIAL_ARTIFACTS or fn in SPECIAL_SOURCES:
+        if fn in SPECIAL_ARTIFACTS:
             return False
         return filename[:1] in '._' or fn in IGNORED_FILES
 
     def is_ignored_artifact(self, asset_name):
         """This is used by the prune tool to figure out which files in the
-        artifact folder should be ignored.  This is a bi
+        artifact folder should be ignored.
         """
         fn = asset_name.lower()
         if fn in SPECIAL_ARTIFACTS:
             return False
-        return fn[:1] in '._' or fn in IGNORED_FILES
+        return fn[:1] == '.' or fn in IGNORED_FILES
 
     def render_template(self, name, pad=None, this=None, values=None, alt=None):
         ctx = self.make_default_tmpl_values(pad, this, values, alt,

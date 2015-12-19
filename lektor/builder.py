@@ -16,9 +16,9 @@ from lektor.reporter import reporter
 from lektor.sourcesearch import find_files
 from lektor.utils import prune_file_and_folder
 from lektor.environment import PRIMARY_ALT
+from lektor.buildfailures import FailureController
 
 from werkzeug.posixemulation import rename
-from werkzeug.debug.tbtools import Traceback
 
 
 def create_tables(con):
@@ -76,11 +76,12 @@ def create_tables(con):
 
 class BuildState(object):
 
-    def __init__(self, generator, path_cache):
-        self.builder = generator
+    def __init__(self, builder, path_cache):
+        self.builder = builder
 
         self.named_temporaries = set()
         self.updated_artifacts = []
+        self.failed_artifacts = []
         self.path_cache = path_cache
 
     @property
@@ -110,6 +111,15 @@ class BuildState(object):
                 os.remove(fn)
             except OSError:
                 pass
+
+    def notify_failure(self, artifact, exc_info):
+        """Notify about a failure.  This marks a failed artifact and stores
+        a failure.
+        """
+        self.failed_artifacts.append(artifact)
+        self.builder.failure_controller.store_failure(
+            artifact.artifact_name, exc_info)
+        reporter.report_failure(artifact, exc_info)
 
     def make_named_temporary(self, identifier=None):
         """Creates a named temporary file and returns the filename for it.
@@ -571,21 +581,13 @@ class Artifact(object):
         else:
             self._new_artifact_file = filename
 
-    def render_template_into(self, template_name, this, fail=False,
-                             **extra):
+    def render_template_into(self, template_name, this, **extra):
         """Renders a template into the artifact.  The default behavior is to
         catch the error and render it into the template with a failure marker.
         """
-        try:
-            rv = self.build_state.env.render_template(
-                template_name, self.build_state.pad,
-                this=this, **extra)
-        except Exception:
-            if fail:
-                raise
-            tb = Traceback(*sys.exc_info())
-            rv = tb.render_full()
-            self.set_dirty_flag()
+        rv = self.build_state.env.render_template(
+            template_name, self.build_state.pad,
+            this=this, **extra)
         with self.open('wb') as f:
             f.write(rv.encode('utf-8') + b'\n')
 
@@ -686,8 +688,34 @@ class Artifact(object):
             raise
         con.commit()
 
-    def commit(self):
-        """Commits the artifact changes."""
+    @contextmanager
+    def update(self):
+        """Opens the artifact for modifications.  At the start the dirty
+        flag is cleared out and if the commit goes through without errors it
+        stays cleared.  The setting of the dirty flag has to be done by the
+        caller however based on the `exc_info` on the context.
+        """
+        ctx = self.begin_update()
+        try:
+            yield ctx
+        except:
+            exc_info = sys.exc_info()
+            self.finish_update(ctx, exc_info)
+        else:
+            self.finish_update(ctx)
+
+    def begin_update(self):
+        """Begins an update block."""
+        if self.in_update_block:
+            raise RuntimeError('Artifact is already open for updates.')
+        self.updated = False
+        ctx = Context(self)
+        ctx.push()
+        self.in_update_block = True
+        self.clear_dirty_flag()
+        return ctx
+
+    def _commit(self):
         con = None
         try:
             for op in self._pending_update_ops:
@@ -705,13 +733,14 @@ class Artifact(object):
                 con = None
 
             self.build_state.updated_artifacts.append(self)
+            self.build_state.builder.failure_controller.clear_failure(
+                self.artifact_name)
         finally:
             if con is not None:
                 con.rollback()
                 con.close()
 
-    def rollback(self):
-        """Rolls back pending artifact changes."""
+    def _rollback(self):
         if self._new_artifact_file is not None:
             try:
                 os.remove(self._new_artifact_file)
@@ -720,44 +749,28 @@ class Artifact(object):
             self._new_artifact_file = None
         self._pending_update_ops = []
 
-    @contextmanager
-    def update(self):
-        """Opens the artifact for modifications.
-
-        Unlike the manual begin and update, this also performs a commit and
-        rollback based on the success of the block.
-        """
-        ctx = self.begin_update()
-        try:
-            try:
-                yield ctx
-            finally:
-                self.finish_update(ctx)
-        except:
-            exc_type, exc_value, tb = sys.exc_info()
-            self.rollback()
-            raise exc_type, exc_value, tb
-        self.commit()
-
-    def begin_update(self):
-        """Begins an update block."""
-        if self.in_update_block:
-            raise RuntimeError('Artifact is already open for updates.')
-        self.updated = False
-        ctx = Context(self)
-        ctx.push()
-        self.in_update_block = True
-        self.clear_dirty_flag()
-        return ctx
-
-    def finish_update(self, ctx):
+    def finish_update(self, ctx, exc_info=None):
         """Finalizes an update block."""
         if not self.in_update_block:
             raise RuntimeError('Artifact is not open for updates.')
         ctx.pop()
-        self._memorize_dependencies(ctx.referenced_dependencies)
         self.in_update_block = False
         self.updated = True
+
+        # We always want to memoize the dependencies.
+        self._memorize_dependencies(ctx.referenced_dependencies)
+
+        if exc_info is None:
+            self._commit()
+            return
+
+        # If an error happend we roll back all changes and record the
+        # stacktrace in two locations: we record it on the context so
+        # that a called can respond to our failure, and we also persist
+        # it so that the dev server can render it out later.
+        self._rollback()
+        ctx.exc_info = exc_info
+        self.build_state.notify_failure(self, exc_info)
 
 
 class PathCache(object):
@@ -814,7 +827,7 @@ def process_build_flags(flags):
     if isinstance(flags, dict):
         return flags
     rv = {}
-    for flag in flags:
+    for flag in flags or ():
         if ':' in flag:
             k, v = flag.split(':', 1)
             rv[k] = v
@@ -831,6 +844,7 @@ class Builder(object):
         self.destination_path = os.path.abspath(os.path.join(
             pad.db.env.root_path, destination_path))
         self.meta_path = os.path.join(self.destination_path, '.lektor')
+        self.failure_controller = FailureController(pad, self.destination_path)
 
         try:
             os.makedirs(self.meta_path)
@@ -944,7 +958,7 @@ class Builder(object):
                 self.env.plugin_controller.emit(
                     'after-build', builder=self, build_state=build_state,
                     source=source, prog=prog)
-                return prog
+                return prog, build_state
 
     def get_initial_build_queue(self):
         """Returns the initial build queue as deque."""
@@ -956,16 +970,21 @@ class Builder(object):
             queue.extend(func(prog.source) or ())
 
     def build_all(self):
-        """Builds the entire tree."""
+        """Builds the entire tree.  Returns the number of failures."""
+        failures = 0
         path_cache = PathCache(self.env)
         with reporter.build('build', self):
             self.env.plugin_controller.emit('before-build-all', builder=self)
             to_build = self.get_initial_build_queue()
             while to_build:
                 source = to_build.popleft()
-                prog = self.build(source, path_cache=path_cache)
+                prog, build_state = self.build(source, path_cache=path_cache)
                 self.extend_build_queue(to_build, prog)
+                failures += len(build_state.failed_artifacts)
             self.env.plugin_controller.emit('after-build-all', builder=self)
+            if failures:
+                reporter.report_build_all_failure(failures)
+        return failures
 
     def update_all_source_infos(self):
         """Fast way to update all source infos without having to build

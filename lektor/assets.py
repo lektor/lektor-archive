@@ -44,13 +44,7 @@ class Asset(SourceObject):
 
     @property
     def url_name(self):
-        # If the name starts with an underscore it's corrected into a
-        # dash.  This can only ever happen for files like _htaccess and
-        # friends which are explicitly whitelisted in the environment as
-        # all other files with leading underscores are ignored.
         name = self.name
-        if name[:1] == '_':
-            name = '.' + name[1:]
         base, ext = posixpath.splitext(name)
 
         # If this is a known extension from an attachment then convert it

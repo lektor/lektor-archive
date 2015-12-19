@@ -6,11 +6,11 @@ from flask import Blueprint, jsonify, request, g, current_app
 
 from lektor.utils import is_valid_id
 from lektor.admin.utils import eventstream
-from lektor.publisher import publish
+from lektor.publisher import publish, PublishError
 from lektor.environment import PRIMARY_ALT
 
 
-bp = Blueprint('api', __name__)
+bp = Blueprint('api', __name__, url_prefix='/admin/api')
 
 
 def get_record_and_parent(path):
@@ -23,7 +23,7 @@ def get_record_and_parent(path):
     return record, parent
 
 
-@bp.route('/api/pathinfo')
+@bp.route('/pathinfo')
 def get_path_info():
     """Returns the path segment information for a record."""
     tree_item = g.admin_context.tree.get(request.args['path'])
@@ -43,7 +43,7 @@ def get_path_info():
     return jsonify(segments=segments)
 
 
-@bp.route('/api/recordinfo')
+@bp.route('/recordinfo')
 def get_record_info():
     db = g.admin_context.pad.db
     tree_item = g.admin_context.tree.get(request.args['path'])
@@ -94,7 +94,7 @@ def get_record_info():
     )
 
 
-@bp.route('/api/previewinfo')
+@bp.route('/previewinfo')
 def get_preview_info():
     alt = request.args.get('alt') or PRIMARY_ALT
     record = g.admin_context.pad.get(request.args['path'], alt=alt)
@@ -107,7 +107,7 @@ def get_preview_info():
     )
 
 
-@bp.route('/api/find', methods=['POST'])
+@bp.route('/find', methods=['POST'])
 def find():
     alt = request.values.get('alt') or PRIMARY_ALT
     lang = request.values.get('lang') or g.admin_context.info.ui_lang
@@ -118,7 +118,7 @@ def find():
     )
 
 
-@bp.route('/api/browsefs', methods=['POST'])
+@bp.route('/browsefs', methods=['POST'])
 def browsefs():
     alt = request.values.get('alt') or PRIMARY_ALT
     record = g.admin_context.pad.get(request.values['path'], alt=alt)
@@ -134,7 +134,7 @@ def browsefs():
     return jsonify(okay=okay)
 
 
-@bp.route('/api/matchurl')
+@bp.route('/matchurl')
 def match_url():
     record = g.admin_context.pad.resolve_url_path(
         request.args['url_path'], alt_fallback=False)
@@ -143,14 +143,14 @@ def match_url():
     return jsonify(exists=True, path=record['_path'], alt=record['_alt'])
 
 
-@bp.route('/api/rawrecord')
+@bp.route('/rawrecord')
 def get_raw_record():
     alt = request.args.get('alt') or PRIMARY_ALT
     ts = g.admin_context.tree.edit(request.args['path'], alt=alt)
     return jsonify(ts.to_json())
 
 
-@bp.route('/api/newrecord')
+@bp.route('/newrecord')
 def get_new_record_info():
     # XXX: convert to tree usage
     pad = g.admin_context.pad
@@ -187,7 +187,7 @@ def get_new_record_info():
     })
 
 
-@bp.route('/api/newattachment')
+@bp.route('/newattachment')
 def get_new_attachment_info():
     ts = g.admin_context.tree.edit(request.args['path'])
     return jsonify({
@@ -196,7 +196,7 @@ def get_new_attachment_info():
     })
 
 
-@bp.route('/api/newattachment', methods=['POST'])
+@bp.route('/newattachment', methods=['POST'])
 def upload_new_attachments():
     alt = request.values.get('alt') or PRIMARY_ALT
     ts = g.admin_context.tree.edit(request.values['path'], alt=alt)
@@ -220,7 +220,7 @@ def upload_new_attachments():
     })
 
 
-@bp.route('/api/newrecord', methods=['POST'])
+@bp.route('/newrecord', methods=['POST'])
 def add_new_record():
     values = request.get_json()
     alt = values.get('alt') or PRIMARY_ALT
@@ -246,7 +246,7 @@ def add_new_record():
     })
 
 
-@bp.route('/api/deleterecord', methods=['POST'])
+@bp.route('/deleterecord', methods=['POST'])
 def delete_record():
     alt = request.values.get('alt') or PRIMARY_ALT
     delete_master = request.values.get('delete_master') == '1'
@@ -257,7 +257,7 @@ def delete_record():
     return jsonify(okay=True)
 
 
-@bp.route('/api/rawrecord', methods=['PUT'])
+@bp.route('/rawrecord', methods=['PUT'])
 def update_raw_record():
     values = request.get_json()
     data = values['data']
@@ -268,7 +268,7 @@ def update_raw_record():
     return jsonify(path=ts.path)
 
 
-@bp.route('/api/servers')
+@bp.route('/servers')
 def get_servers():
     db = g.admin_context.pad.db
     config = db.env.load_config()
@@ -277,7 +277,7 @@ def get_servers():
                                   key=lambda x: x['name'].lower()))
 
 
-@bp.route('/api/build', methods=['POST'])
+@bp.route('/build', methods=['POST'])
 def trigger_build():
     builder = current_app.lektor_info.get_builder()
     builder.build_all()
@@ -285,7 +285,7 @@ def trigger_build():
     return jsonify(okay=True)
 
 
-@bp.route('/api/clean', methods=['POST'])
+@bp.route('/clean', methods=['POST'])
 def trigger_clean():
     builder = current_app.lektor_info.get_builder()
     builder.prune(all=True)
@@ -293,7 +293,7 @@ def trigger_clean():
     return jsonify(okay=True)
 
 
-@bp.route('/api/publish')
+@bp.route('/publish')
 def publish_build():
     db = g.admin_context.pad.db
     server = request.values['server']
@@ -304,12 +304,15 @@ def publish_build():
     def generator():
         event_iter = publish(info.env, server_info.target,
                              info.output_path) or ()
-        for event in event_iter:
-            yield {'msg': event}
+        try:
+            for event in event_iter:
+                yield {'msg': event}
+        except PublishError as e:
+            yield {'msg': 'Error: %s' % e}
     return generator()
 
 
-@bp.route('/api/ping')
+@bp.route('/ping')
 def ping():
     return jsonify(
         project_id=current_app.lektor_info.env.project.id,

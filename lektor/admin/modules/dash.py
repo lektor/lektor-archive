@@ -6,7 +6,7 @@ from lektor.environment import PRIMARY_ALT
 from werkzeug.wsgi import extract_path_info
 
 
-bp = Blueprint('dash', __name__)
+bp = Blueprint('dash', __name__, url_prefix='/admin')
 
 
 endpoints = [

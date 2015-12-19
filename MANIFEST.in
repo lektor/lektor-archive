@@ -1,3 +1,4 @@
+recursive-include lektor/quickstart-templates *
 recursive-include lektor/translations *
 recursive-include lektor/admin *
 recursive-exclude lektor/admin/node_modules *

@@ -27,6 +27,17 @@ from lektor.databags import Databags
 from lektor.filecontents import FileContents
 
 
+def _process_slug(slug, last_segment=False):
+    if last_segment:
+        return slug
+    segments = slug.split('/')
+    if '.' not in segments[-1]:
+        return slug
+    if len(segments) == 1:
+        return '_' + segments[0]
+    return segments[0] + '/_' + segments[1]
+
+
 def _require_ctx(record):
     ctx = get_ctx()
     if ctx is None:
@@ -331,7 +342,7 @@ class Record(SourceObject):
         bits = []
         node = self
         while node is not None:
-            bits.append(node['_slug'])
+            bits.append(_process_slug(node['_slug'], node is self))
             node = node.parent
         bits.reverse()
 
@@ -339,6 +350,8 @@ class Record(SourceObject):
         if prefix:
             clean_path = prefix + clean_path
         if suffix:
+            # XXX: 404.html with suffix -de becomes 404.html-de but should
+            # actually become 404-de.html
             clean_path += suffix
         return '/' + clean_path.strip('/')
 
@@ -415,9 +428,15 @@ class Page(Record):
 
     @property
     def url_path(self):
-        rv = Record.url_path.__get__(self).rstrip('/') + '/'
+        rv = Record.url_path.__get__(self).rstrip('/')
+        last_part = rv.rsplit('/')[-1]
+        if '.' not in last_part:
+            rv += '/'
         if self.page_num in (1, None):
             return rv
+        if '.' in last_part:
+            raise RuntimeError('When file extensions is provided pagination '
+                               'cannot be used.')
         return '%s%s/%d/' % (
             rv,
             self.datamodel.pagination_config.url_suffix.strip('/'),
@@ -1125,7 +1144,7 @@ class Pad(object):
 
     def make_absolute_url(self, url):
         """Given a URL this makes it absolute if this is possible."""
-        base_url = self.db.config['SITE'].get('url')
+        base_url = self.db.config['PROJECT'].get('url')
         if base_url is None:
             raise RuntimeError('To use absolute URLs you need to configure '
                                'the URL in the project config.')

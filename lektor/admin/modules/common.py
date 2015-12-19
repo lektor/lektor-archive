@@ -1,7 +1,6 @@
 import os
-import posixpath
 
-from flask import Blueprint, g, request, current_app
+from flask import Blueprint, g, request, current_app, url_for
 from werkzeug.utils import cached_property
 
 from lektor.db import Tree
@@ -13,8 +12,8 @@ bp = Blueprint('common', __name__)
 class AdminContext(object):
 
     def __init__(self):
-        self.admin_root = request.script_root
-        self.site_root = posixpath.dirname(self.admin_root)
+        self.admin_root = url_for('dash.index').rstrip('/')
+        self.site_root = request.script_root
         self.info = current_app.lektor_info
 
     def get_temp_path(self, name=None):

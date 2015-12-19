@@ -448,11 +448,15 @@ def secure_url(url):
 
 
 def bool_from_string(val, default=None):
-    if val in (True, 1, 'true', 'yes', '1'):
-        return True
-    elif val in (False, 0, 'false', 'no', '0'):
-        return False
-    return None
+    if val in (True, False, 1, 0):
+        return bool(val)
+    if isinstance(val, basestring):
+        val = val.lower()
+        if val in ('true', 'yes', '1'):
+            return True
+        elif val in ('false', 'no', '0'):
+            return False
+    return default
 
 
 def make_relative_url(base, target):
